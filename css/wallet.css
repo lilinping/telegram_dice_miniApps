@@ -1,0 +1,686 @@
+/**
+ * 钱包相关页面样式
+ * Wallet Styles
+ */
+
+/* ==================== 余额卡片 ==================== */
+.balance-card {
+  width: calc(100% - 40px);
+  margin: 20px auto;
+  height: 160px;
+  background: radial-gradient(circle at center, rgba(218, 165, 32, 0.2), var(--color-bg-dark));
+  border: 2px solid rgba(255, 215, 0, 0.3);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 8px 24px rgba(255, 215, 0, 0.2);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.balance-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.balance-card-label {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+}
+
+.balance-card-icon {
+  font-size: 20px;
+}
+
+.balance-card-main {
+  text-align: center;
+}
+
+.balance-card-amount {
+  font-family: var(--font-mono);
+  font-size: 40px;
+  font-weight: 700;
+  color: var(--color-primary-gold);
+  line-height: 1;
+  margin-bottom: 8px;
+}
+
+.balance-card-unit {
+  font-size: 16px;
+  color: var(--color-text-secondary);
+  margin-left: 8px;
+}
+
+.balance-card-footer {
+  display: flex;
+  justify-content: space-between;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-border);
+}
+
+.balance-item {
+  font-size: 14px;
+}
+
+.balance-item-label {
+  color: var(--color-text-secondary);
+}
+
+.balance-item-value {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  margin-left: 4px;
+}
+
+.balance-available {
+  color: var(--color-success);
+}
+
+.balance-frozen {
+  color: #F59E0B;
+}
+
+.balance-bonus {
+  color: var(--color-info);
+}
+
+/* ==================== 操作按钮区 ==================== */
+.wallet-actions {
+  display: flex;
+  gap: 16px;
+  padding: 0 20px;
+  margin-bottom: 24px;
+}
+
+.wallet-action-btn {
+  flex: 1;
+  height: 56px;
+  border-radius: var(--radius-lg);
+  font-size: 18px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.wallet-action-btn svg,
+.wallet-action-btn .icon {
+  font-size: 20px;
+}
+
+/* ==================== 交易记录 ==================== */
+.transaction-section {
+  padding: 0 20px;
+}
+
+.transaction-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.transaction-title {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+/* 筛选标签 */
+.filter-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.filter-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.filter-tab {
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-size: 14px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  background: var(--color-bg-medium);
+  color: var(--color-text-secondary);
+  border: 1px solid transparent;
+}
+
+.filter-tab.active {
+  background: rgba(255, 215, 0, 0.2);
+  color: var(--color-primary-gold);
+  border-color: var(--color-primary-gold);
+}
+
+/* 交易列表 */
+.transaction-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.transaction-item {
+  background: var(--color-bg-dark);
+  border-bottom: 1px solid var(--color-bg-medium);
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.transaction-item:hover {
+  background: var(--color-bg-medium);
+}
+
+.transaction-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.transaction-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.transaction-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.transaction-icon.deposit {
+  background: rgba(16, 185, 129, 0.2);
+  color: var(--color-success);
+}
+
+.transaction-icon.withdraw {
+  background: rgba(249, 115, 22, 0.2);
+  color: var(--color-warning);
+}
+
+.transaction-icon.bet {
+  background: rgba(59, 130, 246, 0.2);
+  color: var(--color-info);
+}
+
+.transaction-icon.win {
+  background: rgba(255, 215, 0, 0.2);
+  color: var(--color-primary-gold);
+}
+
+.transaction-info {
+  flex: 1;
+}
+
+.transaction-type {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.transaction-desc {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.transaction-amount {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 700;
+  text-align: right;
+}
+
+.transaction-amount.positive {
+  color: var(--color-success);
+}
+
+.transaction-amount.negative {
+  color: var(--color-error);
+}
+
+.transaction-details {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.transaction-status {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.transaction-status.success {
+  background: rgba(16, 185, 129, 0.2);
+  color: var(--color-success);
+}
+
+.transaction-status.pending {
+  background: rgba(249, 115, 22, 0.2);
+  color: var(--color-warning);
+}
+
+.transaction-status.failed {
+  background: rgba(239, 68, 68, 0.2);
+  color: var(--color-error);
+}
+
+/* ==================== 充值/提现页面 ==================== */
+.payment-page {
+  padding: 76px 20px 20px;
+}
+
+/* 金额选择 */
+.amount-section {
+  margin-bottom: 24px;
+}
+
+.section-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: var(--color-text-primary);
+}
+
+.amount-options {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.amount-option {
+  height: 60px;
+  background: var(--color-bg-medium);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.amount-option:active {
+  transform: scale(0.95);
+}
+
+.amount-option.selected {
+  background: linear-gradient(135deg, var(--color-primary-gold), var(--color-primary-dark-gold));
+  border-color: var(--color-primary-gold);
+  color: var(--color-bg-darkest);
+}
+
+.amount-value {
+  font-size: 16px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+}
+
+.amount-unit {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+
+.amount-option.selected .amount-unit {
+  color: var(--color-bg-darkest);
+  opacity: 0.8;
+}
+
+/* 自定义金额输入 */
+.custom-amount {
+  position: relative;
+}
+
+.custom-amount .input-field {
+  padding-right: 60px;
+}
+
+.amount-currency {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 14px;
+  color: var(--color-text-secondary);
+}
+
+/* 支付方式选择 */
+.payment-methods {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.payment-method {
+  background: var(--color-bg-medium);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.payment-method:active {
+  transform: scale(0.98);
+}
+
+.payment-method.selected {
+  border-color: var(--color-primary-gold);
+  background: rgba(255, 215, 0, 0.1);
+}
+
+.payment-radio {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid var(--color-border);
+  position: relative;
+  flex-shrink: 0;
+}
+
+.payment-method.selected .payment-radio {
+  border-color: var(--color-primary-gold);
+}
+
+.payment-method.selected .payment-radio::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--color-primary-gold);
+}
+
+.payment-icon {
+  width: 32px;
+  height: 32px;
+  font-size: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.payment-info {
+  flex: 1;
+}
+
+.payment-name {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.payment-desc {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.payment-badge {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  background: rgba(16, 185, 129, 0.2);
+  color: var(--color-success);
+}
+
+/* 优惠活动 */
+.promo-banner {
+  background: linear-gradient(135deg, rgba(139, 0, 0, 0.3), rgba(139, 0, 0, 0.1));
+  border: 1px solid var(--color-primary-dark-red);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  margin-bottom: 24px;
+}
+
+.promo-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+
+.promo-item:last-child {
+  margin-bottom: 0;
+}
+
+.promo-icon {
+  font-size: 18px;
+}
+
+.promo-text {
+  flex: 1;
+  color: var(--color-primary-light-gold);
+}
+
+/* 充值信息展示 */
+.payment-display {
+  background: var(--color-bg-medium);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.qr-code {
+  width: 200px;
+  height: 200px;
+  margin: 0 auto 16px;
+  background: white;
+  padding: 16px;
+  border-radius: var(--radius-md);
+}
+
+.payment-address {
+  background: var(--color-bg-dark);
+  padding: 12px;
+  border-radius: var(--radius-md);
+  margin-bottom: 12px;
+}
+
+.address-label {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  margin-bottom: 4px;
+}
+
+.address-value {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--color-text-primary);
+  word-break: break-all;
+  line-height: 1.4;
+}
+
+.copy-btn {
+  margin-top: 8px;
+}
+
+.payment-waiting {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px;
+  background: rgba(249, 115, 22, 0.1);
+  border-radius: var(--radius-md);
+  margin-top: 16px;
+}
+
+.waiting-icon {
+  animation: spin 1s linear infinite;
+}
+
+.waiting-text {
+  font-size: 14px;
+  color: var(--color-warning);
+}
+
+/* 提示信息 */
+.tips-section {
+  background: rgba(59, 130, 246, 0.1);
+  border-left: 3px solid var(--color-info);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  margin-bottom: 24px;
+}
+
+.tips-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-info);
+  margin-bottom: 8px;
+}
+
+.tips-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.tips-list li {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  margin-bottom: 6px;
+  padding-left: 16px;
+  position: relative;
+}
+
+.tips-list li::before {
+  content: '•';
+  position: absolute;
+  left: 0;
+  color: var(--color-info);
+}
+
+.tips-list li:last-child {
+  margin-bottom: 0;
+}
+
+/* 地址管理 */
+.address-list {
+  margin-bottom: 24px;
+}
+
+.address-item {
+  background: var(--color-bg-medium);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  margin-bottom: 12px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.address-item.selected {
+  border-color: var(--color-primary-gold);
+  background: rgba(255, 215, 0, 0.1);
+}
+
+.address-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.address-nickname {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.address-string {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  word-break: break-all;
+}
+
+.add-address-btn {
+  width: 100%;
+  background: transparent;
+  border: 2px dashed var(--color-border);
+  color: var(--color-text-secondary);
+  margin-bottom: 24px;
+}
+
+.add-address-btn:hover {
+  border-color: var(--color-primary-gold);
+  color: var(--color-primary-gold);
+}
+
+/* 汇总信息 */
+.summary-section {
+  background: var(--color-bg-medium);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  margin-bottom: 24px;
+}
+
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  font-size: 14px;
+}
+
+.summary-row:last-child {
+  margin-bottom: 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.summary-label {
+  color: var(--color-text-secondary);
+}
+
+.summary-value {
+  font-family: var(--font-mono);
+  color: var(--color-text-primary);
+}
+
+.summary-value.highlight {
+  color: var(--color-primary-gold);
+  font-size: 18px;
+  font-weight: 700;
+}
+
+/* ==================== 响应式 ==================== */
+@media (max-width: 374px) {
+  .amount-options {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .balance-card-amount {
+    font-size: 32px;
+  }
+}
