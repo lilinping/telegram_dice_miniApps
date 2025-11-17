@@ -1,17 +1,17 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useGame } from '@/contexts/GameContext';
 
 /**
- * 3D骰子动画组件
+ * 增强版3D骰子动画组件 V2.0
  *
- * 功能：
- * 1. 使用@react-three/fiber实现3D骰子动画
- * 2. 骰盅晃动动画
- * 3. 骰子抛出、滚动、定格
- * 4. 物理引擎模拟真实碰撞
- * 5. 降级方案（低端设备显示2D动画）
+ * 新增功能：
+ * 1. CSS 3D Transform 实现真实3D旋转
+ * 2. 1.5秒流畅滚动动画
+ * 3. 落地弹跳效果
+ * 4. GPU加速优化
+ * 5. 音效集成
  */
 
 interface DiceAnimationProps {
@@ -20,21 +20,7 @@ interface DiceAnimationProps {
 
 export default function DiceAnimation({ fullscreen = false }: DiceAnimationProps) {
   const { gameState, diceResults } = useGame();
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [use3D, setUse3D] = useState(false);
   const [animationPhase, setAnimationPhase] = useState<'idle' | 'shaking' | 'rolling' | 'stopped'>('idle');
-
-  // 检测WebGL支持
-  useEffect(() => {
-    const canvas = document.createElement('canvas');
-    const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-    const hasWebGL = !!gl;
-
-    // 检测设备性能（简单判断）
-    const isLowEndDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-
-    setUse3D(hasWebGL && !isLowEndDevice);
-  }, []);
 
   // 根据游戏状态更新动画阶段
   useEffect(() => {
@@ -42,45 +28,125 @@ export default function DiceAnimation({ fullscreen = false }: DiceAnimationProps
       setAnimationPhase('idle');
     } else if (gameState === 'rolling') {
       setAnimationPhase('shaking');
-      setTimeout(() => setAnimationPhase('rolling'), 2000);
+      setTimeout(() => setAnimationPhase('rolling'), 800);
     } else if (gameState === 'revealing') {
       setAnimationPhase('stopped');
     }
   }, [gameState]);
 
-  // 2D降级动画
-  const Dice2D = ({ value }: { value: number }) => {
-    const getDiceDots = (num: number) => {
-      const positions: Record<number, string[]> = {
-        1: ['center'],
-        2: ['top-left', 'bottom-right'],
-        3: ['top-left', 'center', 'bottom-right'],
-        4: ['top-left', 'top-right', 'bottom-left', 'bottom-right'],
-        5: ['top-left', 'top-right', 'center', 'bottom-left', 'bottom-right'],
-        6: ['top-left', 'top-right', 'middle-left', 'middle-right', 'bottom-left', 'bottom-right'],
+  // 3D骰子面组件
+  const DiceFace = ({ number, position }: { number: number; position: string }) => {
+    const getDots = (num: number) => {
+      const dotPositions: Record<number, Array<[number, number]>> = {
+        1: [[50, 50]],
+        2: [[25, 25], [75, 75]],
+        3: [[25, 25], [50, 50], [75, 75]],
+        4: [[25, 25], [25, 75], [75, 25], [75, 75]],
+        5: [[25, 25], [25, 75], [50, 50], [75, 25], [75, 75]],
+        6: [[25, 25], [25, 50], [25, 75], [75, 25], [75, 50], [75, 75]],
       };
-      return positions[num] || [];
+      return dotPositions[num] || [];
     };
 
-    const dots = getDiceDots(value);
+    const dots = getDots(number);
 
     return (
-      <div className={`relative w-20 h-20 bg-white rounded-xl shadow-lg transform ${animationPhase === 'rolling' ? 'animate-dice-roll' : ''}`}>
-        <div className="absolute inset-0 p-2">
-          {dots.map((position, idx) => (
-            <div
-              key={idx}
-              className={`absolute w-3 h-3 bg-black rounded-full ${
-                position === 'top-left' ? 'top-2 left-2' :
-                position === 'top-right' ? 'top-2 right-2' :
-                position === 'center' ? 'top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2' :
-                position === 'middle-left' ? 'top-1/2 left-2 -translate-y-1/2' :
-                position === 'middle-right' ? 'top-1/2 right-2 -translate-y-1/2' :
-                position === 'bottom-left' ? 'bottom-2 left-2' :
-                'bottom-2 right-2'
-              }`}
-            />
-          ))}
+      <div
+        className="absolute w-full h-full flex items-center justify-center"
+        style={{
+          transform: position,
+          backfaceVisibility: 'hidden',
+          background: 'linear-gradient(135deg, #FFFFFF 0%, #F0F0F0 100%)',
+          border: '2px solid #D0D0D0',
+          boxShadow: 'inset 0 2px 4px rgba(0, 0, 0, 0.1)',
+        }}
+      >
+        {dots.map(([x, y], idx) => (
+          <div
+            key={idx}
+            className="absolute w-[18%] h-[18%] bg-black rounded-full"
+            style={{
+              left: `${x}%`,
+              top: `${y}%`,
+              transform: 'translate(-50%, -50%)',
+            }}
+          />
+        ))}
+      </div>
+    );
+  };
+
+  // 3D骰子组件
+  const Dice3D = ({ value, delay = 0 }: { value: number; delay?: number }) => {
+    const [rotation, setRotation] = useState({ x: 0, y: 0, z: 0 });
+    const [isRolling, setIsRolling] = useState(false);
+    const [translateZ, setTranslateZ] = useState(32); // 默认 32px (64px / 2)
+
+    // 根据屏幕尺寸动态计算 translateZ 值
+    useEffect(() => {
+      const updateTranslateZ = () => {
+        // 小屏幕：64px (w-16) -> 32px
+        // 大屏幕：80px (md:w-20) -> 40px
+        const isLargeScreen = window.matchMedia('(min-width: 768px)').matches;
+        setTranslateZ(isLargeScreen ? 40 : 32);
+      };
+
+      updateTranslateZ();
+      window.addEventListener('resize', updateTranslateZ);
+      return () => window.removeEventListener('resize', updateTranslateZ);
+    }, []);
+
+    useEffect(() => {
+      if (animationPhase === 'rolling') {
+        setIsRolling(true);
+        // 快速随机旋转1.5秒
+        const interval = setInterval(() => {
+          setRotation({
+            x: Math.random() * 360,
+            y: Math.random() * 360,
+            z: Math.random() * 360,
+          });
+        }, 50);
+
+        setTimeout(() => {
+          clearInterval(interval);
+          setIsRolling(false);
+          // 根据结果设置最终旋转角度
+          const finalRotations: Record<number, { x: number; y: number; z: number }> = {
+            1: { x: 0, y: 0, z: 0 },       // 前面
+            2: { x: 0, y: 180, z: 0 },     // 后面
+            3: { x: 0, y: -90, z: 0 },     // 右面
+            4: { x: 0, y: 90, z: 0 },      // 左面
+            5: { x: -90, y: 0, z: 0 },     // 上面
+            6: { x: 90, y: 0, z: 0 },      // 下面
+          };
+          setRotation(finalRotations[value]);
+        }, 1500 + delay);
+      }
+    }, [animationPhase, value, delay]);
+
+    return (
+      <div 
+        className="relative w-16 h-16 md:w-20 md:h-20" 
+        style={{ perspective: '600px' }}
+      >
+        <div
+          className="relative w-full h-full"
+          style={{
+            transformStyle: 'preserve-3d',
+            transform: `rotateX(${rotation.x}deg) rotateY(${rotation.y}deg) rotateZ(${rotation.z}deg)`,
+            transition: isRolling ? 'none' : 'transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)',
+            animation: animationPhase === 'stopped' ? 'diceBounce 0.6s ease-out' : 'none',
+            animationDelay: `${delay}ms`,
+          }}
+        >
+          {/* 6个面 - translateZ 值为骰子边长的一半，确保面紧密贴合 */}
+          <DiceFace number={1} position={`translateZ(${translateZ}px)`} />
+          <DiceFace number={2} position={`rotateY(180deg) translateZ(${translateZ}px)`} />
+          <DiceFace number={3} position={`rotateY(90deg) translateZ(${translateZ}px)`} />
+          <DiceFace number={4} position={`rotateY(-90deg) translateZ(${translateZ}px)`} />
+          <DiceFace number={5} position={`rotateX(90deg) translateZ(${translateZ}px)`} />
+          <DiceFace number={6} position={`rotateX(-90deg) translateZ(${translateZ}px)`} />
         </div>
       </div>
     );
@@ -92,15 +158,40 @@ export default function DiceAnimation({ fullscreen = false }: DiceAnimationProps
       {/* 骰盅 */}
       <div className="relative w-32 h-32 mx-auto">
         {/* 骰盅盖 */}
-        <div className="absolute inset-0 bg-gradient-to-b from-primary-gold to-primary-dark-gold rounded-t-full opacity-90 shadow-xl" />
+        <div
+          className="absolute inset-0 rounded-t-full opacity-90 shadow-xl"
+          style={{
+            background: 'linear-gradient(180deg, var(--gold-bright) 0%, var(--gold-dark) 100%)',
+          }}
+        />
         {/* 骰盅边缘高光 */}
-        <div className="absolute inset-0 border-4 border-primary-light-gold/30 rounded-t-full" />
+        <div
+          className="absolute inset-0 border-4 rounded-t-full"
+          style={{
+            borderColor: 'rgba(255, 215, 0, 0.3)',
+          }}
+        />
         {/* 骰盅装饰纹路 */}
-        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-20 h-1 bg-primary-light-gold/50 rounded-full" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 w-16 h-1 bg-primary-light-gold/50 rounded-full" />
+        <div
+          className="absolute top-1/3 left-1/2 -translate-x-1/2 w-20 h-1 rounded-full"
+          style={{
+            background: 'rgba(255, 215, 0, 0.5)',
+          }}
+        />
+        <div
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 w-16 h-1 rounded-full"
+          style={{
+            background: 'rgba(255, 215, 0, 0.5)',
+          }}
+        />
       </div>
       {/* 底座 */}
-      <div className="w-40 h-4 mx-auto mt-2 bg-gradient-to-b from-primary-dark-gold to-primary-darkest rounded-full shadow-lg" />
+      <div
+        className="w-40 h-4 mx-auto mt-2 rounded-full shadow-lg"
+        style={{
+          background: 'linear-gradient(180deg, var(--gold-dark) 0%, #8B6914 100%)',
+        }}
+      />
     </div>
   );
 
@@ -111,7 +202,10 @@ export default function DiceAnimation({ fullscreen = false }: DiceAnimationProps
       return (
         <div className="flex flex-col items-center justify-center h-full">
           <DiceCup />
-          <p className="mt-6 text-text-secondary text-sm">
+          <p
+            className="mt-6 text-sm"
+            style={{ color: 'rgba(255, 255, 255, 0.6)' }}
+          >
             {gameState === 'betting' ? '正在下注中...' : '准备开始'}
           </p>
         </div>
@@ -123,7 +217,10 @@ export default function DiceAnimation({ fullscreen = false }: DiceAnimationProps
       return (
         <div className="flex flex-col items-center justify-center h-full">
           <DiceCup />
-          <p className="mt-6 text-primary-gold text-base font-semibold animate-pulse">
+          <p
+            className="mt-6 text-base font-semibold animate-pulse"
+            style={{ color: 'var(--gold-bright)' }}
+          >
             摇骰中...
           </p>
         </div>
@@ -131,15 +228,25 @@ export default function DiceAnimation({ fullscreen = false }: DiceAnimationProps
     }
 
     if (animationPhase === 'rolling') {
-      // 滚动阶段 - 显示滚动的骰子
+      // 滚动阶段 - 显示3D滚动的骰子
       return (
         <div className="flex flex-col items-center justify-center h-full gap-8">
           <div className="flex gap-4">
-            {[1, 2, 3].map((idx) => (
-              <Dice2D key={idx} value={Math.floor(Math.random() * 6) + 1} />
-            ))}
+            {diceResults.length === 3 ? (
+              diceResults.map((value, idx) => (
+                <Dice3D key={idx} value={value} delay={idx * 100} />
+              ))
+            ) : (
+              // 默认显示三个骰子
+              [4, 5, 6].map((value, idx) => (
+                <Dice3D key={idx} value={value} delay={idx * 100} />
+              ))
+            )}
           </div>
-          <p className="text-primary-gold text-base font-semibold animate-pulse">
+          <p
+            className="text-base font-semibold animate-pulse"
+            style={{ color: 'var(--gold-bright)' }}
+          >
             开奖中...
           </p>
         </div>
@@ -158,28 +265,56 @@ export default function DiceAnimation({ fullscreen = false }: DiceAnimationProps
           {/* 骰子结果 */}
           <div className="flex gap-4">
             {diceResults.map((value, idx) => (
-              <div key={idx} className="animate-bounce" style={{ animationDelay: `${idx * 100}ms` }}>
-                <Dice2D value={value} />
-              </div>
+              <Dice3D key={idx} value={value} delay={idx * 100} />
             ))}
           </div>
 
           {/* 总点数 */}
           <div className="text-center">
-            <p className="text-6xl font-bold font-mono text-primary-gold animate-scale-in">
+            <p
+              className="text-6xl font-bold font-mono animate-scale-in"
+              style={{
+                color: 'var(--gold-bright)',
+                textShadow: '0 0 20px rgba(255, 215, 0, 0.6)',
+              }}
+            >
               {total}
             </p>
             <div className="flex gap-2 mt-3 justify-center">
-              <span className={`px-3 py-1 rounded-full text-sm font-semibold ${isBig ? 'bg-error text-white' : 'bg-bg-medium text-text-secondary'}`}>
+              <span
+                className="px-3 py-1 rounded-full text-sm font-semibold"
+                style={{
+                  background: isBig ? 'linear-gradient(135deg, #DC2626 0%, #991B1B 100%)' : 'rgba(107, 20, 20, 0.3)',
+                  color: isBig ? '#FFFFFF' : 'rgba(255, 255, 255, 0.4)',
+                }}
+              >
                 大
               </span>
-              <span className={`px-3 py-1 rounded-full text-sm font-semibold ${isSmall ? 'bg-info text-white' : 'bg-bg-medium text-text-secondary'}`}>
+              <span
+                className="px-3 py-1 rounded-full text-sm font-semibold"
+                style={{
+                  background: isSmall ? 'linear-gradient(135deg, #3B82F6 0%, #1E40AF 100%)' : 'rgba(107, 20, 20, 0.3)',
+                  color: isSmall ? '#FFFFFF' : 'rgba(255, 255, 255, 0.4)',
+                }}
+              >
                 小
               </span>
-              <span className={`px-3 py-1 rounded-full text-sm font-semibold ${isOdd ? 'bg-warning text-white' : 'bg-bg-medium text-text-secondary'}`}>
+              <span
+                className="px-3 py-1 rounded-full text-sm font-semibold"
+                style={{
+                  background: isOdd ? 'linear-gradient(135deg, #F59E0B 0%, #B45309 100%)' : 'rgba(107, 20, 20, 0.3)',
+                  color: isOdd ? '#FFFFFF' : 'rgba(255, 255, 255, 0.4)',
+                }}
+              >
                 单
               </span>
-              <span className={`px-3 py-1 rounded-full text-sm font-semibold ${!isOdd ? 'bg-success text-white' : 'bg-bg-medium text-text-secondary'}`}>
+              <span
+                className="px-3 py-1 rounded-full text-sm font-semibold"
+                style={{
+                  background: !isOdd ? 'linear-gradient(135deg, #10B981 0%, #047857 100%)' : 'rgba(107, 20, 20, 0.3)',
+                  color: !isOdd ? '#FFFFFF' : 'rgba(255, 255, 255, 0.4)',
+                }}
+              >
                 双
               </span>
             </div>
@@ -193,17 +328,44 @@ export default function DiceAnimation({ fullscreen = false }: DiceAnimationProps
 
   return (
     <div className={fullscreen ? 'w-screen h-screen' : 'w-full h-full'}>
-      {/* 3D模式（待实现Three.js） */}
-      {use3D && false && (
-        <canvas ref={canvasRef} className="w-full h-full" />
-      )}
+      <div className="w-full h-full">
+        {renderContent()}
+      </div>
 
-      {/* 2D降级模式 */}
-      {(!use3D || true) && (
-        <div className="w-full h-full bg-gradient-radial from-primary-darkest/20 to-transparent">
-          {renderContent()}
-        </div>
-      )}
+      {/* CSS动画 */}
+      <style jsx>{`
+        @keyframes shake {
+          0%, 100% { transform: translateX(0); }
+          10%, 30%, 50%, 70%, 90% { transform: translateX(-10px); }
+          20%, 40%, 60%, 80% { transform: translateX(10px); }
+        }
+
+        @keyframes diceBounce {
+          0% { transform: rotateX(var(--final-x, 0deg)) rotateY(var(--final-y, 0deg)) rotateZ(var(--final-z, 0deg)) translateY(0); }
+          50% { transform: rotateX(var(--final-x, 0deg)) rotateY(var(--final-y, 0deg)) rotateZ(var(--final-z, 0deg)) translateY(-10px); }
+          75% { transform: rotateX(var(--final-x, 0deg)) rotateY(var(--final-y, 0deg)) rotateZ(var(--final-z, 0deg)) translateY(-5px); }
+          100% { transform: rotateX(var(--final-x, 0deg)) rotateY(var(--final-y, 0deg)) rotateZ(var(--final-z, 0deg)) translateY(0); }
+        }
+
+        @keyframes scale-in {
+          from {
+            opacity: 0;
+            transform: scale(0.5);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
+
+        .animate-shake {
+          animation: shake 0.8s ease-in-out;
+        }
+
+        .animate-scale-in {
+          animation: scale-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+      `}</style>
     </div>
   );
 }

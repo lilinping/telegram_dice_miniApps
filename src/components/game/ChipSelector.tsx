@@ -17,10 +17,26 @@ import { cn } from '@/lib/utils';
 
 const chips = [
   {
+    value: 5,
+    label: '$5',
+    shortLabel: '5',
+    gradient: 'radial-gradient(circle, #4CAF50 0%, #2E7D32 100%)',
+    textColor: '#FFFFFF',
+    borderColor: '#FFFFFF',
+  },
+  {
     value: 10,
     label: '$10',
     shortLabel: '10',
     gradient: 'radial-gradient(circle, #E53935 0%, #C62828 100%)',
+    textColor: '#FFFFFF',
+    borderColor: '#FFFFFF',
+  },
+  {
+    value: 20,
+    label: '$20',
+    shortLabel: '20',
+    gradient: 'radial-gradient(circle, #FF9800 0%, #F57C00 100%)',
     textColor: '#FFFFFF',
     borderColor: '#FFFFFF',
   },
@@ -74,10 +90,19 @@ export default function ChipSelector() {
 
   return (
     <div
-      className="flex gap-md justify-center items-center overflow-x-auto scrollbar-hide"
+      className="flex gap-md items-center overflow-x-auto scrollbar-hide"
       style={{
         scrollSnapType: 'x mandatory',
         WebkitOverflowScrolling: 'touch',
+        overflowY: 'visible',
+        overflowX: 'auto',
+        position: 'relative',
+        width: '100%',
+        height: '100%',
+        paddingTop: '0',
+        paddingBottom: '0',
+        paddingLeft: '16px', // 左侧padding确保第一个筹码可以完全显示
+        paddingRight: '16px', // 右侧padding确保最后一个筹码可以完全显示
       }}
     >
       {chips.map((chip) => {
@@ -87,70 +112,60 @@ export default function ChipSelector() {
           <div
             key={chip.value}
             className="flex flex-col items-center gap-xs flex-shrink-0"
-            style={{ scrollSnapAlign: 'center' }}
+            style={{ 
+              scrollSnapAlign: 'center',
+              position: 'relative',
+              // 不添加paddingTop，避免筹码下移
+            }}
           >
             {/* 筹码 */}
-            <button
-              onClick={() => handleChipClick(chip.value)}
-              className={cn(
-                'relative w-16 h-16 rounded-full transition-all duration-300 active:scale-95',
-                isSelected && 'scale-125 z-10'
+            <div className="relative z-10">
+              {/* 发光效果 - 相对于筹码按钮居中，在所有方向扩展 */}
+              {isSelected && (
+                <div
+                  className="absolute"
+                  style={{
+                    top: '50%',
+                    left: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    width: 'calc(64px + 32px)', // 筹码宽度64px + 发光扩展32px
+                    height: 'calc(64px + 32px)',
+                    borderRadius: '50%',
+                    background: 'radial-gradient(circle, rgba(255, 215, 0, 0.35) 0%, rgba(255, 215, 0, 0) 70%)',
+                    filter: 'blur(2px)',
+                    zIndex: 0,
+                    pointerEvents: 'none',
+                  }}
+                />
               )}
-              style={{
-                background: chip.gradient,
-                boxShadow: isSelected
-                  ? `inset 0 3px 6px rgba(255, 255, 255, 0.5), inset 0 -3px 6px rgba(0, 0, 0, 0.5), 0 0 0 4px var(--gold-bright), 0 10px 20px rgba(255, 215, 0, 0.6)`
-                  : `inset 0 3px 6px rgba(255, 255, 255, 0.3), inset 0 -3px 6px rgba(0, 0, 0, 0.3), 0 6px 12px rgba(0, 0, 0, 0.4)`,
-                animation: isSelected ? 'chip-pulse 1.5s infinite' : 'none',
-              }}
-            >
-              {/* 边缘条纹装饰 */}
-              <div
-                className="absolute inset-0 rounded-full opacity-60"
+              <button
+                onClick={() => handleChipClick(chip.value)}
+                className={cn(
+                  'relative z-10 w-16 h-16 rounded-full transition-all duration-200 active:scale-98'
+                )}
                 style={{
-                  border: '4px solid',
-                  borderColor: chip.borderColor,
-                  borderImage: 'repeating-conic-gradient(from 0deg, currentColor 0deg 22.5deg, transparent 22.5deg 45deg) 4',
+                  background: chip.gradient,
+                  border: isSelected ? '3px solid var(--gold-bright)' : '3px solid transparent',
+                  boxShadow: isSelected
+                    ? `0 0 22px rgba(255, 215, 0, 0.35), 0 8px 16px rgba(0, 0, 0, 0.45), inset 0 3px 6px rgba(255, 255, 255, 0.4), inset 0 -3px 6px rgba(0, 0, 0, 0.4)`
+                    : `inset 0 3px 6px rgba(255, 255, 255, 0.3), inset 0 -3px 6px rgba(0, 0, 0, 0.3), 0 6px 12px rgba(0, 0, 0, 0.4)`,
+                  filter: isSelected ? 'drop-shadow(0 0 8px rgba(255, 215, 0, 0.35))' : undefined,
                 }}
-              />
-
-              {/* 中心内容 */}
-              <div
-                className="relative z-10 flex items-center justify-center w-full h-full"
               >
-                <span
-                  className="font-mono font-black text-lg"
-                  style={{
-                    color: chip.textColor,
-                    textShadow: '0 1px 2px rgba(0, 0, 0, 0.5)',
-                  }}
-                >
-                  {chip.label}
-                </span>
-              </div>
-
-              {/* $500筹码闪光效果 */}
-              {chip.hasShimmer && (
-                <div
-                  className="absolute inset-0 rounded-full pointer-events-none"
-                  style={{
-                    background: 'linear-gradient(45deg, transparent 30%, rgba(255, 255, 255, 0.3) 50%, transparent 70%)',
-                    animation: 'shimmer 2s infinite',
-                  }}
-                />
-              )}
-
-              {/* $1K筹码金色光晕 */}
-              {chip.hasGlow && (
-                <div
-                  className="absolute -inset-2 rounded-full pointer-events-none -z-10"
-                  style={{
-                    background: 'radial-gradient(circle, rgba(255, 215, 0, 0.4) 0%, transparent 70%)',
-                    animation: 'glow-pulse 2s infinite',
-                  }}
-                />
-              )}
-            </button>
+                {/* 中心内容 */}
+                <div className="relative z-10 flex items-center justify-center w-full h-full">
+                  <span
+                    className="font-mono font-black text-lg"
+                    style={{
+                      color: chip.textColor,
+                      textShadow: '0 1px 2px rgba(0, 0, 0, 0.5)',
+                    }}
+                  >
+                    {chip.label}
+                  </span>
+                </div>
+              </button>
+            </div>
 
             {/* 筹码标签 */}
             <span

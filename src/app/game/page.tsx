@@ -1,13 +1,18 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useRef, useLayoutEffect } from 'react';
 import { useGame } from '@/contexts/GameContext';
 import { useWallet } from '@/contexts/WalletContext';
 import { useTelegram } from '@/contexts/TelegramContext';
+import { useGameSounds } from '@/hooks/useSound';
+import { useGameHaptics } from '@/hooks/useHaptic';
 import DiceAnimation from '@/components/game/DiceAnimation';
 import BetPanel from '@/components/game/BetPanel';
 import ChipSelector from '@/components/game/ChipSelector';
+import MultiplierSelector from '@/components/game/MultiplierSelector';
 import CountdownTimer from '@/components/game/CountdownTimer';
+import WinAnimation from '@/components/game/WinAnimation';
+import ToastContainer, { toast } from '@/components/ui/Toast';
 import { useRouter } from 'next/navigation';
 
 /**
@@ -34,10 +39,86 @@ export default function GamePage() {
     placeBet,
     clearBets,
     confirmBets,
+    multiplier,
+    setMultiplier,
+    undoLastBet,
+    canUndo,
+    repeatLastBets,
+    lastBets,
   } = useGame();
+
+  // 音效和震动反馈
+  const {
+    playBetClick,
+    playChipSelect,
+    playRoundStart,
+    playDiceRoll,
+    playDiceLand,
+    playWinSmall,
+    enabled: soundEnabled,
+    toggleSound,
+  } = useGameSounds();
+
+  const {
+    hapticBetClick,
+    hapticChipSelect,
+    hapticWin,
+    hapticError,
+    hapticSuccess,
+    enabled: hapticEnabled,
+    toggleHaptic,
+  } = useGameHaptics();
+
+  // 中奖动画状态
+  const [showWinAnimation, setShowWinAnimation] = useState(false);
+  const [winAmount, setWinAmount] = useState(0);
+
+  // 下注限额
+  const BET_LIMITS = {
+    min: 1,
+    max: 10000,
+    vipMax: 50000,
+  };
 
   const [showRules, setShowRules] = useState(false);
   const [showTrend, setShowTrend] = useState(false);
+
+  const betPanelWrapperRef = useRef<HTMLDivElement>(null);
+  const betPanelContentRef = useRef<HTMLDivElement>(null);
+  const [betPanelScale, setBetPanelScale] = useState<number | null>(null);
+
+  const betsSnapshot = JSON.stringify(bets);
+
+  useLayoutEffect(() => {
+    const updateScale = () => {
+      const wrapper = betPanelWrapperRef.current;
+      const content = betPanelContentRef.current;
+
+      if (!wrapper || !content) {
+        setBetPanelScale(1);
+        return;
+      }
+
+      const wrapperHeight = wrapper.clientHeight;
+      const contentHeight = content.scrollHeight;
+
+      if (wrapperHeight <= 0 || contentHeight <= 0) {
+        setBetPanelScale(1);
+        return;
+      }
+
+      const scale = Math.min(1, wrapperHeight / contentHeight);
+      const rounded = Number(scale.toFixed(3));
+      setBetPanelScale((prev) => (prev === rounded ? prev : rounded));
+    };
+
+    updateScale();
+    window.addEventListener('resize', updateScale);
+
+    return () => {
+      window.removeEventListener('resize', updateScale);
+    };
+  }, [betsSnapshot]);
 
   // 计算总下注金额
   const totalBetAmount = Object.values(bets).reduce((sum, amount) => sum + amount, 0);
@@ -49,17 +130,39 @@ export default function GamePage() {
 
   // 处理确认下注
   const handleConfirmBet = async () => {
+    // 验证下注金额
     if (totalBetAmount === 0) {
-      // TODO: 显示提示
+      toast.warning('请先选择投注项');
       return;
     }
 
+    // 验证最小限额
+    const hasBelowMin = Object.values(bets).some(amount => amount < BET_LIMITS.min);
+    if (hasBelowMin) {
+      toast.error(`单注金额不得少于 $${BET_LIMITS.min}`);
+      hapticError();
+      return;
+    }
+
+    // 验证最大限额
+    const hasAboveMax = Object.values(bets).some(amount => amount > BET_LIMITS.max);
+    if (hasAboveMax) {
+      toast.error(`单注金额不得超过 $${BET_LIMITS.max}`);
+      hapticError();
+      return;
+    }
+
+    // 验证余额
     if (totalBetAmount > balance) {
-      // TODO: 显示余额不足提示
+      toast.error('余额不足，请先充值');
+      hapticError();
       return;
     }
 
+    // 确认下注
     await confirmBets();
+    hapticSuccess();
+    toast.success(`下注成功 $${totalBetAmount.toFixed(2)}`);
   };
 
   // 判断是否可以下注
@@ -128,55 +231,111 @@ export default function GamePage() {
 
       {/* 3D骰盅展示区 - 280px */}
       <div
-        className="relative h-[280px]"
+        className="relative h-[230px]"
         style={{
           background: 'linear-gradient(180deg, var(--onyx-black) 0%, var(--rich-black) 100%)',
         }}
       >
         <DiceAnimation />
 
-        {/* 规则按钮 - 右上角 */}
-        <button
-          onClick={() => router.push('/rules')}
-          className="absolute top-4 right-4 w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-95"
-          style={{
-            background: 'rgba(42, 42, 42, 0.8)',
-            backdropFilter: 'blur(8px)',
-            border: '1px solid rgba(212, 175, 55, 0.3)',
-            color: 'var(--gold-primary)',
-          }}
-        >
-          <span className="text-xl">❓</span>
-        </button>
+        {/* 右上角按钮组 */}
+        <div className="absolute top-4 right-4 flex gap-2">
+          {/* 设置按钮 - 音效和震动开关 */}
+          <button
+            onClick={() => {
+              // 显示设置面板
+              const message = `音效: ${soundEnabled ? '开启' : '关闭'}\n震动: ${hapticEnabled ? '开启' : '关闭'}`;
+              if (confirm(`${message}\n\n点击确定切换设置`)) {
+                toggleSound();
+                toggleHaptic();
+              }
+            }}
+            className="w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-95"
+            style={{
+              background: 'rgba(42, 42, 42, 0.8)',
+              backdropFilter: 'blur(8px)',
+              border: '1px solid rgba(212, 175, 55, 0.3)',
+              color: 'var(--gold-primary)',
+            }}
+          >
+            <span className="text-lg">{soundEnabled || hapticEnabled ? '🔊' : '🔇'}</span>
+          </button>
+
+          {/* 规则按钮 */}
+          <button
+            onClick={() => router.push('/rules')}
+            className="w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-95"
+            style={{
+              background: 'rgba(42, 42, 42, 0.8)',
+              backdropFilter: 'blur(8px)',
+              border: '1px solid rgba(212, 175, 55, 0.3)',
+              color: 'var(--gold-primary)',
+            }}
+          >
+            <span className="text-xl">❓</span>
+          </button>
+        </div>
       </div>
 
       {/* 投注面板 - 可滚动 */}
       <div
-        className="flex-1 overflow-y-auto overflow-x-hidden"
+        ref={betPanelWrapperRef}
+        className="flex-1 overflow-hidden"
         style={{
           background: 'var(--rich-black)',
-          paddingBottom: '180px', // 给筹码选择器+底部栏预留空间
-          WebkitOverflowScrolling: 'touch',
+          paddingBottom: '34px',
+          display: 'flex',
+          justifyContent: 'center',
+          height: 'calc(100vh - 56px - 220px - 122px - 64px - 32px)',
+          maxHeight: 'calc(100vh - 56px - 220px - 122px - 64px - 32px)',
         }}
       >
-        <BetPanel disabled={!canBet} />
+        <div
+          ref={betPanelContentRef}
+          style={{
+            opacity: betPanelScale === null ? 0 : 1,
+            transform: `scale(${betPanelScale ?? 1})`,
+            transformOrigin: 'top center',
+            width:
+              betPanelScale !== null && betPanelScale < 1
+                ? `${(100 / betPanelScale).toFixed(3)}%`
+                : '100%',
+            transition: 'opacity 0.2s ease',
+          }}
+        >
+          <BetPanel disabled={!canBet} />
+        </div>
       </div>
 
-      {/* 筹码选择器 - 90px, 固定在底部操作栏上方 */}
+      {/* 倍投选择器 + 筹码选择器 - 固定在底部操作栏上方 */}
       <div
-        className="fixed z-40 left-0 right-0 px-md py-md"
+        className="fixed z-[60] left-0 right-0"
         style={{
           bottom: '64px',
-          height: '90px',
-          background: 'linear-gradient(to top, var(--rich-black) 70%, transparent 100%)',
+          height: '210px', // 增加高度以容纳倍投选择器
+          overflow: 'visible',
         }}
       >
-        <ChipSelector />
+        <div className="relative w-full h-full overflow-visible flex flex-col">
+          {/* 倍投选择器 */}
+          <MultiplierSelector
+            value={multiplier}
+            onChange={(newMultiplier) => {
+              setMultiplier(newMultiplier);
+              hapticChipSelect();
+              playChipSelect();
+            }}
+            disabled={!canBet}
+          />
+
+          {/* 筹码选择器 */}
+          <ChipSelector />
+        </div>
       </div>
 
       {/* 底部操作栏 - 64px, 固定 */}
       <div
-        className="fixed bottom-0 left-0 right-0 z-50 h-16 border-t-2 px-md py-sm flex items-center gap-sm"
+        className="fixed bottom-0 left-0 right-0 z-50 h-16 border-t-2 px-xs py-sm flex items-center gap-xs"
         style={{
           background: 'var(--onyx-black)',
           borderTopColor: 'var(--gold-primary)',
@@ -185,26 +344,49 @@ export default function GamePage() {
       >
         {/* 清空按钮 */}
         <button
-          onClick={clearBets}
+          onClick={() => {
+            clearBets();
+            hapticChipSelect();
+          }}
           disabled={totalBetAmount === 0 || !canBet}
-          className="flex-1 h-12 rounded-lg text-small font-bold flex flex-col items-center justify-center transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+          className="flex-1 h-12 rounded-lg text-tiny font-bold flex flex-col items-center justify-center transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
           style={{
             background: 'transparent',
             border: '2px solid var(--gold-primary)',
             color: 'var(--gold-primary)',
           }}
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="mb-0.5">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="mb-0.5">
             <path d="M19 7L18.1327 19.1425C18.0579 20.1891 17.187 21 16.1378 21H7.86224C6.81296 21 5.94208 20.1891 5.86732 19.1425L5 7M10 11V17M14 11V17M15 7V4C15 3.44772 14.5523 3 14 3H10C9.44772 3 9 3.44772 9 4V7M4 7H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
           <span>清空</span>
+        </button>
+
+        {/* 撤销按钮 - 新增 */}
+        <button
+          onClick={() => {
+            undoLastBet();
+            hapticChipSelect();
+          }}
+          disabled={!canUndo || !canBet}
+          className="flex-1 h-12 rounded-lg text-tiny font-bold flex flex-col items-center justify-center transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+          style={{
+            background: 'transparent',
+            border: '2px solid var(--gold-primary)',
+            color: 'var(--gold-primary)',
+          }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="mb-0.5">
+            <path d="M3 7V13C3 16.866 6.13401 20 10 20H15M3 7L7 3M3 7L7 11M17 11L21 7M17 11L21 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          <span>撤销</span>
         </button>
 
         {/* 确认下注按钮 */}
         <button
           onClick={handleConfirmBet}
           disabled={totalBetAmount === 0 || !canBet}
-          className="flex-[2] h-12 rounded-lg text-body font-bold flex flex-col items-center justify-center transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex-[2] h-12 rounded-lg text-small font-bold flex flex-col items-center justify-center transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
           style={{
             background: totalBetAmount > 0 && canBet
               ? 'linear-gradient(135deg, var(--gold-bright) 0%, var(--gold-dark) 100%)'
@@ -225,14 +407,14 @@ export default function GamePage() {
         {/* 走势按钮 */}
         <button
           onClick={() => router.push('/history')}
-          className="flex-1 h-12 rounded-lg text-small font-bold flex flex-col items-center justify-center transition-all active:scale-95"
+          className="flex-1 h-12 rounded-lg text-tiny font-bold flex flex-col items-center justify-center transition-all active:scale-95"
           style={{
             background: 'transparent',
             border: '2px solid var(--gold-primary)',
             color: 'var(--gold-primary)',
           }}
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="mb-0.5">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="mb-0.5">
             <path d="M3 3V16C3 17.1046 3.89543 18 5 18H21M7 14L12 9L16 13L21 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
           <span>走势</span>
@@ -254,79 +436,15 @@ export default function GamePage() {
         </div>
       )}
 
-      {/* 中奖弹窗 */}
-      {gameState === 'settled' && totalBetAmount > 0 && (
-        <div
-          className="fixed inset-0 z-[100] flex items-center justify-center animate-fade-in"
-          style={{
-            background: 'rgba(0, 0, 0, 0.85)',
-            backdropFilter: 'blur(12px)',
-          }}
-        >
-          <div
-            className="rounded-2xl p-8 mx-4 max-w-sm w-full animate-scale-in"
-            style={{
-              background: 'var(--onyx-black)',
-              border: '2px solid var(--gold-primary)',
-              boxShadow: 'var(--shadow-gold)',
-            }}
-          >
-            <div className="text-center">
-              {/* 标题 */}
-              <h2
-                className="text-h2 font-bold mb-4"
-                style={{ color: 'var(--gold-bright)' }}
-              >
-                🎉 恭喜中奖！
-              </h2>
+      {/* 中奖动画 */}
+      <WinAnimation
+        amount={winAmount}
+        show={showWinAnimation}
+        onComplete={() => setShowWinAnimation(false)}
+      />
 
-              {/* 奖金金额 */}
-              <div className="mb-6">
-                <p className="text-small mb-2" style={{ color: 'rgba(255, 255, 255, 0.6)' }}>本局奖金</p>
-                <p
-                  className="text-display font-bold font-mono animate-number-roll"
-                  style={{
-                    color: 'var(--gold-bright)',
-                    textShadow: '0 0 20px rgba(255, 215, 0, 0.6)'
-                  }}
-                >
-                  +1,250.00
-                </p>
-                <p className="text-small mt-1" style={{ color: 'rgba(255, 255, 255, 0.6)' }}>USDT</p>
-              </div>
-
-              {/* 按钮 */}
-              <div className="flex gap-3">
-                <button
-                  onClick={() => {
-                    // TODO: 分享功能
-                  }}
-                  className="flex-1 py-3 rounded-lg font-semibold transition-all active:scale-95"
-                  style={{
-                    border: '2px solid var(--gold-primary)',
-                    color: 'var(--gold-primary)',
-                    background: 'transparent',
-                  }}
-                >
-                  分享
-                </button>
-                <button
-                  onClick={() => {
-                    // TODO: 继续游戏
-                  }}
-                  className="flex-1 py-3 rounded-lg font-semibold transition-all active:scale-95"
-                  style={{
-                    background: 'linear-gradient(135deg, var(--gold-bright) 0%, var(--gold-dark) 100%)',
-                    color: 'var(--rich-black)',
-                  }}
-                >
-                  继续游戏
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Toast 提示容器 */}
+      <ToastContainer />
     </div>
   );
 }

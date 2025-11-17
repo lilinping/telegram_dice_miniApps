@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { cn } from '@/lib/utils';
 
 /**
@@ -51,9 +52,48 @@ export default function BetCell({
 }: BetCellProps) {
   const hasAmount = amount > 0;
 
-  // 触觉反馈
+  // 筹码飞入动画状态
+  const [isAnimating, setIsAnimating] = useState(false);
+
+  // 获取赔率颜色（根据赔率高低分级）
+  const getOddsColor = (oddsString: string) => {
+    const ratio = parseFloat(oddsString.split(':')[0]);
+
+    if (ratio >= 180) {
+      // 特高赔率: 彩虹渐变
+      return {
+        color: '#FF00FF',
+        textShadow: '0 0 10px rgba(255, 0, 255, 0.8), 0 0 20px rgba(255, 215, 0, 0.6)',
+        animation: 'rainbow 3s linear infinite',
+      };
+    } else if (ratio >= 30) {
+      // 高赔率: 金色发光
+      return {
+        color: '#FFD700',
+        textShadow: '0 0 8px rgba(255, 215, 0, 0.8)',
+      };
+    } else if (ratio >= 6) {
+      // 中赔率: 黄色
+      return {
+        color: '#F59E0B',
+        textShadow: '0 1px 2px rgba(0, 0, 0, 0.5)',
+      };
+    } else {
+      // 低赔率: 白色
+      return {
+        color: '#FFFFFF',
+        textShadow: '0 1px 2px rgba(0, 0, 0, 0.5)',
+      };
+    }
+  };
+
+  // 触觉反馈和筹码飞入动画
   const handleClick = () => {
     if (disabled || closed) return;
+
+    // 触发筹码飞入动画
+    setIsAnimating(true);
+    setTimeout(() => setIsAnimating(false), 300);
 
     onClick();
 
@@ -65,7 +105,7 @@ export default function BetCell({
 
   // 尺寸样式
   const sizeStyles = {
-    small: 'min-w-[50px] min-h-[55px] p-sm text-tiny',
+    small: 'min-w-[55px] min-h-[60px] p-sm text-tiny',
     medium: 'min-w-[65px] min-h-[75px] p-sm',
     large: 'min-w-[110px] min-h-[100px] p-md',
   };
@@ -103,12 +143,27 @@ export default function BetCell({
       };
     }
 
-    // 已下注状态
     if (hasAmount) {
+      if (type === 'points') {
+        return {
+          background: 'linear-gradient(180deg, #F8D26A 0%, #D29C2F 100%)',
+          border: '3px solid var(--gold-bright)',
+          boxShadow: 'inset 0 2px 4px rgba(0, 0, 0, 0.4), 0 0 20px rgba(255, 215, 0, 0.6)',
+        };
+      }
+
       return {
         background: 'linear-gradient(135deg, var(--burgundy) 0%, var(--casino-red) 100%)',
         border: '3px solid var(--gold-bright)',
         boxShadow: 'inset 0 2px 4px rgba(0, 0, 0, 0.3), 0 0 20px rgba(255, 215, 0, 0.6)',
+      };
+    }
+
+    if (type === 'points') {
+      return {
+        background: 'linear-gradient(180deg, #F5EDE3 0%, #E2D7C1 100%)',
+        border: '2px solid rgba(0, 0, 0, 0.2)',
+        boxShadow: '0 2px 6px rgba(0, 0, 0, 0.15)',
       };
     }
 
@@ -133,12 +188,18 @@ export default function BetCell({
         // Hover效果 (非禁用且非封盘)
         !disabled && !closed && !win && !lose && 'hover:border-[var(--gold-bright)] hover:shadow-[0_0_16px_rgba(255,215,0,0.6)] hover:-translate-y-0.5',
         sizeStyles[size],
+        type === 'points' && 'aspect-square w-[48px] p-xs gap-0.5',
         className
       )}
       style={{
         ...baseStyles,
-        backgroundImage: !win && !lose ? 'url(/textures/velvet.png), ' + baseStyles.background : baseStyles.background,
-        backgroundBlendMode: !win && !lose ? 'overlay' : 'normal',
+        backgroundImage:
+          !win && !lose
+            ? type === 'points'
+              ? baseStyles.background
+              : 'url(/textures/velvet.png), ' + baseStyles.background
+            : baseStyles.background,
+        backgroundBlendMode: !win && !lose ? (type === 'points' ? 'normal' : 'overlay') : 'normal',
       }}
     >
       {/* 主要内容区 */}
@@ -168,7 +229,7 @@ export default function BetCell({
             {odds && (
               <span
                 className="text-small font-bold"
-                style={{ color: 'var(--gold-bright)' }}
+                style={getOddsColor(odds)}
               >
                 {odds}
               </span>
@@ -180,20 +241,23 @@ export default function BetCell({
         {type === 'points' && (
           <>
             <span
-              className="font-mono text-h1 font-black"
+              className="font-mono font-black leading-none"
               style={{
-                color: '#FFFFFF',
-                textShadow: '0 2px 4px rgba(0, 0, 0, 0.5)',
+                color: '#1E1203',
+                textShadow: '0 1px 2px rgba(255, 255, 255, 0.5)',
+                fontSize: '24px',
+                lineHeight: 1,
               }}
             >
               {name}
             </span>
             {odds && (
               <span
-                className="text-body font-bold font-mono"
+                className="font-bold font-mono"
                 style={{
-                  color: ['4', '17'].includes(name) ? '#FFA500' : 'var(--gold-bright)',
-                  textShadow: '0 0 8px rgba(255, 215, 0, 0.5)',
+                  color: ['4', '17'].includes(name) ? '#C08222' : '#4A2A0A',
+                  textShadow: 'none',
+                  fontSize: '11px',
                 }}
               >
                 {odds}
@@ -241,12 +305,37 @@ export default function BetCell({
         )}
       </div>
 
+      {/* 筹码飞入动画效果 */}
+      {isAnimating && (
+        <div
+          className="absolute pointer-events-none"
+          style={{
+            bottom: '-80px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            animation: 'chipFlyIn 300ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
+          }}
+        >
+          <div
+            className="w-10 h-10 rounded-full flex items-center justify-center text-tiny font-bold"
+            style={{
+              background: 'radial-gradient(circle, #FFD700 0%, #D4AF37 100%)',
+              border: '3px solid #8B4513',
+              boxShadow: '0 4px 12px rgba(255, 215, 0, 0.6), inset 0 2px 4px rgba(255, 255, 255, 0.3)',
+              color: '#1A1A1A',
+            }}
+          >
+            $
+          </div>
+        </div>
+      )}
+
       {/* 筹码叠加显示 */}
       {hasAmount && !win && !lose && (
         <div
           className="absolute bottom-1 right-1 px-2 py-0.5 rounded"
           style={{
-            background: 'rgba(0, 0, 0, 0.8)',
+            background: type === 'points' ? 'rgba(0, 0, 0, 0.75)' : 'rgba(0, 0, 0, 0.8)',
             border: '1px solid var(--gold-bright)',
           }}
         >
@@ -273,6 +362,29 @@ export default function BetCell({
           +${(amount * parseFloat(odds.split(':')[0])).toFixed(2)}
         </div>
       )}
+
+      {/* 动画样式 */}
+      <style jsx>{`
+        @keyframes chipFlyIn {
+          0% {
+            opacity: 0;
+            transform: translateX(-50%) translateY(0) scale(0.5);
+          }
+          60% {
+            opacity: 1;
+            transform: translateX(-50%) translateY(-80px) scale(1.1);
+          }
+          100% {
+            opacity: 0;
+            transform: translateX(-50%) translateY(-80px) scale(0.8);
+          }
+        }
+
+        @keyframes rainbow {
+          0% { filter: hue-rotate(0deg); }
+          100% { filter: hue-rotate(360deg); }
+        }
+      `}</style>
     </button>
   );
 }

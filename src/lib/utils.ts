@@ -138,7 +138,7 @@ export function getOdds(betType: string): number {
     // 特殊
     'any-triple': 30,
     'specific-triple': 180,
-    'pair': 6,
+    'pair': 5,
     'single-1': 1,
     'single-2': 2,
     'single-3': 3,

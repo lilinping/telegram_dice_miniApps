@@ -113,8 +113,8 @@ const betTypeDetails = [
       {
         name: '两骰组合',
         desc: '指定两颗骰子点数（如1+2）',
-        odds: '6:1',
-        example: '下注10 USDT，开出1-2-4（含1和2），获得70 USDT',
+        odds: '5:1',
+        example: '下注10 USDT，开出1-2-4（含1和2），获得60 USDT',
       },
     ],
   },
@@ -292,7 +292,7 @@ export default function RulesPage() {
                 </tr>
                 <tr>
                   <td className="py-2 text-text-primary">两骰组合</td>
-                  <td className="text-center font-mono text-primary-gold">6:1</td>
+                  <td className="text-center font-mono text-primary-gold">5:1</td>
                   <td className="text-right text-text-secondary">1-1,000</td>
                 </tr>
                 <tr>

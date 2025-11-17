@@ -4,12 +4,15 @@ import React from 'react'
 import { motion } from 'framer-motion'
 import clsx from 'clsx'
 
-export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+export interface ButtonProps {
   variant?: 'primary' | 'secondary' | 'success' | 'warning' | 'text'
   size?: 'small' | 'medium' | 'large'
   loading?: boolean
   fullWidth?: boolean
+  disabled?: boolean
   children: React.ReactNode
+  className?: string
+  onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void
 }
 
 const Button: React.FC<ButtonProps> = ({

@@ -20,8 +20,8 @@ export default function DiceIcon({
   value,
   size = 'md',
   dotColor = '#FFFFFF',
-  bgColor = 'transparent',
-  borderColor = 'rgba(255, 255, 255, 0.3)',
+  bgColor = '#C40000',
+  borderColor = 'rgba(0, 0, 0, 0.25)',
   className = '',
 }: DiceIconProps) {
   // 尺寸映射
@@ -63,6 +63,7 @@ export default function DiceIcon({
         height: container,
         background: bgColor,
         border: borderColor ? `1px solid ${borderColor}` : 'none',
+        boxShadow: 'inset 0 1px 2px rgba(255, 255, 255, 0.35)',
       }}
     >
       {dots.map(([row, col], index) => {
