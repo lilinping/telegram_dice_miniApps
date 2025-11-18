@@ -1,5 +1,20 @@
 // ==================== 用户相关类型 ====================
 
+// 后端用户类型（基于Swagger文档）
+export interface BackendUser {
+  id: number
+  first_name?: string
+  is_bot?: boolean
+  last_name?: string
+  username?: string
+  language_code?: string
+  can_join_groups?: boolean
+  can_read_all_group_messages?: boolean
+  supports_inline_queries?: boolean
+  is_premium?: boolean
+  added_to_attachment_menu?: boolean
+}
+
 export interface User {
   id: string
   username: string
@@ -14,6 +29,16 @@ export interface UserBalance {
   frozen: number          // 冻结余额（当前下注中）
   bonus: number           // 赠送余额
   total: number           // 总余额
+}
+
+// 后端账户模型（基于Swagger文档）
+export interface AccountModel {
+  id: number
+  userId: number
+  cash: string            // 现金余额（字符串格式）
+  deposit: string         // 充值金额（字符串格式）
+  frozen: string          // 冻结金额（字符串格式）
+  redPack: string         // 红包金额（字符串格式）
 }
 
 export interface VIPLevel {
@@ -49,6 +74,42 @@ export interface BetOption {
   maxBet: number
   icon?: string
   description?: string
+}
+
+// 后端骰宝相关类型（基于Swagger文档）
+export interface DiceChooseVO {
+  id: number
+  multi: string          // 赔率（字符串格式）
+  display: string        // 显示名称
+}
+
+export interface DiceBetEntity {
+  betId: number
+  bet: string            // 下注金额（字符串格式）
+  win: string            // 赢得金额（字符串格式）
+}
+
+export interface DiceEntity {
+  id: number
+  gameId: string
+  userId: number
+  win: string            // 赢得金额（字符串格式）
+  betInfo: DiceBetEntity[]
+  outCome: number[]      // 骰子结果数组
+  matchBetId: number[]   // 匹配的下注ID数组
+  status: 'RUNNING' | 'FINISHED'
+  createTime: number
+  modifyTime: number
+  finished: boolean
+  totalBet: string       // 总下注金额（字符串格式）
+}
+
+export interface DiceStatisticEntity {
+  userId: number
+  totalCount: number
+  winCount: number
+  totalBet: string       // 总下注金额（字符串格式）
+  winBet: string         // 总赢得金额（字符串格式）
 }
 
 export interface PlacedBet {
@@ -180,12 +241,28 @@ export interface APIResponse<T = any> {
   timestamp: number
 }
 
+// 后端API响应格式（基于Swagger文档）
+export interface BackendResponse<T = any> {
+  code: number
+  success: boolean
+  message: string
+  data: T
+}
+
 export interface PaginatedResponse<T> {
   items: T[]
   total: number
   page: number
   pageSize: number
   hasMore: boolean
+}
+
+// 后端分页响应格式（基于Swagger文档）
+export interface PageModelDiceEntity {
+  list: DiceEntity[]
+  totalCount: number
+  pageIndex: number
+  pageSize: number
 }
 
 // ==================== 配置类型 ====================

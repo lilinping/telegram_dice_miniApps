@@ -115,3 +115,6 @@ secrets.json
 *.pem
 *.cert
 wallet-keys/
+
+
+.claude/

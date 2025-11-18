@@ -1,12 +1,19 @@
 'use client';
 
-import { createContext, useContext, useState, ReactNode, useCallback } from 'react';
+import { createContext, useContext, useState, ReactNode, useCallback, useEffect } from 'react';
+import { apiService } from '@/lib/api';
+import { useTelegram } from './TelegramContext';
+import { AccountModel } from '@/lib/types';
 
 interface WalletContextType {
   // 余额
   balance: number;
   frozenBalance: number;
   bonusBalance: number;
+  depositAmount: number;
+
+  // 账户信息
+  accountInfo: AccountModel | null;
 
   // 更新余额
   setBalance: (amount: number) => void;
@@ -24,57 +31,104 @@ interface WalletContextType {
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
 export function WalletProvider({ children }: { children: ReactNode }) {
-  const [balance, setBalance] = useState(1000.0); // 模拟初始余额
+  const { user } = useTelegram();
+  const [balance, setBalance] = useState(0);
   const [frozenBalance, setFrozenBalance] = useState(0);
-  const [bonusBalance, setBonusBalance] = useState(50.0);
+  const [bonusBalance, setBonusBalance] = useState(0);
+  const [depositAmount, setDepositAmount] = useState(0);
+  const [accountInfo, setAccountInfo] = useState<AccountModel | null>(null);
 
   // 刷新余额
   const refreshBalance = useCallback(async () => {
-    // TODO: 从后端获取最新余额
-    console.log('刷新余额');
+    if (!user) {
+      console.error('用户未登录');
+      return;
+    }
 
-    // 模拟API调用
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    try {
+      const response = await apiService.queryAccount(String(user.id));
+      if (response.success && response.data) {
+        const account = response.data;
+        setAccountInfo(account);
 
-    // 这里应该从后端获取真实余额
-    // const response = await fetch('/api/wallet/balance');
-    // const data = await response.json();
-    // setBalance(data.balance);
-  }, []);
+        // 将字符串金额转换为数字
+        setBalance(parseFloat(account.cash) || 0);
+        setFrozenBalance(parseFloat(account.frozen) || 0);
+        setBonusBalance(parseFloat(account.redPack) || 0);
+        setDepositAmount(parseFloat(account.deposit) || 0);
+
+        console.log('余额刷新成功:', account);
+      } else {
+        console.error('获取余额失败:', response.message);
+      }
+    } catch (error) {
+      console.error('刷新余额失败:', error);
+    }
+  }, [user]);
+
+  // 初始化时加载余额
+  useEffect(() => {
+    if (user) {
+      refreshBalance();
+    }
+  }, [user, refreshBalance]);
 
   // 充值
-  const deposit = useCallback(async (amount: number, method: string) => {
-    console.log('充值:', amount, method);
+  const deposit = useCallback(
+    async (amount: number, method: string) => {
+      if (!user) {
+        console.error('用户未登录');
+        return false;
+      }
 
-    // TODO: 调用充值API
-    // const response = await fetch('/api/wallet/deposit', {
-    //   method: 'POST',
-    //   body: JSON.stringify({ amount, method }),
-    // });
+      try {
+        console.log('充值:', amount, method);
 
-    // 模拟充值成功
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    setBalance((prev) => prev + amount);
+        // 调用后端充值接口
+        const response = await apiService.rechargeAccount(String(user.id), String(amount));
 
-    return true;
-  }, []);
+        if (response.success) {
+          console.log('充值成功');
+
+          // 刷新余额
+          await refreshBalance();
+
+          return true;
+        } else {
+          console.error('充值失败:', response.message);
+          return false;
+        }
+      } catch (error) {
+        console.error('充值失败:', error);
+        return false;
+      }
+    },
+    [user, refreshBalance]
+  );
 
   // 提现
-  const withdraw = useCallback(async (amount: number, address: string) => {
-    console.log('提现:', amount, address);
+  const withdraw = useCallback(
+    async (amount: number, address: string) => {
+      if (!user) {
+        console.error('用户未登录');
+        return false;
+      }
 
-    // TODO: 调用提现API
-    // const response = await fetch('/api/wallet/withdraw', {
-    //   method: 'POST',
-    //   body: JSON.stringify({ amount, address }),
-    // });
+      console.log('提现:', amount, address);
 
-    // 模拟提现成功
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    setBalance((prev) => prev - amount);
+      // TODO: 后端暂无提现接口，这里仅做模拟
+      // 等待后端提供提现接口后再实现
 
-    return true;
-  }, []);
+      // 模拟提现成功
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      // 刷新余额
+      await refreshBalance();
+
+      return true;
+    },
+    [user, refreshBalance]
+  );
 
   return (
     <WalletContext.Provider
@@ -82,6 +136,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         balance,
         frozenBalance,
         bonusBalance,
+        depositAmount,
+        accountInfo,
         setBalance,
         setFrozenBalance,
         setBonusBalance,

@@ -1,6 +1,8 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { apiService } from '@/lib/api';
+import { BackendUser } from '@/lib/types';
 
 interface TelegramUser {
   id: number;
@@ -15,65 +17,140 @@ interface TelegramContextType {
   user: TelegramUser | null;
   isLoading: boolean;
   webApp: any;
+  isInitialized: boolean;
+  initError: string | null;
 }
 
 const TelegramContext = createContext<TelegramContextType>({
   user: null,
   isLoading: true,
   webApp: null,
+  isInitialized: false,
+  initError: null,
 });
 
 export function TelegramProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<TelegramUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [webApp, setWebApp] = useState<any>(null);
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [initError, setInitError] = useState<string | null>(null);
 
   useEffect(() => {
-    // 检查Telegram WebApp是否可用
-    const tg = (window as any).Telegram?.WebApp;
+    initializeTelegram();
+  }, []);
 
-    if (tg) {
-      setWebApp(tg);
+  const initializeTelegram = async () => {
+    try {
+      // 检查Telegram WebApp是否可用
+      const tg = (window as any).Telegram?.WebApp;
 
-      // 初始化Telegram WebApp
-      tg.ready();
-      tg.expand();
+      if (tg) {
+        setWebApp(tg);
 
-      // 获取用户信息
-      const telegramUser = tg.initDataUnsafe?.user;
-      if (telegramUser) {
-        setUser({
-          id: telegramUser.id,
-          firstName: telegramUser.first_name,
-          lastName: telegramUser.last_name,
-          username: telegramUser.username,
-          languageCode: telegramUser.language_code,
-          photoUrl: telegramUser.photo_url,
-        });
+        // 初始化Telegram WebApp
+        tg.ready();
+        tg.expand();
+
+        // 获取用户信息
+        const telegramUser = tg.initDataUnsafe?.user;
+        if (telegramUser) {
+          const userObj: TelegramUser = {
+            id: telegramUser.id,
+            firstName: telegramUser.first_name,
+            lastName: telegramUser.last_name,
+            username: telegramUser.username,
+            languageCode: telegramUser.language_code,
+            photoUrl: telegramUser.photo_url,
+          };
+
+          setUser(userObj);
+
+          // 调用后端初始化接口
+          await initializeBackendUser(userObj);
+        } else {
+          // 开发环境模拟用户
+          const mockUser: TelegramUser = {
+            id: 123456,
+            firstName: '测试',
+            username: 'testuser',
+            languageCode: 'zh',
+          };
+
+          setUser(mockUser);
+          await initializeBackendUser(mockUser);
+        }
       } else {
         // 开发环境模拟用户
-        setUser({
+        const mockUser: TelegramUser = {
           id: 123456,
           firstName: '测试',
           username: 'testuser',
           languageCode: 'zh',
-        });
+        };
+
+        setUser(mockUser);
+        await initializeBackendUser(mockUser);
       }
-    } else {
-      // 开发环境模拟用户
-      setUser({
+    } catch (error) {
+      console.error('Telegram initialization failed:', error);
+      setInitError(error instanceof Error ? error.message : '初始化失败');
+
+      // 即使初始化失败，也设置模拟用户以保证应用可以运行
+      const fallbackUser: TelegramUser = {
         id: 123456,
         firstName: '测试',
         username: 'testuser',
         languageCode: 'zh',
-      });
-    }
+      };
 
-    setIsLoading(false);
-  }, []);
+      setUser(fallbackUser);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const initializeBackendUser = async (telegramUser: TelegramUser) => {
+    try {
+      // 转换为后端用户格式
+      const backendUser: BackendUser = {
+        id: telegramUser.id,
+        first_name: telegramUser.firstName,
+        last_name: telegramUser.lastName,
+        username: telegramUser.username,
+        language_code: telegramUser.languageCode,
+        is_bot: false,
+        can_join_groups: false,
+        can_read_all_group_messages: false,
+        supports_inline_queries: false,
+        is_premium: false,
+        added_to_attachment_menu: false,
+      };
+
+      // 调用后端初始化接口
+      const response = await apiService.initUser(backendUser);
+
+      if (response.success) {
+        console.log('用户初始化成功');
+        setIsInitialized(true);
+      } else {
+        console.error('用户初始化失败:', response.message);
+        setInitError(response.message || '后端初始化失败');
+      }
+    } catch (error) {
+      console.error('Backend user initialization failed:', error);
+      setInitError(error instanceof Error ? error.message : '后端初始化失败');
+    }
+  };
 
   return (
-    <TelegramContext.Provider value={{ user, isLoading, webApp }}>
+    <TelegramContext.Provider value={{
+      user,
+      isLoading,
+      webApp,
+      isInitialized,
+      initError
+    }}>
       {children}
     </TelegramContext.Provider>
   );
