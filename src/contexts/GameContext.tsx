@@ -3,7 +3,9 @@
 import { createContext, useContext, useState, ReactNode, useCallback, useEffect } from 'react';
 import { apiService } from '@/lib/api';
 import { useTelegram } from './TelegramContext';
+import { useWallet } from './WalletContext';
 import { DiceEntity, DiceChooseVO } from '@/lib/types';
+import { getBetChooseId } from '@/lib/betMapping';
 
 type GameState = 'betting' | 'rolling' | 'revealing' | 'settled';
 
@@ -33,7 +35,7 @@ interface GameContextType {
   bets: Record<string, number>;
   placeBet: (betId: string) => void;
   clearBets: () => void;
-  confirmBets: () => Promise<void>;
+  confirmBets: () => Promise<boolean>;
 
   // 倍投功能
   multiplier: number;
@@ -61,6 +63,7 @@ const GameContext = createContext<GameContextType | undefined>(undefined);
 
 export function GameProvider({ children }: { children: ReactNode }) {
   const { user } = useTelegram();
+  const { refreshBalance } = useWallet();
   const [gameState, setGameState] = useState<GameState>('betting');
   const [currentGameId, setCurrentGameId] = useState<string | null>(null);
   const [currentRound, setCurrentRound] = useState(123456);
@@ -135,19 +138,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
       const response = await apiService.endGame(currentGameId);
       if (response.success) {
         console.log('游戏结束');
-
-        // 查询游戏结果
-        const gameResult = await apiService.queryGame(currentGameId);
-        if (gameResult.success && gameResult.data) {
-          const result = gameResult.data;
-
-          // 设置骰子结果
-          if (result.outCome && result.outCome.length === 3) {
-            setDiceResults(result.outCome);
-          }
-
-          console.log('游戏结果:', result);
-        }
       } else {
         console.error('结束游戏失败:', response.message);
       }
@@ -206,7 +196,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
     try {
       // 调用后端撤销接口
-      const response = await apiService.revertBet(currentGameId, Number(lastBet.betId));
+      const chooseId = getBetChooseId(lastBet.betId);
+      if (chooseId === null) {
+        console.error(`无效的下注选项: ${lastBet.betId}`);
+        return;
+      }
+      const response = await apiService.revertBet(currentGameId, chooseId);
       if (response.success) {
         setBets((prev) => {
           const newBets = { ...prev };
@@ -248,13 +243,18 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const confirmBets = useCallback(async () => {
     if (!currentGameId || !user) {
       console.error('游戏未开始或用户未登录');
-      return;
+      return false;
     }
 
     try {
       // 提交所有下注到后端
-      const betPromises = Object.entries(bets).map(([chooseId, amount]) => {
-        return apiService.placeBet(currentGameId, Number(chooseId), String(amount));
+      const betPromises = Object.entries(bets).map(([betId, amount]) => {
+        const chooseId = getBetChooseId(betId);
+        if (chooseId === null) {
+          throw new Error(`无效的下注选项: ${betId}`);
+        }
+        console.log(`下注: ${betId} -> chooseId: ${chooseId}, 金额: ${amount}`);
+        return apiService.placeBet(currentGameId, chooseId, String(amount));
       });
 
       const results = await Promise.all(betPromises);
@@ -262,7 +262,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
       if (!allSuccess) {
         console.error('部分下注失败');
-        return;
+        const failedResults = results.filter(r => !r.success);
+        failedResults.forEach(r => console.error('下注失败:', r));
+        return false;
       }
 
       console.log('所有下注提交成功');
@@ -270,48 +272,73 @@ export function GameProvider({ children }: { children: ReactNode }) {
       // 保存为上一局下注
       setLastBets(bets);
 
-      // 结束游戏并获取结果
-      await endCurrentGame();
+      // 下单成功后刷新余额，确保顶部余额及时更新
+      await refreshBalance();
 
-      // 查询游戏结果后设置骰子动画
-      const gameResult = await apiService.queryGame(currentGameId);
-      if (gameResult.success && gameResult.data) {
-        const result = gameResult.data;
-
-        // 设置骰子结果
-        if (result.outCome && result.outCome.length === 3) {
-          setDiceResults(result.outCome);
-        }
-      }
-
-      // 开始滚动动画
+      // 立即进入滚动阶段，提升交互速度
       setGameState('rolling');
+      const rollStartTime = Date.now();
 
-      // 动画时间线
-      setTimeout(() => {
-        setGameState('revealing');
-      }, 2300);
+      const handleResultFlow = async () => {
+        try {
+          // 结束游戏并获取结果
+          await endCurrentGame();
 
-      setTimeout(() => {
-        setGameState('settled');
-      }, 5300);
+          // 查询游戏结果后设置骰子动画
+          const gameResult = await apiService.queryGame(currentGameId);
+          if (gameResult.success && gameResult.data) {
+            const result = gameResult.data;
 
-      // 结算后重置
-      setTimeout(async () => {
-        setGameState('betting');
-        setDiceResults([]);
-        setBets({});
-        setBetHistory([]);
-        setMultiplier(1);
-        setCurrentRound((prev) => prev + 1);
+            // 设置骰子结果
+            if (result.outCome && result.outCome.length === 3) {
+              console.log('设置骰子结果:', result.outCome);
+              setDiceResults(result.outCome);
+            } else {
+              console.error('骰子结果数据异常:', result.outCome);
+            }
+          } else {
+            console.error('查询游戏结果失败:', gameResult);
+          }
 
-        // 自动开始下一局
-        await startNewGame();
-      }, 6300);
+          // 确保滚动动画至少展示2.3秒
+          const elapsed = Date.now() - rollStartTime;
+          const minRollingDuration = 2300;
+          const remainingRollingTime = Math.max(0, minRollingDuration - elapsed);
+
+          setTimeout(() => {
+            setGameState('revealing');
+
+            setTimeout(() => {
+              setGameState('settled');
+
+              setTimeout(async () => {
+                setGameState('betting');
+                setDiceResults([]);
+                setBets({});
+                setBetHistory([]);
+                setMultiplier(1);
+                setCurrentRound((prev) => prev + 1);
+
+                // 自动开始下一局
+                await startNewGame();
+              }, 1000);
+            }, 3000);
+          }, remainingRollingTime);
+        } catch (error) {
+          console.error('处理游戏结果失败:', error);
+          setGameState('betting');
+        }
+      };
+
+      // 不等待结果流程执行，确保前端能立即反馈下注成功
+      handleResultFlow();
+
+      return true;
     } catch (error) {
       console.error('确认下注失败:', error);
+      return false;
     }
-  }, [bets, currentGameId, user, endCurrentGame, startNewGame]);
+  }, [bets, currentGameId, user, endCurrentGame, startNewGame, refreshBalance]);
 
   // 自动开始第一局游戏
   useEffect(() => {

@@ -160,9 +160,14 @@ export default function GamePage() {
     }
 
     // 确认下注
-    await confirmBets();
-    hapticSuccess();
-    toast.success(`下注成功 $${totalBetAmount.toFixed(2)}`);
+    const success = await confirmBets();
+    if (success) {
+      hapticSuccess();
+      toast.success(`下注成功 $${totalBetAmount.toFixed(2)}`);
+    } else {
+      hapticError();
+      toast.error('下注失败，请稍后重试');
+    }
   };
 
   // 判断是否可以下注
@@ -170,13 +175,14 @@ export default function GamePage() {
 
   return (
     <div className="flex flex-col h-screen overflow-hidden" style={{ background: 'var(--rich-black)' }}>
-      {/* 顶部栏 - 56px */}
+      {/* 顶部栏 - 72px */}
       <header
-        className="sticky top-0 z-50 h-14 border-b-2 flex items-center justify-between px-4"
+        className="sticky top-0 z-50 h-18 border-b-2 flex items-center justify-between px-4"
         style={{
           background: 'linear-gradient(180deg, var(--rich-black) 0%, var(--onyx-black) 100%)',
           borderBottomColor: 'var(--gold-primary)',
           backdropFilter: 'blur(10px)',
+          minHeight: '72px',
         }}
       >
         {/* 左侧：局号 */}
@@ -194,7 +200,7 @@ export default function GamePage() {
         </div>
 
         {/* 中间：倒计时 */}
-        <div className="flex-1 flex justify-center">
+        <div className="flex-1 flex justify-center items-center" style={{ overflow: 'visible' }}>
           <CountdownTimer />
         </div>
 
@@ -286,8 +292,8 @@ export default function GamePage() {
           paddingBottom: '34px',
           display: 'flex',
           justifyContent: 'center',
-          height: 'calc(100vh - 56px - 220px - 122px - 64px - 32px)',
-          maxHeight: 'calc(100vh - 56px - 220px - 122px - 64px - 32px)',
+          height: 'calc(100vh - 72px - 220px - 122px - 64px - 32px)',
+          maxHeight: 'calc(100vh - 72px - 220px - 122px - 64px - 32px)',
         }}
       >
         <div
