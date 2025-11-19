@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Telegram API 测试工具</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 8px;
+        }
+        
+        .subtitle {
+            color: #666;
+            margin-bottom: 24px;
+        }
+        
+        .test-section {
+            margin-bottom: 24px;
+            padding: 16px;
+            background: #f5f5f5;
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
+        }
+        
+        .test-section h2 {
+            color: #555;
+            margin-bottom: 12px;
+            font-size: 18px;
+        }
+        
+        .input-group {
+            margin-bottom: 12px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 6px;
+            color: #555;
+            font-weight: 500;
+        }
+        
+        input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-right: 8px;
+            margin-top: 8px;
+            transition: transform 0.2s, opacity 0.2s;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            opacity: 0.9;
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .result-box {
+            margin-top: 12px;
+            padding: 12px;
+            background: white;
+            border-radius: 6px;
+            border: 1px solid #ddd;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .result-box pre {
+            font-size: 13px;
+            color: #333;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        
+        .status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+        
+        .status.success {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+        
+        .status.error {
+            background: #ffebee;
+            color: #c62828;
+        }
+        
+        .status.pending {
+            background: #fff3e0;
+            color: #ef6c00;
+        }
+        
+        .info-box {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 12px;
+            margin-bottom: 16px;
+            border-radius: 4px;
+        }
+        
+        .info-box p {
+            color: #1565c0;
+            font-size: 14px;
+            margin-bottom: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Telegram API 测试工具</h1>
+        <p class="subtitle">测试骰宝小程序的Telegram集成和后端API</p>
+        
+        <div class="info-box">
+            <p><strong>后端地址:</strong> http://46.250.168.177:8079</p>
+            <p><strong>测试用户ID:</strong> 6784471903</p>
+        </div>
+
+        <!-- 测试1: 用户初始化 -->
+        <div class="test-section">
+            <h2>1️⃣ 用户初始化测试</h2>
+            <div class="input-group">
+                <label>用户ID</label>
+                <input type="text" id="userId" value="6784471903" placeholder="输入Telegram用户ID">
+            </div>
+            <div class="input-group">
+                <label>用户名</label>
+                <input type="text" id="username" value="test_user" placeholder="输入用户名">
+            </div>
+            <div class="input-group">
+                <label>名字</label>
+                <input type="text" id="firstName" value="测试" placeholder="输入名字">
+            </div>
+            <button onclick="testUserInit()">🚀 初始化用户</button>
+            <div id="initResult" class="result-box" style="display:none;"></div>
+        </div>
+
+        <!-- 测试2: 账户查询 -->
+        <div class="test-section">
+            <h2>2️⃣ 账户余额查询</h2>
+            <div class="input-group">
+                <label>用户ID</label>
+                <input type="text" id="queryUserId" value="6784471903" placeholder="输入Telegram用户ID">
+            </div>
+            <button onclick="testQueryAccount()">💰 查询账户</button>
+            <div id="accountResult" class="result-box" style="display:none;"></div>
+        </div>
+
+        <!-- 测试3: 游戏流程 -->
+        <div class="test-section">
+            <h2>3️⃣ 骰宝游戏流程测试</h2>
+            <div class="input-group">
+                <label>用户ID</label>
+                <input type="text" id="gameUserId" value="6784471903" placeholder="输入Telegram用户ID">
+            </div>
+            <button onclick="testStartGame()">🎲 开始游戏</button>
+            <button onclick="testPlaceBet()">💵 下注</button>
+            <button onclick="testQueryGame()">🔍 查询游戏</button>
+            <button onclick="testEndGame()">🏁 结束游戏</button>
+            <div id="gameResult" class="result-box" style="display:none;"></div>
+        </div>
+
+        <!-- 测试4: 充值测试 -->
+        <div class="test-section">
+            <h2>4️⃣ 账户充值测试</h2>
+            <div class="input-group">
+                <label>用户ID</label>
+                <input type="text" id="rechargeUserId" value="6784471903" placeholder="输入Telegram用户ID">
+            </div>
+            <div class="input-group">
+                <label>充值金额</label>
+                <input type="number" id="rechargeAmount" value="1000" placeholder="输入充值金额">
+            </div>
+            <button onclick="testRecharge()">💳 充值</button>
+            <div id="rechargeResult" class="result-box" style="display:none;"></div>
+        </div>
+
+        <!-- 测试5: 完整流程测试 -->
+        <div class="test-section">
+            <h2>5️⃣ 完整流程自动化测试</h2>
+            <button onclick="testFullFlow()">▶️ 运行完整测试</button>
+            <div id="fullFlowResult" class="result-box" style="display:none;"></div>
+        </div>
+    </div>
+
+    <script>
+        // API基础URL - 使用代理路径
+        const API_BASE = '/api/backend';
+        let currentGameId = null;
+
+        // 通用请求函数
+        async function apiRequest(endpoint, options = {}) {
+            const url = `${API_BASE}${endpoint}`;
+            const startTime = Date.now();
+            
+            try {
+                const response = await fetch(url, {
+                    mode: 'cors',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...options.headers,
+                    },
+                    ...options
+                });
+                
+                const duration = Date.now() - startTime;
+                const data = await response.json();
+                
+                return {
+                    success: response.ok,
+                    status: response.status,
+                    data: data,
+                    duration: duration
+                };
+            } catch (error) {
+                const duration = Date.now() - startTime;
+                return {
+                    success: false,
+                    error: error.message,
+                    duration: duration
+                };
+            }
+        }
+
+        // 显示结果
+        function showResult(elementId, result) {
+            const element = document.getElementById(elementId);
+            element.style.display = 'block';
+            
+            const statusClass = result.success ? 'success' : 'error';
+            const statusText = result.success ? '✅ 成功' : '❌ 失败';
+            
+            let html = `<div style="margin-bottom:8px;">
+                <strong>状态:</strong> <span class="status ${statusClass}">${statusText}</span>
+                <strong style="margin-left:12px;">耗时:</strong> ${result.duration}ms
+            </div>`;
+            
+            if (result.status) {
+                html += `<div style="margin-bottom:8px;"><strong>HTTP状态码:</strong> ${result.status}</div>`;
+            }
+            
+            html += `<pre>${JSON.stringify(result.data || result.error, null, 2)}</pre>`;
+            element.innerHTML = html;
+        }
+
+        // 测试1: 用户初始化
+        async function testUserInit() {
+            const userId = document.getElementById('userId').value;
+            const username = document.getElementById('username').value;
+            const firstName = document.getElementById('firstName').value;
+            
+            const user = {
+                id: parseInt(userId),
+                first_name: firstName,
+                username: username,
+                language_code: 'zh',
+                is_bot: false,
+                can_join_groups: false,
+                can_read_all_group_messages: false,
+                supports_inline_queries: false,
+                is_premium: false,
+                added_to_attachment_menu: false
+            };
+            
+            const result = await apiRequest('/user/init/', {
+                method: 'POST',
+                body: JSON.stringify(user)
+            });
+            
+            showResult('initResult', result);
+        }
+
+        // 测试2: 查询账户
+        async function testQueryAccount() {
+            const userId = document.getElementById('queryUserId').value;
+            const result = await apiRequest(`/account/query/${userId}`);
+            showResult('accountResult', result);
+        }
+
+        // 测试3: 开始游戏
+        async function testStartGame() {
+            const userId = document.getElementById('gameUserId').value;
+            const result = await apiRequest(`/dice/start/${userId}`);
+            
+            if (result.success && result.data && result.data.data) {
+                currentGameId = result.data.data;
+                console.log('游戏ID已保存:', currentGameId);
+            }
+            
+            showResult('gameResult', result);
+        }
+
+        // 测试4: 下注
+        async function testPlaceBet() {
+            if (!currentGameId) {
+                showResult('gameResult', {
+                    success: false,
+                    error: '请先开始游戏获取gameId',
+                    duration: 0
+                });
+                return;
+            }
+            
+            // 测试下注: 选项1（大），金额10
+            const result = await apiRequest(`/dice/bet/${currentGameId}/1/10`);
+            showResult('gameResult', result);
+        }
+
+        // 测试5: 查询游戏
+        async function testQueryGame() {
+            if (!currentGameId) {
+                showResult('gameResult', {
+                    success: false,
+                    error: '请先开始游戏获取gameId',
+                    duration: 0
+                });
+                return;
+            }
+            
+            const result = await apiRequest(`/dice/query/${currentGameId}`);
+            showResult('gameResult', result);
+        }
+
+        // 测试6: 结束游戏
+        async function testEndGame() {
+            if (!currentGameId) {
+                showResult('gameResult', {
+                    success: false,
+                    error: '请先开始游戏获取gameId',
+                    duration: 0
+                });
+                return;
+            }
+            
+            const result = await apiRequest(`/dice/end/${currentGameId}`);
+            showResult('gameResult', result);
+            currentGameId = null;
+        }
+
+        // 测试7: 充值
+        async function testRecharge() {
+            const userId = document.getElementById('rechargeUserId').value;
+            const amount = document.getElementById('rechargeAmount').value;
+            const result = await apiRequest(`/account/recharge/${userId}/${amount}`);
+            showResult('rechargeResult', result);
+        }
+
+        // 测试8: 完整流程
+        async function testFullFlow() {
+            const resultDiv = document.getElementById('fullFlowResult');
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = '<div class="status pending">⏳ 测试进行中...</div>';
+            
+            const userId = '6784471903';
+            const logs = [];
+            
+            try {
+                // 步骤1: 初始化用户
+                logs.push('📝 步骤1: 初始化用户...');
+                const user = {
+                    id: parseInt(userId),
+                    first_name: '测试用户',
+                    username: 'test_user',
+                    language_code: 'zh',
+                    is_bot: false,
+                    can_join_groups: false,
+                    can_read_all_group_messages: false,
+                    supports_inline_queries: false,
+                    is_premium: false,
+                    added_to_attachment_menu: false
+                };
+                
+                const initResult = await apiRequest('/user/init/', {
+                    method: 'POST',
+                    body: JSON.stringify(user)
+                });
+                logs.push(`   ${initResult.success ? '✅' : '❌'} 用户初始化 (${initResult.duration}ms)`);
+                
+                // 步骤2: 查询初始余额
+                logs.push('\n💰 步骤2: 查询初始余额...');
+                const balanceResult = await apiRequest(`/account/query/${userId}`);
+                logs.push(`   ${balanceResult.success ? '✅' : '❌'} 余额查询 (${balanceResult.duration}ms)`);
+                if (balanceResult.success) {
+                    logs.push(`   余额: ${balanceResult.data.data?.balance || 0}`);
+                }
+                
+                // 步骤3: 充值
+                logs.push('\n💳 步骤3: 充值1000...');
+                const rechargeResult = await apiRequest(`/account/recharge/${userId}/1000`);
+                logs.push(`   ${rechargeResult.success ? '✅' : '❌'} 充值 (${rechargeResult.duration}ms)`);
+                
+                // 步骤4: 再次查询余额
+                logs.push('\n💰 步骤4: 查询充值后余额...');
+                const balance2Result = await apiRequest(`/account/query/${userId}`);
+                logs.push(`   ${balance2Result.success ? '✅' : '❌'} 余额查询 (${balance2Result.duration}ms)`);
+                if (balance2Result.success) {
+                    logs.push(`   余额: ${balance2Result.data.data?.balance || 0}`);
+                }
+                
+                // 步骤5: 开始游戏
+                logs.push('\n🎲 步骤5: 开始游戏...');
+                const startResult = await apiRequest(`/dice/start/${userId}`);
+                logs.push(`   ${startResult.success ? '✅' : '❌'} 开始游戏 (${startResult.duration}ms)`);
+                
+                if (startResult.success && startResult.data.data) {
+                    const gameId = startResult.data.data;
+                    logs.push(`   游戏ID: ${gameId}`);
+                    
+                    // 步骤6: 下注
+                    logs.push('\n💵 步骤6: 下注...');
+                    const betResult = await apiRequest(`/dice/bet/${gameId}/1/10`);
+                    logs.push(`   ${betResult.success ? '✅' : '❌'} 下注 (${betResult.duration}ms)`);
+                    
+                    // 步骤7: 查询游戏状态
+                    logs.push('\n🔍 步骤7: 查询游戏状态...');
+                    const queryResult = await apiRequest(`/dice/query/${gameId}`);
+                    logs.push(`   ${queryResult.success ? '✅' : '❌'} 查询游戏 (${queryResult.duration}ms)`);
+                    
+                    // 步骤8: 结束游戏
+                    logs.push('\n🏁 步骤8: 结束游戏...');
+                    const endResult = await apiRequest(`/dice/end/${gameId}`);
+                    logs.push(`   ${endResult.success ? '✅' : '❌'} 结束游戏 (${endResult.duration}ms)`);
+                }
+                
+                // 步骤9: 查询最终余额
+                logs.push('\n💰 步骤9: 查询最终余额...');
+                const balance3Result = await apiRequest(`/account/query/${userId}`);
+                logs.push(`   ${balance3Result.success ? '✅' : '❌'} 余额查询 (${balance3Result.duration}ms)`);
+                if (balance3Result.success) {
+                    logs.push(`   余额: ${balance3Result.data.data?.balance || 0}`);
+                }
+                
+                logs.push('\n🎉 完整流程测试完成!');
+                
+            } catch (error) {
+                logs.push(`\n❌ 测试失败: ${error.message}`);
+            }
+            
+            resultDiv.innerHTML = `<pre>${logs.join('\n')}</pre>`;
+        }
+    </script>
+</body>
+</html>

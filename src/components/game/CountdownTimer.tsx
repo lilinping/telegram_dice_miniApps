@@ -26,18 +26,19 @@ export default function CountdownTimer() {
   };
 
   return (
-    <div className="flex flex-col items-center">
+    <div className="flex flex-col items-center" style={{ padding: '4px 0' }}>
       {/* 倒计时数字 */}
       <div
         className={cn(
           'font-mono font-bold transition-all duration-200',
-          // 正常状态
-          !isWarning && !isEnded && 'text-4xl text-white',
-          // 警告状态（最后5秒）
-          isWarning && 'text-5xl text-error animate-pulse-fast',
+          // 正常状态 - 调整为3xl避免过大
+          !isWarning && !isEnded && 'text-3xl text-white',
+          // 警告状态（最后5秒）- 调整为4xl避免过大
+          isWarning && 'text-4xl text-error animate-pulse-fast',
           // 结束状态
-          isEnded && 'text-3xl text-primary-gold'
+          isEnded && 'text-2xl text-primary-gold'
         )}
+        style={{ lineHeight: '1.2' }}
       >
         {isEnded ? (
           <span className="flex items-center gap-2">
@@ -56,25 +57,12 @@ export default function CountdownTimer() {
 
       {/* 倒计时标签 */}
       {!isEnded && (
-        <div className="mt-1 text-xs text-text-secondary">
+        <div className="mt-0.5 text-xs text-text-secondary">
           {isWarning ? '即将封盘' : '剩余时间'}
         </div>
       )}
 
-      {/* 进度条（可选） */}
-      {!isEnded && (
-        <div className="mt-2 w-20 h-1 bg-bg-medium rounded-full overflow-hidden">
-          <div
-            className={cn(
-              'h-full transition-all duration-1000 ease-linear',
-              isWarning ? 'bg-error' : 'bg-primary-gold'
-            )}
-            style={{
-              width: `${(countdown / 30) * 100}%`, // 假设总时长30秒
-            }}
-          />
-        </div>
-      )}
+      {/* 进度条移除，避免占用过多垂直空间 */}
     </div>
   );
 }

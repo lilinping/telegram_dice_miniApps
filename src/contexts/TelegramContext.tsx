@@ -69,11 +69,11 @@ export function TelegramProvider({ children }: { children: ReactNode }) {
           // 调用后端初始化接口
           await initializeBackendUser(userObj);
         } else {
-          // 开发环境模拟用户
+          // 开发环境模拟用户 - 使用环境变量配置的测试ID
           const mockUser: TelegramUser = {
-            id: 123456,
-            firstName: '测试',
-            username: 'testuser',
+            id: parseInt(process.env.NEXT_PUBLIC_TEST_USER_ID || '6784471903'),
+            firstName: process.env.NEXT_PUBLIC_TEST_USER_NAME || '测试用户',
+            username: process.env.NEXT_PUBLIC_TEST_USERNAME || 'test_user',
             languageCode: 'zh',
           };
 
@@ -81,11 +81,11 @@ export function TelegramProvider({ children }: { children: ReactNode }) {
           await initializeBackendUser(mockUser);
         }
       } else {
-        // 开发环境模拟用户
+        // 开发环境模拟用户 - 使用环境变量配置的测试ID
         const mockUser: TelegramUser = {
-          id: 123456,
-          firstName: '测试',
-          username: 'testuser',
+          id: parseInt(process.env.NEXT_PUBLIC_TEST_USER_ID || '6784471903'),
+          firstName: process.env.NEXT_PUBLIC_TEST_USER_NAME || '测试用户',
+          username: process.env.NEXT_PUBLIC_TEST_USERNAME || 'test_user',
           languageCode: 'zh',
         };
 
@@ -98,9 +98,9 @@ export function TelegramProvider({ children }: { children: ReactNode }) {
 
       // 即使初始化失败，也设置模拟用户以保证应用可以运行
       const fallbackUser: TelegramUser = {
-        id: 123456,
-        firstName: '测试',
-        username: 'testuser',
+        id: parseInt(process.env.NEXT_PUBLIC_TEST_USER_ID || '6784471903'),
+        firstName: process.env.NEXT_PUBLIC_TEST_USER_NAME || '测试用户',
+        username: process.env.NEXT_PUBLIC_TEST_USERNAME || 'test_user',
         languageCode: 'zh',
       };
 

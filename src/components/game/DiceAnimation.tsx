@@ -22,6 +22,13 @@ export default function DiceAnimation({ fullscreen = false }: DiceAnimationProps
   const { gameState, diceResults } = useGame();
   const [animationPhase, setAnimationPhase] = useState<'idle' | 'shaking' | 'rolling' | 'stopped'>('idle');
 
+  // 调试：监控diceResults变化
+  useEffect(() => {
+    if (diceResults.length > 0) {
+      console.log('DiceAnimation - diceResults更新:', diceResults);
+    }
+  }, [diceResults]);
+
   // 根据游戏状态更新动画阶段
   useEffect(() => {
     if (gameState === 'betting') {
@@ -82,6 +89,11 @@ export default function DiceAnimation({ fullscreen = false }: DiceAnimationProps
     const [isRolling, setIsRolling] = useState(false);
     const [translateZ, setTranslateZ] = useState(32); // 默认 32px (64px / 2)
 
+    // 调试：输出当前骰子的值
+    useEffect(() => {
+      console.log('Dice3D - 收到value:', value, '延迟:', delay);
+    }, [value, delay]);
+
     // 根据屏幕尺寸动态计算 translateZ 值
     useEffect(() => {
       const updateTranslateZ = () => {
@@ -95,6 +107,15 @@ export default function DiceAnimation({ fullscreen = false }: DiceAnimationProps
       window.addEventListener('resize', updateTranslateZ);
       return () => window.removeEventListener('resize', updateTranslateZ);
     }, []);
+
+    const finalRotations: Record<number, { x: number; y: number; z: number }> = {
+      1: { x: 0, y: 0, z: 0 },          // 显示前面 (number=1)
+      2: { x: 0, y: 180, z: 0 },        // 旋转180度显示后面 (number=2)
+      3: { x: 0, y: -90, z: 0 },        // 向左转90度显示右面 (number=3)
+      4: { x: 0, y: 90, z: 0 },         // 向右转90度显示左面 (number=4)
+      5: { x: -90, y: 0, z: 0 },        // 向上转90度显示上面 (number=5)
+      6: { x: 90, y: 0, z: 0 },         // 向下转90度显示下面 (number=6)
+    };
 
     useEffect(() => {
       if (animationPhase === 'rolling') {
@@ -112,18 +133,18 @@ export default function DiceAnimation({ fullscreen = false }: DiceAnimationProps
           clearInterval(interval);
           setIsRolling(false);
           // 根据结果设置最终旋转角度
-          const finalRotations: Record<number, { x: number; y: number; z: number }> = {
-            1: { x: 0, y: 0, z: 0 },       // 前面
-            2: { x: 0, y: 180, z: 0 },     // 后面
-            3: { x: 0, y: -90, z: 0 },     // 右面
-            4: { x: 0, y: 90, z: 0 },      // 左面
-            5: { x: -90, y: 0, z: 0 },     // 上面
-            6: { x: 90, y: 0, z: 0 },      // 下面
-          };
-          setRotation(finalRotations[value]);
+          setRotation(finalRotations[value] || finalRotations[1]);
         }, 1500 + delay);
       }
     }, [animationPhase, value, delay]);
+
+    // 当进入停下或展示阶段时保持正确面朝向（避免重新挂载后恢复到1点）
+    useEffect(() => {
+      if (animationPhase === 'stopped') {
+        setIsRolling(false);
+        setRotation(finalRotations[value] || finalRotations[1]);
+      }
+    }, [animationPhase, value]);
 
     return (
       <div 

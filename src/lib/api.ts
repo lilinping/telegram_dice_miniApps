@@ -1,6 +1,10 @@
 import { BackendUser, BackendResponse, DiceEntity, DiceStatisticEntity, AccountModel, DiceChooseVO, PageModelDiceEntity } from '@/lib/types'
 
-const API_BASE_URL = 'http://46.250.168.177:8079'
+// 使用Next.js代理避免跨域问题
+// 开发环境使用代理路径，生产环境可能需要直接访问或使用环境变量
+const API_BASE_URL = typeof window !== 'undefined' 
+  ? '/api/backend'  // 客户端使用代理
+  : 'http://46.250.168.177:8079'  // 服务端直接访问
 
 class ApiService {
   private baseUrl: string
@@ -21,6 +25,8 @@ class ApiService {
         'Content-Type': 'application/json',
         ...options.headers,
       },
+      // 在浏览器环境中使用cors模式
+      ...(typeof window !== 'undefined' && { mode: 'cors' as RequestMode }),
     }
 
     try {

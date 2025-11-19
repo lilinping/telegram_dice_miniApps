@@ -33,6 +33,16 @@ const nextConfig = {
     ]
   },
 
+  // API代理配置 - 解决跨域问题
+  async rewrites() {
+    return [
+      {
+        source: '/api/backend/:path*',
+        destination: 'http://46.250.168.177:8079/:path*',
+      },
+    ]
+  },
+
   // Telegram WebApp环境变量
   env: {
     NEXT_PUBLIC_APP_NAME: 'DiceTreasure',
