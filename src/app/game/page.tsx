@@ -235,9 +235,9 @@ export default function GamePage() {
         </div>
       </header>
 
-      {/* 3D骰盅展示区 - 280px */}
+      {/* 3D骰盅展示区 - 调整内边距避免重叠并贴近下注面板 */}
       <div
-        className="relative h-[230px]"
+        className="relative h-[160px] pt-10 pb-0"
         style={{
           background: 'linear-gradient(180deg, var(--onyx-black) 0%, var(--rich-black) 100%)',
         }}

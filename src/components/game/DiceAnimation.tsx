@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useGame } from '@/contexts/GameContext';
 
 /**
@@ -18,6 +18,16 @@ interface DiceAnimationProps {
   fullscreen?: boolean;
 }
 
+// 骰子旋转角度映射（定义在组件外部，避免重复创建）
+const FINAL_ROTATIONS: Record<number, { x: number; y: number; z: number }> = {
+  1: { x: 0, y: 0, z: 0 },          // 显示前面 (number=1)
+  2: { x: 0, y: 180, z: 0 },        // 旋转180度显示后面 (number=2)
+  3: { x: 0, y: -90, z: 0 },        // 向左转90度显示右面 (number=3)
+  4: { x: 0, y: 90, z: 0 },         // 向右转90度显示左面 (number=4)
+  5: { x: -90, y: 0, z: 0 },        // 向上转90度显示上面 (number=5)
+  6: { x: 90, y: 0, z: 0 },         // 向下转90度显示下面 (number=6)
+};
+
 export default function DiceAnimation({ fullscreen = false }: DiceAnimationProps) {
   const { gameState, diceResults } = useGame();
   const [animationPhase, setAnimationPhase] = useState<'idle' | 'shaking' | 'rolling' | 'stopped'>('idle');
@@ -34,8 +44,8 @@ export default function DiceAnimation({ fullscreen = false }: DiceAnimationProps
     if (gameState === 'betting') {
       setAnimationPhase('idle');
     } else if (gameState === 'rolling') {
-      setAnimationPhase('shaking');
-      setTimeout(() => setAnimationPhase('rolling'), 800);
+      // 直接进入rolling，不显示骰盅
+      setAnimationPhase('rolling');
     } else if (gameState === 'revealing') {
       setAnimationPhase('stopped');
     }
@@ -85,14 +95,37 @@ export default function DiceAnimation({ fullscreen = false }: DiceAnimationProps
 
   // 3D骰子组件
   const Dice3D = ({ value, delay = 0 }: { value: number; delay?: number }) => {
-    const [rotation, setRotation] = useState({ x: 0, y: 0, z: 0 });
+    // 初始rotation设置为value对应的角度（静态组件立即显示正确面）
+    const [rotation, setRotation] = useState(() => FINAL_ROTATIONS[value] || FINAL_ROTATIONS[1]);
     const [isRolling, setIsRolling] = useState(false);
     const [translateZ, setTranslateZ] = useState(32); // 默认 32px (64px / 2)
-
-    // 调试：输出当前骰子的值
+    
+    // 使用ref保存最新的value，避免闭包问题
+    const valueRef = useRef(value);
+    // 使用ref保存定时器引用，用于清理
+    const timersRef = useRef<{
+      fastInterval?: NodeJS.Timeout;
+      phaseTimeout?: NodeJS.Timeout;
+      convergenceInterval?: NodeJS.Timeout;
+      finalTimeout?: NodeJS.Timeout;
+    }>({});
+    // 使用ref记录是否已经处理过stopped状态，避免重复执行
+    const stoppedHandledRef = useRef(false);
+    
     useEffect(() => {
-      console.log('Dice3D - 收到value:', value, '延迟:', delay);
-    }, [value, delay]);
+      valueRef.current = value;
+      // 只在idle状态更新rotation（用于静态组件）
+      // rolling和stopped阶段有专门的动画逻辑，不要在这里设置
+      if (animationPhase === 'idle') {
+        const targetRot = FINAL_ROTATIONS[value] || FINAL_ROTATIONS[1];
+        setRotation(targetRot);
+      }
+    }, [value]);
+
+    // 调试：输出当前骰子的值（已注释，减少控制台输出）
+    // useEffect(() => {
+    //   console.log('Dice3D - 收到value:', value, '延迟:', delay);
+    // }, [value, delay]);
 
     // 根据屏幕尺寸动态计算 translateZ 值
     useEffect(() => {
@@ -108,20 +141,14 @@ export default function DiceAnimation({ fullscreen = false }: DiceAnimationProps
       return () => window.removeEventListener('resize', updateTranslateZ);
     }, []);
 
-    const finalRotations: Record<number, { x: number; y: number; z: number }> = {
-      1: { x: 0, y: 0, z: 0 },          // 显示前面 (number=1)
-      2: { x: 0, y: 180, z: 0 },        // 旋转180度显示后面 (number=2)
-      3: { x: 0, y: -90, z: 0 },        // 向左转90度显示右面 (number=3)
-      4: { x: 0, y: 90, z: 0 },         // 向右转90度显示左面 (number=4)
-      5: { x: -90, y: 0, z: 0 },        // 向上转90度显示上面 (number=5)
-      6: { x: 90, y: 0, z: 0 },         // 向下转90度显示下面 (number=6)
-    };
-
     useEffect(() => {
       if (animationPhase === 'rolling') {
         setIsRolling(true);
-        // 快速随机旋转1.5秒
-        const interval = setInterval(() => {
+        const currentValue = valueRef.current;
+        const targetRotation = FINAL_ROTATIONS[currentValue] || FINAL_ROTATIONS[1];
+        
+        // 第一阶段：快速随机旋转1.2秒
+        timersRef.current.fastInterval = setInterval(() => {
           setRotation({
             x: Math.random() * 360,
             y: Math.random() * 360,
@@ -129,22 +156,71 @@ export default function DiceAnimation({ fullscreen = false }: DiceAnimationProps
           });
         }, 50);
 
-        setTimeout(() => {
-          clearInterval(interval);
-          setIsRolling(false);
-          // 根据结果设置最终旋转角度
-          setRotation(finalRotations[value] || finalRotations[1]);
-        }, 1500 + delay);
-      }
-    }, [animationPhase, value, delay]);
+        // 1.2秒后进入收敛阶段
+        timersRef.current.phaseTimeout = setTimeout(() => {
+          if (timersRef.current.fastInterval) {
+            clearInterval(timersRef.current.fastInterval);
+          }
+          
+          // 第二阶段：逐渐收敛到目标角度（0.6秒）
+          // 使用更小的随机范围，围绕目标角度波动
+          let convergenceStep = 0;
+          timersRef.current.convergenceInterval = setInterval(() => {
+            convergenceStep++;
+            // 随着时间推移，随机范围逐渐缩小（从±80度到±5度）
+            const range = Math.max(5, 80 - convergenceStep * 10);
+            setRotation({
+              x: targetRotation.x + (Math.random() - 0.5) * range,
+              y: targetRotation.y + (Math.random() - 0.5) * range,
+              z: targetRotation.z + (Math.random() - 0.5) * range,
+            });
+          }, 75); // 0.6秒内执行8次
 
-    // 当进入停下或展示阶段时保持正确面朝向（避免重新挂载后恢复到1点）
-    useEffect(() => {
-      if (animationPhase === 'stopped') {
-        setIsRolling(false);
-        setRotation(finalRotations[value] || finalRotations[1]);
+          // 0.6秒后完全停止，设置精确角度
+          timersRef.current.finalTimeout = setTimeout(() => {
+            if (timersRef.current.convergenceInterval) {
+              clearInterval(timersRef.current.convergenceInterval);
+            }
+            setIsRolling(false);
+            // 设置精确的最终角度
+            setRotation(targetRotation);
+          }, 600);
+        }, 1200 + delay);
       }
-    }, [animationPhase, value]);
+      
+      // Cleanup函数：清理所有定时器
+      return () => {
+        if (timersRef.current.fastInterval) {
+          clearInterval(timersRef.current.fastInterval);
+        }
+        if (timersRef.current.phaseTimeout) {
+          clearTimeout(timersRef.current.phaseTimeout);
+        }
+        if (timersRef.current.convergenceInterval) {
+          clearInterval(timersRef.current.convergenceInterval);
+        }
+        if (timersRef.current.finalTimeout) {
+          clearTimeout(timersRef.current.finalTimeout);
+        }
+      };
+    }, [animationPhase, delay]); // 移除value依赖，避免value变化时重新触发动画
+
+    // 当进入stopped阶段时保持正确面朝向
+    useEffect(() => {
+      if (animationPhase === 'stopped' && !stoppedHandledRef.current) {
+        stoppedHandledRef.current = true;
+        setIsRolling(false);
+        // 使用ref获取最新值
+        const currentValue = valueRef.current;
+        const targetRot = FINAL_ROTATIONS[currentValue] || FINAL_ROTATIONS[1];
+        setRotation(targetRot);
+      } else if (animationPhase !== 'stopped') {
+        // 离开stopped状态时重置标记
+        stoppedHandledRef.current = false;
+      }
+    }, [animationPhase]); // 只依赖animationPhase，不依赖value
+
+    const shouldBounce = animationPhase === 'stopped';
 
     return (
       <div 
@@ -152,15 +228,22 @@ export default function DiceAnimation({ fullscreen = false }: DiceAnimationProps
         style={{ perspective: '600px' }}
       >
         <div
-          className="relative w-full h-full"
+          className={shouldBounce ? 'dice-bounce-wrapper' : ''}
           style={{
-            transformStyle: 'preserve-3d',
-            transform: `rotateX(${rotation.x}deg) rotateY(${rotation.y}deg) rotateZ(${rotation.z}deg)`,
-            transition: isRolling ? 'none' : 'transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)',
-            animation: animationPhase === 'stopped' ? 'diceBounce 0.6s ease-out' : 'none',
-            animationDelay: `${delay}ms`,
+            width: '100%',
+            height: '100%',
+            animationDelay: shouldBounce ? `${delay}ms` : undefined,
           }}
         >
+          <div
+            className="relative w-full h-full"
+            style={{
+              transformStyle: 'preserve-3d',
+              transform: `rotateX(${rotation.x}deg) rotateY(${rotation.y}deg) rotateZ(${rotation.z}deg)`,
+              // idle状态不需要transition，立即显示；只有rolling阶段结束时需要平滑过渡
+              transition: isRolling ? 'none' : (animationPhase === 'idle' ? 'none' : 'transform 0.5s ease-out'),
+            }}
+          >
           {/* 6个面 - translateZ 值为骰子边长的一半，确保面紧密贴合 */}
           <DiceFace number={1} position={`translateZ(${translateZ}px)`} />
           <DiceFace number={2} position={`rotateY(180deg) translateZ(${translateZ}px)`} />
@@ -168,6 +251,7 @@ export default function DiceAnimation({ fullscreen = false }: DiceAnimationProps
           <DiceFace number={4} position={`rotateY(-90deg) translateZ(${translateZ}px)`} />
           <DiceFace number={5} position={`rotateX(90deg) translateZ(${translateZ}px)`} />
           <DiceFace number={6} position={`rotateX(-90deg) translateZ(${translateZ}px)`} />
+          </div>
         </div>
       </div>
     );
@@ -218,52 +302,56 @@ export default function DiceAnimation({ fullscreen = false }: DiceAnimationProps
 
   // 根据状态显示不同内容
   const renderContent = () => {
+    // 骰子值：优先使用diceResults，否则显示默认值
+    const displayDice = diceResults.length === 3 ? diceResults : [1, 1, 1];
+    const baseWrapperClass = `flex flex-col items-center h-full ${fullscreen ? 'justify-center' : ''}`;
+    const baseSpacing = {
+      paddingTop: fullscreen ? '0px' : '12px',
+      paddingBottom: fullscreen ? '0px' : '10px',
+    };
+
     if (gameState === 'betting' || animationPhase === 'idle') {
-      // 待机状态 - 显示骰盅
+      // 待机状态 - 使用稳定的key，不切换组件
       return (
-        <div className="flex flex-col items-center justify-center h-full">
-          <DiceCup />
+        <div className={baseWrapperClass} style={{ ...baseSpacing, gap: fullscreen ? '20px' : '12px' }}>
+          <div className="flex gap-4">
+            {displayDice.map((value, idx) => (
+              <Dice3D key={`dice-${idx}`} value={value} delay={0} />
+            ))}
+          </div>
           <p
-            className="mt-6 text-sm"
+            className="text-sm"
             style={{ color: 'rgba(255, 255, 255, 0.6)' }}
           >
-            {gameState === 'betting' ? '正在下注中...' : '准备开始'}
+            {gameState === 'betting' ? '请下注' : '准备开始'}
           </p>
         </div>
       );
     }
 
-    if (animationPhase === 'shaking') {
-      // 晃动阶段 - 显示晃动的骰盅
-      return (
-        <div className="flex flex-col items-center justify-center h-full">
-          <DiceCup />
-          <p
-            className="mt-6 text-base font-semibold animate-pulse"
-            style={{ color: 'var(--gold-bright)' }}
-          >
-            摇骰中...
-          </p>
-        </div>
-      );
-    }
+    // 取消shaking阶段，直接进入rolling
 
     if (animationPhase === 'rolling') {
-      // 滚动阶段 - 显示3D滚动的骰子
+      // 滚动阶段 - 显示进度条和骰子滚动
       return (
-        <div className="flex flex-col items-center justify-center h-full gap-8">
-          <div className="flex gap-4">
-            {diceResults.length === 3 ? (
-              diceResults.map((value, idx) => (
-                <Dice3D key={idx} value={value} delay={idx * 100} />
-              ))
-            ) : (
-              // 默认显示三个骰子
-              [4, 5, 6].map((value, idx) => (
-                <Dice3D key={idx} value={value} delay={idx * 100} />
-              ))
-            )}
+        <div className={baseWrapperClass} style={{ ...baseSpacing, gap: fullscreen ? '20px' : '16px' }}>
+          {/* 进度条 */}
+          <div className="w-64 h-2 bg-gray-800 rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-gradient-to-r from-yellow-500 to-yellow-600"
+              style={{
+                animation: 'progressBar 2.3s ease-out forwards',
+              }}
+            />
           </div>
+          
+          {/* 骰子滚动 */}
+          <div className="flex gap-4">
+            {displayDice.map((value, idx) => (
+              <Dice3D key={`dice-${idx}`} value={value} delay={idx * 100} />
+            ))}
+          </div>
+          
           <p
             className="text-base font-semibold animate-pulse"
             style={{ color: 'var(--gold-bright)' }}
@@ -275,18 +363,25 @@ export default function DiceAnimation({ fullscreen = false }: DiceAnimationProps
     }
 
     if (animationPhase === 'stopped' && diceResults.length === 3) {
-      // 停止阶段 - 显示最终结果
+      // 停止阶段 - 继续使用相同的key，保持组件实例
       const total = diceResults.reduce((sum, val) => sum + val, 0);
       const isBig = total >= 11 && total <= 17;
       const isSmall = total >= 4 && total <= 10;
       const isOdd = total % 2 === 1;
 
       return (
-        <div className="flex flex-col items-center justify-center h-full gap-6">
-          {/* 骰子结果 */}
+        <div className={baseWrapperClass} style={{ ...baseSpacing, gap: fullscreen ? '20px' : '16px' }}>
+          {/* 下注结果提示 */}
+          <div className="text-center animate-fade-in">
+            <p className="text-lg font-bold" style={{ color: 'var(--gold-bright)' }}>
+              开奖结果
+            </p>
+          </div>
+
+          {/* 骰子结果 - 使用相同的key，保持组件实例不变 */}
           <div className="flex gap-4">
             {diceResults.map((value, idx) => (
-              <Dice3D key={idx} value={value} delay={idx * 100} />
+              <Dice3D key={`dice-${idx}`} value={value} delay={idx * 100} />
             ))}
           </div>
 
@@ -379,12 +474,41 @@ export default function DiceAnimation({ fullscreen = false }: DiceAnimationProps
           }
         }
 
+        @keyframes fade-in {
+          from {
+            opacity: 0;
+            transform: translateY(-10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        @keyframes progressBar {
+          from {
+            width: 0%;
+          }
+          to {
+            width: 100%;
+          }
+        }
+
         .animate-shake {
           animation: shake 0.8s ease-in-out;
         }
 
         .animate-scale-in {
           animation: scale-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .animate-fade-in {
+          animation: fade-in 0.5s ease-out;
+        }
+
+        .dice-bounce-wrapper {
+          display: inline-block;
+          animation: diceBounce 0.6s ease-out;
         }
       `}</style>
     </div>

@@ -272,66 +272,65 @@ export function GameProvider({ children }: { children: ReactNode }) {
       // 保存为上一局下注
       setLastBets(bets);
 
-      // 下单成功后刷新余额，确保顶部余额及时更新
-      await refreshBalance();
-
-      // 立即进入滚动阶段，提升交互速度
+      // 立即进入rolling状态，提供即时反馈
       setGameState('rolling');
       const rollStartTime = Date.now();
 
+      // 异步获取结果，不阻塞动画
       const handleResultFlow = async () => {
         try {
           // 结束游戏并获取结果
           await endCurrentGame();
 
-          // 查询游戏结果后设置骰子动画
+          // 查询游戏结果
           const gameResult = await apiService.queryGame(currentGameId);
-          if (gameResult.success && gameResult.data) {
-            const result = gameResult.data;
-
-            // 设置骰子结果
-            if (result.outCome && result.outCome.length === 3) {
-              console.log('设置骰子结果:', result.outCome);
-              setDiceResults(result.outCome);
-            } else {
-              console.error('骰子结果数据异常:', result.outCome);
-            }
-          } else {
+          if (!gameResult.success || !gameResult.data) {
             console.error('查询游戏结果失败:', gameResult);
+            return;
           }
 
-          // 确保滚动动画至少展示2.3秒
-          const elapsed = Date.now() - rollStartTime;
-          const minRollingDuration = 2300;
-          const remainingRollingTime = Math.max(0, minRollingDuration - elapsed);
+          const result = gameResult.data;
 
-          setTimeout(() => {
-            setGameState('revealing');
+          // 设置骰子结果（静默更新，不影响正在进行的动画）
+          if (result.outCome && result.outCome.length === 3) {
+            console.log('设置骰子结果:', result.outCome);
+            setDiceResults(result.outCome);
+          } else {
+            console.error('骰子结果数据异常:', result.outCome);
+          }
 
-            setTimeout(() => {
-              setGameState('settled');
-
-              setTimeout(async () => {
-                setGameState('betting');
-                setDiceResults([]);
-                setBets({});
-                setBetHistory([]);
-                setMultiplier(1);
-                setCurrentRound((prev) => prev + 1);
-
-                // 自动开始下一局
-                await startNewGame();
-              }, 1000);
-            }, 3000);
-          }, remainingRollingTime);
+          // 下单成功后刷新余额
+          await refreshBalance();
         } catch (error) {
-          console.error('处理游戏结果失败:', error);
-          setGameState('betting');
+          console.error('获取游戏结果失败:', error);
         }
       };
 
-      // 不等待结果流程执行，确保前端能立即反馈下注成功
+
+      // 启动异步流程获取结果（不阻塞动画）
       handleResultFlow();
+
+      // 动画时间线（不等待API，固定时间）
+      setTimeout(() => {
+        setGameState('revealing');
+      }, 2300); // rolling阶段2.3秒
+
+      setTimeout(() => {
+        setGameState('settled');
+      }, 5300); // revealing阶段3秒
+
+      setTimeout(async () => {
+        setGameState('betting');
+        // 注意：不清空diceResults，保留上一局结果显示
+        // setDiceResults([]);  // 注释掉，让骰子保持显示上一局结果
+        setBets({});
+        setBetHistory([]);
+        setMultiplier(1);
+        setCurrentRound((prev) => prev + 1);
+
+        // 自动开始下一局
+        await startNewGame();
+      }, 6300); // settled阶段1秒
 
       return true;
     } catch (error) {
