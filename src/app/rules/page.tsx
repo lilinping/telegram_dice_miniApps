@@ -1,45 +1,53 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
+import { useGame } from '@/contexts/GameContext';
+import { getBetChooseId } from '@/lib/betMapping';
 
 /**
  * 规则说明页面
  *
  * 功能：
  * 1. 图文并茂的规则说明
- * 2. 交互式赔率示例
+ * 2. 交互式赔率示例（从接口动态获取）
  * 3. 常见问题解答
  * 4. 清晰的投注类型说明
  */
 
-const betTypeDetails = [
+// 投注类型定义（不含赔率，赔率从接口获取）
+const betTypeDetailsTemplate = [
   {
     category: '基础投注',
     types: [
       {
         name: '大',
+        betId: 'big',
         desc: '总点数11-17（三同号除外）',
-        odds: '1:1',
-        example: '下注100 USDT，开出15点（大），获得200 USDT',
+        exampleAmount: 100,
+        exampleResult: '15点（大）',
       },
       {
         name: '小',
+        betId: 'small',
         desc: '总点数4-10（三同号除外）',
-        odds: '1:1',
-        example: '下注100 USDT，开出8点（小），获得200 USDT',
+        exampleAmount: 100,
+        exampleResult: '8点（小）',
       },
       {
         name: '单',
+        betId: 'odd',
         desc: '总点数为奇数',
-        odds: '1:1',
-        example: '下注100 USDT，开出13点（单），获得200 USDT',
+        exampleAmount: 100,
+        exampleResult: '13点（单）',
       },
       {
         name: '双',
+        betId: 'even',
         desc: '总点数为偶数',
-        odds: '1:1',
-        example: '下注100 USDT，开出12点（双），获得200 USDT',
+        exampleAmount: 100,
+        exampleResult: '12点（双）',
       },
     ],
   },
@@ -48,45 +56,52 @@ const betTypeDetails = [
     types: [
       {
         name: '点数4/17',
+        betId: 'num-4',
         desc: '总点数为4或17',
-        odds: '60:1',
-        example: '下注10 USDT，开出4点，获得610 USDT',
+        exampleAmount: 10,
+        exampleResult: '4点',
       },
       {
         name: '点数5/16',
+        betId: 'num-5',
         desc: '总点数为5或16',
-        odds: '30:1',
-        example: '下注10 USDT，开出5点，获得310 USDT',
+        exampleAmount: 10,
+        exampleResult: '5点',
       },
       {
         name: '点数6/15',
+        betId: 'num-6',
         desc: '总点数为6或15',
-        odds: '18:1',
-        example: '下注10 USDT，开出6点，获得190 USDT',
+        exampleAmount: 10,
+        exampleResult: '6点',
       },
       {
         name: '点数7/14',
+        betId: 'num-7',
         desc: '总点数为7或14',
-        odds: '12:1',
-        example: '下注10 USDT，开出7点，获得130 USDT',
+        exampleAmount: 10,
+        exampleResult: '7点',
       },
       {
         name: '点数8/13',
+        betId: 'num-8',
         desc: '总点数为8或13',
-        odds: '8:1',
-        example: '下注10 USDT，开出8点，获得90 USDT',
+        exampleAmount: 10,
+        exampleResult: '8点',
       },
       {
         name: '点数9/12',
+        betId: 'num-9',
         desc: '总点数为9或12',
-        odds: '7:1',
-        example: '下注10 USDT，开出9点，获得80 USDT',
+        exampleAmount: 10,
+        exampleResult: '9点',
       },
       {
         name: '点数10/11',
+        betId: 'num-10',
         desc: '总点数为10或11',
-        odds: '6:1',
-        example: '下注10 USDT，开出10点，获得70 USDT',
+        exampleAmount: 10,
+        exampleResult: '10点',
       },
     ],
   },
@@ -95,15 +110,17 @@ const betTypeDetails = [
     types: [
       {
         name: '任意三同号',
+        betId: 'any-triple',
         desc: '三颗骰子点数相同（任意）',
-        odds: '30:1',
-        example: '下注10 USDT，开出三个6，获得310 USDT',
+        exampleAmount: 10,
+        exampleResult: '三个6',
       },
       {
         name: '指定三同号',
+        betId: 'triple-6',
         desc: '指定某点的三同号',
-        odds: '180:1',
-        example: '下注1 USDT，指定三个6并开出，获得181 USDT',
+        exampleAmount: 1,
+        exampleResult: '指定三个6并开出',
       },
     ],
   },
@@ -112,9 +129,10 @@ const betTypeDetails = [
     types: [
       {
         name: '两骰组合',
+        betId: 'pair-1-2',
         desc: '指定两颗骰子点数（如1+2）',
-        odds: '5:1',
-        example: '下注10 USDT，开出1-2-4（含1和2），获得60 USDT',
+        exampleAmount: 10,
+        exampleResult: '1-2-4（含1和2）',
       },
     ],
   },
@@ -123,9 +141,10 @@ const betTypeDetails = [
     types: [
       {
         name: '单骰号',
+        betId: 'single-4',
         desc: '指定点数出现1次、2次或3次',
-        odds: '1:1 / 2:1 / 3:1',
-        example: '下注100 USDT在4，开出4-4-6（2次），获得300 USDT',
+        exampleAmount: 100,
+        exampleResult: '4-4-6（2次）',
       },
     ],
   },
@@ -161,6 +180,47 @@ const faqs = [
 
 export default function RulesPage() {
   const router = useRouter();
+  const { diceOptions } = useGame();
+
+  // 获取赔率的辅助函数
+  const getOdds = (betId: string): string => {
+    const chooseId = getBetChooseId(betId);
+    if (chooseId === null) return '1:1';
+    
+    const option = diceOptions.get(chooseId);
+    if (!option || !option.multi) return '1:1';
+    
+    return `${option.multi}:1`;
+  };
+
+  // 计算示例收益
+  const calculateWinAmount = (betId: string, betAmount: number): number => {
+    const chooseId = getBetChooseId(betId);
+    if (chooseId === null) return betAmount * 2;
+    
+    const option = diceOptions.get(chooseId);
+    if (!option || !option.multi) return betAmount * 2;
+    
+    // 处理范围赔率（如 "2-4"，取中间值）
+    if (option.multi.includes('-')) {
+      const [min, max] = option.multi.split('-').map(Number);
+      const avgMulti = (min + max) / 2;
+      return betAmount * (avgMulti + 1);
+    }
+    
+    const multi = parseFloat(option.multi);
+    return betAmount * (multi + 1);
+  };
+
+  // 生成带赔率的投注类型数据
+  const betTypeDetails = betTypeDetailsTemplate.map(category => ({
+    ...category,
+    types: category.types.map(type => ({
+      ...type,
+      odds: getOdds(type.betId),
+      example: `下注${type.exampleAmount} USDT，开出${type.exampleResult}，获得${calculateWinAmount(type.betId, type.exampleAmount).toFixed(0)} USDT`,
+    })),
+  }));
 
   return (
     <div className="min-h-screen bg-bg-darkest pb-20">
@@ -267,37 +327,37 @@ export default function RulesPage() {
               <tbody className="divide-y divide-border">
                 <tr>
                   <td className="py-2 text-text-primary">大/小/单/双</td>
-                  <td className="text-center font-mono text-primary-gold">1:1</td>
+                  <td className="text-center font-mono text-primary-gold">{getOdds('big')}</td>
                   <td className="text-right text-text-secondary">10-10,000</td>
                 </tr>
                 <tr>
                   <td className="py-2 text-text-primary">点数4/17</td>
-                  <td className="text-center font-mono text-primary-gold">60:1</td>
+                  <td className="text-center font-mono text-primary-gold">{getOdds('num-4')}</td>
                   <td className="text-right text-text-secondary">1-500</td>
                 </tr>
                 <tr>
                   <td className="py-2 text-text-primary">点数5/16</td>
-                  <td className="text-center font-mono text-primary-gold">30:1</td>
+                  <td className="text-center font-mono text-primary-gold">{getOdds('num-5')}</td>
                   <td className="text-right text-text-secondary">1-500</td>
                 </tr>
                 <tr>
                   <td className="py-2 text-text-primary">任意三同号</td>
-                  <td className="text-center font-mono text-primary-gold">30:1</td>
+                  <td className="text-center font-mono text-primary-gold">{getOdds('any-triple')}</td>
                   <td className="text-right text-text-secondary">1-1,000</td>
                 </tr>
                 <tr>
                   <td className="py-2 text-text-primary">指定三同号</td>
-                  <td className="text-center font-mono text-primary-gold">180:1</td>
+                  <td className="text-center font-mono text-primary-gold">{getOdds('triple-1')}</td>
                   <td className="text-right text-text-secondary">1-100</td>
                 </tr>
                 <tr>
                   <td className="py-2 text-text-primary">两骰组合</td>
-                  <td className="text-center font-mono text-primary-gold">5:1</td>
+                  <td className="text-center font-mono text-primary-gold">{getOdds('pair-1-2')}</td>
                   <td className="text-right text-text-secondary">1-1,000</td>
                 </tr>
                 <tr>
                   <td className="py-2 text-text-primary">单骰号</td>
-                  <td className="text-center font-mono text-primary-gold">1/2/3:1</td>
+                  <td className="text-center font-mono text-primary-gold">{getOdds('single-1')}</td>
                   <td className="text-right text-text-secondary">1-1,000</td>
                 </tr>
               </tbody>

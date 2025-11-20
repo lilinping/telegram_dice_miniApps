@@ -1,6 +1,7 @@
 'use client';
 
 import { useGame } from '@/contexts/GameContext';
+import { getBetChooseId } from '@/lib/betMapping';
 import BetCell from './BetCell';
 import DiceIcon, { DoubleDiceIcon } from './DiceIcon';
 
@@ -8,83 +9,93 @@ import DiceIcon, { DoubleDiceIcon } from './DiceIcon';
  * 投注面板组件 V2.0 - 专业赌场布局
  *
  * 完整骰宝投注类型：
- * 1. 大/小/单/双（4种，赔率1:1）
- * 2. 点数4-17（14种，赔率6:1~60:1）
- * 3. 任意三同号、指定三同号（2种，赔率30:1和180:1）
- * 4. 两骰组合（15种，赔率6:1）- 显示骰子图案
- * 5. 单骰号1-6（6种，赔率1/2/3:1）- 显示骰子图案
+ * 1. 大/小/单/双（4种）
+ * 2. 点数4-17（14种）
+ * 3. 任意三同号、指定三同号（2种）
+ * 4. 两骰组合（15种）- 显示骰子图案
+ * 5. 单骰号1-6（6种）- 显示骰子图案
  *
  * 布局参考澳门/新加坡赌场标准
+ * 赔率从接口动态获取
  */
 
 interface BetPanelProps {
   disabled?: boolean;
 }
 
-// 投注类型定义
+// 投注类型定义（不含赔率，赔率从接口获取）
 const betTypes = {
-  // 大小单双（用于后续行/其他区域）
-  bigSmall: [
-    { id: 'big', name: '大', desc: '11-17', odds: '1:1', icon: '⬆️' },
-    { id: 'small', name: '小', desc: '4-10', odds: '1:1', icon: '⬇️' },
-    { id: 'odd', name: '单', desc: '奇数', odds: '1:1', icon: '1️⃣' },
-    { id: 'even', name: '双', desc: '偶数', odds: '1:1', icon: '2️⃣' },
-  ],
-
   // 点数4-10
   numbersLow: [
-    { id: 'num-4', name: '4', odds: '60:1' },
-    { id: 'num-5', name: '5', odds: '30:1' },
-    { id: 'num-6', name: '6', odds: '18:1' },
-    { id: 'num-7', name: '7', odds: '12:1' },
-    { id: 'num-8', name: '8', odds: '8:1' },
-    { id: 'num-9', name: '9', odds: '7:1' },
-    { id: 'num-10', name: '10', odds: '6:1' },
+    { id: 'num-4', name: '4' },
+    { id: 'num-5', name: '5' },
+    { id: 'num-6', name: '6' },
+    { id: 'num-7', name: '7' },
+    { id: 'num-8', name: '8' },
+    { id: 'num-9', name: '9' },
+    { id: 'num-10', name: '10' },
   ],
 
   // 点数11-17
   numbersHigh: [
-    { id: 'num-11', name: '11', odds: '6:1' },
-    { id: 'num-12', name: '12', odds: '7:1' },
-    { id: 'num-13', name: '13', odds: '8:1' },
-    { id: 'num-14', name: '14', odds: '12:1' },
-    { id: 'num-15', name: '15', odds: '18:1' },
-    { id: 'num-16', name: '16', odds: '30:1' },
-    { id: 'num-17', name: '17', odds: '60:1' },
+    { id: 'num-11', name: '11' },
+    { id: 'num-12', name: '12' },
+    { id: 'num-13', name: '13' },
+    { id: 'num-14', name: '14' },
+    { id: 'num-15', name: '15' },
+    { id: 'num-16', name: '16' },
+    { id: 'num-17', name: '17' },
   ],
 
   // 两骰组合（15种）- 带骰子点数
   pairs: [
-    { id: 'pair-1-2', name: '1-2', odds: '5:1', dice: [1, 2] as [1 | 2 | 3 | 4 | 5 | 6, 1 | 2 | 3 | 4 | 5 | 6] },
-    { id: 'pair-1-3', name: '1-3', odds: '5:1', dice: [1, 3] as [1 | 2 | 3 | 4 | 5 | 6, 1 | 2 | 3 | 4 | 5 | 6] },
-    { id: 'pair-1-4', name: '1-4', odds: '5:1', dice: [1, 4] as [1 | 2 | 3 | 4 | 5 | 6, 1 | 2 | 3 | 4 | 5 | 6] },
-    { id: 'pair-1-5', name: '1-5', odds: '5:1', dice: [1, 5] as [1 | 2 | 3 | 4 | 5 | 6, 1 | 2 | 3 | 4 | 5 | 6] },
-    { id: 'pair-1-6', name: '1-6', odds: '5:1', dice: [1, 6] as [1 | 2 | 3 | 4 | 5 | 6, 1 | 2 | 3 | 4 | 5 | 6] },
-    { id: 'pair-2-3', name: '2-3', odds: '5:1', dice: [2, 3] as [1 | 2 | 3 | 4 | 5 | 6, 1 | 2 | 3 | 4 | 5 | 6] },
-    { id: 'pair-2-4', name: '2-4', odds: '5:1', dice: [2, 4] as [1 | 2 | 3 | 4 | 5 | 6, 1 | 2 | 3 | 4 | 5 | 6] },
-    { id: 'pair-2-5', name: '2-5', odds: '5:1', dice: [2, 5] as [1 | 2 | 3 | 4 | 5 | 6, 1 | 2 | 3 | 4 | 5 | 6] },
-    { id: 'pair-2-6', name: '2-6', odds: '5:1', dice: [2, 6] as [1 | 2 | 3 | 4 | 5 | 6, 1 | 2 | 3 | 4 | 5 | 6] },
-    { id: 'pair-3-4', name: '3-4', odds: '5:1', dice: [3, 4] as [1 | 2 | 3 | 4 | 5 | 6, 1 | 2 | 3 | 4 | 5 | 6] },
-    { id: 'pair-3-5', name: '3-5', odds: '5:1', dice: [3, 5] as [1 | 2 | 3 | 4 | 5 | 6, 1 | 2 | 3 | 4 | 5 | 6] },
-    { id: 'pair-3-6', name: '3-6', odds: '5:1', dice: [3, 6] as [1 | 2 | 3 | 4 | 5 | 6, 1 | 2 | 3 | 4 | 5 | 6] },
-    { id: 'pair-4-5', name: '4-5', odds: '5:1', dice: [4, 5] as [1 | 2 | 3 | 4 | 5 | 6, 1 | 2 | 3 | 4 | 5 | 6] },
-    { id: 'pair-4-6', name: '4-6', odds: '5:1', dice: [4, 6] as [1 | 2 | 3 | 4 | 5 | 6, 1 | 2 | 3 | 4 | 5 | 6] },
-    { id: 'pair-5-6', name: '5-6', odds: '5:1', dice: [5, 6] as [1 | 2 | 3 | 4 | 5 | 6, 1 | 2 | 3 | 4 | 5 | 6] },
+    { id: 'pair-1-2', name: '1-2', dice: [1, 2] as [1 | 2 | 3 | 4 | 5 | 6, 1 | 2 | 3 | 4 | 5 | 6] },
+    { id: 'pair-1-3', name: '1-3', dice: [1, 3] as [1 | 2 | 3 | 4 | 5 | 6, 1 | 2 | 3 | 4 | 5 | 6] },
+    { id: 'pair-1-4', name: '1-4', dice: [1, 4] as [1 | 2 | 3 | 4 | 5 | 6, 1 | 2 | 3 | 4 | 5 | 6] },
+    { id: 'pair-1-5', name: '1-5', dice: [1, 5] as [1 | 2 | 3 | 4 | 5 | 6, 1 | 2 | 3 | 4 | 5 | 6] },
+    { id: 'pair-1-6', name: '1-6', dice: [1, 6] as [1 | 2 | 3 | 4 | 5 | 6, 1 | 2 | 3 | 4 | 5 | 6] },
+    { id: 'pair-2-3', name: '2-3', dice: [2, 3] as [1 | 2 | 3 | 4 | 5 | 6, 1 | 2 | 3 | 4 | 5 | 6] },
+    { id: 'pair-2-4', name: '2-4', dice: [2, 4] as [1 | 2 | 3 | 4 | 5 | 6, 1 | 2 | 3 | 4 | 5 | 6] },
+    { id: 'pair-2-5', name: '2-5', dice: [2, 5] as [1 | 2 | 3 | 4 | 5 | 6, 1 | 2 | 3 | 4 | 5 | 6] },
+    { id: 'pair-2-6', name: '2-6', dice: [2, 6] as [1 | 2 | 3 | 4 | 5 | 6, 1 | 2 | 3 | 4 | 5 | 6] },
+    { id: 'pair-3-4', name: '3-4', dice: [3, 4] as [1 | 2 | 3 | 4 | 5 | 6, 1 | 2 | 3 | 4 | 5 | 6] },
+    { id: 'pair-3-5', name: '3-5', dice: [3, 5] as [1 | 2 | 3 | 4 | 5 | 6, 1 | 2 | 3 | 4 | 5 | 6] },
+    { id: 'pair-3-6', name: '3-6', dice: [3, 6] as [1 | 2 | 3 | 4 | 5 | 6, 1 | 2 | 3 | 4 | 5 | 6] },
+    { id: 'pair-4-5', name: '4-5', dice: [4, 5] as [1 | 2 | 3 | 4 | 5 | 6, 1 | 2 | 3 | 4 | 5 | 6] },
+    { id: 'pair-4-6', name: '4-6', dice: [4, 6] as [1 | 2 | 3 | 4 | 5 | 6, 1 | 2 | 3 | 4 | 5 | 6] },
+    { id: 'pair-5-6', name: '5-6', dice: [5, 6] as [1 | 2 | 3 | 4 | 5 | 6, 1 | 2 | 3 | 4 | 5 | 6] },
   ],
 
   // 单骰号 - 带骰子点数
   single: [
-    { id: 'single-1', name: '1', odds: '1/2/3:1', icon: '⚀', value: 1 as 1 | 2 | 3 | 4 | 5 | 6 },
-    { id: 'single-2', name: '2', odds: '1/2/3:1', icon: '⚁', value: 2 as 1 | 2 | 3 | 4 | 5 | 6 },
-    { id: 'single-3', name: '3', odds: '1/2/3:1', icon: '⚂', value: 3 as 1 | 2 | 3 | 4 | 5 | 6 },
-    { id: 'single-4', name: '4', odds: '1/2/3:1', icon: '⚃', value: 4 as 1 | 2 | 3 | 4 | 5 | 6 },
-    { id: 'single-5', name: '5', odds: '1/2/3:1', icon: '⚄', value: 5 as 1 | 2 | 3 | 4 | 5 | 6 },
-    { id: 'single-6', name: '6', odds: '1/2/3:1', icon: '⚅', value: 6 as 1 | 2 | 3 | 4 | 5 | 6 },
+    { id: 'single-1', name: '1', icon: '⚀', value: 1 as 1 | 2 | 3 | 4 | 5 | 6 },
+    { id: 'single-2', name: '2', icon: '⚁', value: 2 as 1 | 2 | 3 | 4 | 5 | 6 },
+    { id: 'single-3', name: '3', icon: '⚂', value: 3 as 1 | 2 | 3 | 4 | 5 | 6 },
+    { id: 'single-4', name: '4', icon: '⚃', value: 4 as 1 | 2 | 3 | 4 | 5 | 6 },
+    { id: 'single-5', name: '5', icon: '⚄', value: 5 as 1 | 2 | 3 | 4 | 5 | 6 },
+    { id: 'single-6', name: '6', icon: '⚅', value: 6 as 1 | 2 | 3 | 4 | 5 | 6 },
   ],
 };
 
 export default function BetPanel({ disabled = false }: BetPanelProps) {
-  const { bets, placeBet } = useGame();
+  const { bets, placeBet, diceOptions } = useGame();
+
+  // 获取赔率的辅助函数
+  const getOdds = (betId: string): string => {
+    const chooseId = getBetChooseId(betId);
+    if (chooseId === null) return '1:1';
+    
+    const option = diceOptions.get(chooseId);
+    if (!option || !option.multi) return '1:1';
+    
+    // 处理范围赔率（如 "2-4"）
+    if (option.multi.includes('-')) {
+      return `${option.multi}:1`;
+    }
+    
+    // 处理普通赔率
+    return `${option.multi}:1`;
+  };
 
   return (
     <div className="px-sm py-xs space-y-0.5">
@@ -92,24 +103,22 @@ export default function BetPanel({ disabled = false }: BetPanelProps) {
       <div
         className="grid gap-0.5"
         style={{
-          // 使用比例列宽，避免固定像素在小屏溢出；整体自适应父容器宽度
-          // 小/大略宽，奇/偶更窄，中间“任意三”最宽
           gridTemplateColumns: '1.35fr 0.75fr 1.45fr 0.75fr 1.35fr',
         }}
       >
         {[
-          { id: 'small', name: '小', desc: '4-10', odds: '1:1' },
-          { id: 'odd', name: '单', desc: '奇数', odds: '1:1' },
-          { id: 'any-triple', name: '任意三', desc: '', odds: '30:1' },
-          { id: 'even', name: '双', desc: '偶数', odds: '1:1' },
-          { id: 'big', name: '大', desc: '11-17', odds: '1:1' },
+          { id: 'small', name: '小', desc: '4-10' },
+          { id: 'odd', name: '单', desc: '奇数' },
+          { id: 'any-triple', name: '任意三', desc: '' },
+          { id: 'even', name: '双', desc: '偶数' },
+          { id: 'big', name: '大', desc: '11-17' },
         ].map((bet) => (
           <BetCell
             key={bet.id}
             id={bet.id}
             name={bet.name}
             desc={bet.desc}
-            odds={bet.odds}
+            odds={getOdds(bet.id)}
             amount={bets[bet.id] || 0}
             onClick={() => placeBet(bet.id)}
             disabled={disabled}
@@ -126,12 +135,12 @@ export default function BetPanel({ disabled = false }: BetPanelProps) {
         }}
       >
         {[
-          { id: 'double-1', dice: [1, 1] as const, odds: '11:1' },
-          { id: 'double-2', dice: [2, 2] as const, odds: '11:1' },
-          { id: 'double-3', dice: [3, 3] as const, odds: '11:1' },
-          { id: 'double-4', dice: [4, 4] as const, odds: '11:1' },
-          { id: 'double-5', dice: [5, 5] as const, odds: '11:1' },
-          { id: 'double-6', dice: [6, 6] as const, odds: '11:1' },
+          { id: 'double-1', dice: [1, 1] as const },
+          { id: 'double-2', dice: [2, 2] as const },
+          { id: 'double-3', dice: [3, 3] as const },
+          { id: 'double-4', dice: [4, 4] as const },
+          { id: 'double-5', dice: [5, 5] as const },
+          { id: 'double-6', dice: [6, 6] as const },
         ].map((bet) => (
           <button
             key={bet.id}
@@ -181,12 +190,12 @@ export default function BetPanel({ disabled = false }: BetPanelProps) {
         }}
       >
         {[
-          { id: 'triple-1', dice: [1, 1, 1] as const, name: '111', odds: '180:1' },
-          { id: 'triple-2', dice: [2, 2, 2] as const, name: '222', odds: '180:1' },
-          { id: 'triple-3', dice: [3, 3, 3] as const, name: '333', odds: '180:1' },
-          { id: 'triple-4', dice: [4, 4, 4] as const, name: '444', odds: '180:1' },
-          { id: 'triple-5', dice: [5, 5, 5] as const, name: '555', odds: '180:1' },
-          { id: 'triple-6', dice: [6, 6, 6] as const, name: '666', odds: '180:1' },
+          { id: 'triple-1', dice: [1, 1, 1] as const, name: '111' },
+          { id: 'triple-2', dice: [2, 2, 2] as const, name: '222' },
+          { id: 'triple-3', dice: [3, 3, 3] as const, name: '333' },
+          { id: 'triple-4', dice: [4, 4, 4] as const, name: '444' },
+          { id: 'triple-5', dice: [5, 5, 5] as const, name: '555' },
+          { id: 'triple-6', dice: [6, 6, 6] as const, name: '666' },
         ].map((bet) => (
           <button
             key={bet.id}
@@ -230,7 +239,7 @@ export default function BetPanel({ disabled = false }: BetPanelProps) {
         ))}
       </div>
 
-      {/* 第二排：点数4-10 */}
+      {/* 第四排：点数4-10 */}
       <div>
         <div className="grid grid-cols-7 gap-0.5">
           {betTypes.numbersLow.map((bet) => (
@@ -238,7 +247,7 @@ export default function BetPanel({ disabled = false }: BetPanelProps) {
               key={bet.id}
               id={bet.id}
               name={bet.name}
-              odds={bet.odds}
+              odds={getOdds(bet.id)}
               amount={bets[bet.id] || 0}
               onClick={() => placeBet(bet.id)}
               disabled={disabled}
@@ -249,7 +258,7 @@ export default function BetPanel({ disabled = false }: BetPanelProps) {
         </div>
       </div>
 
-      {/* 第三排：点数11-17 */}
+      {/* 第五排：点数11-17 */}
       <div>
         <div className="grid grid-cols-7 gap-0.5">
           {betTypes.numbersHigh.map((bet) => (
@@ -257,7 +266,7 @@ export default function BetPanel({ disabled = false }: BetPanelProps) {
               key={bet.id}
               id={bet.id}
               name={bet.name}
-              odds={bet.odds}
+              odds={getOdds(bet.id)}
               amount={bets[bet.id] || 0}
               onClick={() => placeBet(bet.id)}
               disabled={disabled}
@@ -268,7 +277,7 @@ export default function BetPanel({ disabled = false }: BetPanelProps) {
         </div>
       </div>
 
-      {/* 第五排：两骰组合（3行5列）- 显示骰子图案 */}
+      {/* 第六排：两骰组合（3行5列）- 显示骰子图案 */}
       <div>
         <div className="grid grid-cols-5 gap-0.5">
           {betTypes.pairs.map((bet) => (
@@ -316,7 +325,7 @@ export default function BetPanel({ disabled = false }: BetPanelProps) {
         </div>
       </div>
 
-      {/* 第六排：单骰号1-6 - 显示骰子图案（2行3列） */}
+      {/* 第七排：单骰号1-6 - 显示骰子图案（2行3列） */}
       <div>
         <div className="grid grid-cols-3 gap-0.5">
           {betTypes.single.map((bet) => {
