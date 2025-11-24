@@ -1,26 +1,59 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import TopBar from '@/components/layout/TopBar';
 import Modal from '@/components/ui/Modal';
 import { motion } from 'framer-motion';
+import { useTelegram } from '@/contexts/TelegramContext';
+import { apiService } from '@/lib/api';
+import { DiceStatisticEntity } from '@/lib/types';
 
 export default function ProfilePage() {
   const router = useRouter();
+  const { user } = useTelegram();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [statistics, setStatistics] = useState<DiceStatisticEntity | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  // 模拟用户数据
+  // 获取用户统计数据
+  useEffect(() => {
+    const fetchStatistics = async () => {
+      if (!user?.id) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const response = await apiService.getUserStatistics(String(user.id));
+        if (response.success && response.data) {
+          setStatistics(response.data);
+        } else {
+          console.error('获取统计数据失败:', response.message);
+        }
+      } catch (error) {
+        console.error('获取统计数据失败:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStatistics();
+  }, [user?.id]);
+
+  // 计算用户数据
   const userData = {
-    avatar: 'https://i.pravatar.cc/150?img=33',
-    username: 'Lucky Player',
-    telegramId: '@lucky_player_888',
-    userId: 'UID: 1234567890',
-    vipLevel: 3, // 黄金VIP
-    totalBet: 125888.88,
-    totalWin: 88888.88,
-    winRate: 65.5,
-    inviteCount: 12,
+    avatar: user?.photoUrl || 'https://i.pravatar.cc/150?img=33',
+    username: user?.firstName || user?.username || 'Player',
+    telegramId: user?.username ? `@${user.username}` : '',
+    userId: `UID: ${user?.id || '0'}`,
+    vipLevel: 0, // 暂时固定为0，后续可以根据投注额计算
+    totalBet: statistics ? parseFloat(statistics.totalBet) : 0,
+    totalWin: statistics ? parseFloat(statistics.winBet) : 0,
+    winRate: statistics && statistics.totalCount > 0 
+      ? ((statistics.winCount / statistics.totalCount) * 100).toFixed(1) 
+      : '0.0',
+    inviteCount: 0, // 暂时固定为0，后续添加邀请功能后对接
   };
 
   // VIP等级配置
@@ -148,18 +181,20 @@ export default function ProfilePage() {
           <div className="grid grid-cols-3 gap-4 pt-4 border-t border-[#3A3A3A]">
             <div className="text-center">
               <div className="text-lg font-bold text-[#FFD700] font-mono">
-                {userData.totalBet.toLocaleString()}
+                {loading ? '...' : userData.totalBet.toLocaleString()}
               </div>
               <div className="text-xs text-[#A0A0A0] mt-1">累计投注</div>
             </div>
             <div className="text-center border-l border-r border-[#3A3A3A]">
               <div className="text-lg font-bold text-[#10B981] font-mono">
-                {userData.totalWin.toLocaleString()}
+                {loading ? '...' : userData.totalWin.toLocaleString()}
               </div>
               <div className="text-xs text-[#A0A0A0] mt-1">累计中奖</div>
             </div>
             <div className="text-center">
-              <div className="text-lg font-bold text-[#3B82F6] font-mono">{userData.winRate}%</div>
+              <div className="text-lg font-bold text-[#3B82F6] font-mono">
+                {loading ? '...' : `${userData.winRate}%`}
+              </div>
               <div className="text-xs text-[#A0A0A0] mt-1">胜率</div>
             </div>
           </div>

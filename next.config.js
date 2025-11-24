@@ -2,6 +2,10 @@
 const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
+  
+  // 禁用自动尾部斜杠处理
+  trailingSlash: false,
+  skipTrailingSlashRedirect: true,
 
   // 优化图片加载
   images: {
@@ -36,6 +40,10 @@ const nextConfig = {
   // API代理配置 - 解决跨域问题
   async rewrites() {
     return [
+      {
+        source: '/api/backend/:path*/',
+        destination: 'http://46.250.168.177:8079/:path*/',
+      },
       {
         source: '/api/backend/:path*',
         destination: 'http://46.250.168.177:8079/:path*',

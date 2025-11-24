@@ -368,10 +368,18 @@ export default function GamePage() {
           <span>清空</span>
         </button>
 
-        {/* 撤销按钮 - 新增 */}
+        {/* 撤销按钮 - 当有多个下注时撤销全部，否则撤销上一个 */}
         <button
           onClick={() => {
-            undoLastBet();
+            // 检查是否有多个不同的下注项目
+            const betCount = Object.keys(bets).length;
+            if (betCount > 1) {
+              // 多个下注项目，清空全部
+              clearBets();
+            } else {
+              // 单个或无下注，撤销上一个
+              undoLastBet();
+            }
             hapticChipSelect();
           }}
           disabled={!canUndo || !canBet}
@@ -385,7 +393,7 @@ export default function GamePage() {
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="mb-0.5">
             <path d="M3 7V13C3 16.866 6.13401 20 10 20H15M3 7L7 3M3 7L7 11M17 11L21 7M17 11L21 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
-          <span>撤销</span>
+          <span>{Object.keys(bets).length > 1 ? '全撤销' : '撤销'}</span>
         </button>
 
         {/* 确认下注按钮 */}

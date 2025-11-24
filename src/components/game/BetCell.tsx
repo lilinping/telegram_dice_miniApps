@@ -193,13 +193,6 @@ export default function BetCell({
       )}
       style={{
         ...baseStyles,
-        backgroundImage:
-          !win && !lose
-            ? type === 'points'
-              ? baseStyles.background
-              : 'url(/textures/velvet.png), ' + baseStyles.background
-            : baseStyles.background,
-        backgroundBlendMode: !win && !lose ? (type === 'points' ? 'normal' : 'overlay') : 'normal',
       }}
     >
       {/* 主要内容区 */}
