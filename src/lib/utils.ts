@@ -292,3 +292,44 @@ export function debounce<T extends (...args: any[]) => any>(
     timeoutId = setTimeout(() => func(...args), delay)
   }
 }
+
+/**
+ * 验证TRC20地址格式
+ * @param address 钱包地址
+ * @returns 验证结果和错误消息
+ */
+export function validateTRC20Address(address: string): { valid: boolean; error?: string } {
+  if (!address || address.trim() === '') {
+    return { valid: false, error: '请输入钱包地址' }
+  }
+
+  const trimmedAddress = address.trim()
+
+  if (!trimmedAddress.startsWith('T')) {
+    return { valid: false, error: '地址必须以T开头' }
+  }
+
+  if (trimmedAddress.length !== 34) {
+    return { valid: false, error: '地址长度必须为34个字符' }
+  }
+
+  // 检查是否只包含有效的Base58字符
+  const base58Regex = /^[1-9A-HJ-NP-Za-km-z]+$/
+  if (!base58Regex.test(trimmedAddress)) {
+    return { valid: false, error: '地址包含无效字符' }
+  }
+
+  return { valid: true }
+}
+
+/**
+ * 计算提币手续费
+ * @param amount 提币金额
+ * @returns 手续费金额
+ */
+export function calculateWithdrawalFee(amount: number): number {
+  if (amount < 1000) {
+    return 5
+  }
+  return amount * 0.02
+}

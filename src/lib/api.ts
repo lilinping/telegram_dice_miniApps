@@ -1,4 +1,16 @@
-import { BackendUser, BackendResponse, DiceEntity, DiceStatisticEntity, AccountModel, DiceChooseVO, PageModelDiceEntity } from '@/lib/types'
+import { 
+  BackendUser, 
+  BackendResponse, 
+  DiceEntity, 
+  DiceStatisticEntity, 
+  AccountModel, 
+  DiceChooseVO, 
+  PageModelDiceEntity,
+  AddressEntity,
+  WithdrawalOrder,
+  WithdrawalOrderResponse,
+  PageModel
+} from '@/lib/types'
 
 // 使用Next.js代理避免跨域问题
 // 开发环境使用代理路径，生产环境可能需要直接访问或使用环境变量
@@ -168,6 +180,91 @@ class ApiService {
    */
   async rechargeAccount(userId: string, money: string): Promise<BackendResponse<boolean>> {
     return this.request<boolean>(`/account/recharge/${userId}/${money}`)
+  }
+
+  // ==================== 地址管理相关接口 ====================
+
+  /**
+   * 获取用户地址列表
+   * @param userId 用户ID
+   * @returns BackendResponse<AddressEntity[]>
+   */
+  async getAddressList(userId: string): Promise<BackendResponse<AddressEntity[]>> {
+    return this.request<AddressEntity[]>(`/address/list/${userId}`)
+  }
+
+  /**
+   * 创建新地址
+   * @param userId 用户ID
+   * @param address 钱包地址
+   * @returns BackendResponse<boolean>
+   */
+  async createAddress(userId: string, address: string): Promise<BackendResponse<boolean>> {
+    return this.request<boolean>(`/address/create/${userId}/${address}`, {
+      method: 'POST'
+    })
+  }
+
+  /**
+   * 删除地址
+   * @param addressId 地址ID
+   * @param userId 用户ID
+   * @returns BackendResponse<boolean>
+   */
+  async deleteAddress(addressId: number, userId: string): Promise<BackendResponse<boolean>> {
+    return this.request<boolean>(`/address/delete/${addressId}/${userId}`, {
+      method: 'DELETE'
+    })
+  }
+
+  /**
+   * 设置默认地址
+   * @param addressId 地址ID
+   * @param userId 用户ID
+   * @returns BackendResponse<boolean>
+   */
+  async setDefaultAddress(addressId: number, userId: string): Promise<BackendResponse<boolean>> {
+    return this.request<boolean>(`/address/set/default/${addressId}/${userId}`, {
+      method: 'POST'
+    })
+  }
+
+  // ==================== 提币相关接口 ====================
+
+  /**
+   * 提币
+   * @param userId 用户ID
+   * @param amount 提币金额
+   * @returns BackendResponse<WithdrawalOrderResponse>
+   */
+  async withdrawUsdt(userId: string, amount: string): Promise<BackendResponse<WithdrawalOrderResponse>> {
+    return this.request<WithdrawalOrderResponse>(`/account/take/usdt/${userId}/${amount}`, {
+      method: 'POST'
+    })
+  }
+
+  /**
+   * 获取提币订单列表
+   * @param userId 用户ID
+   * @param pageIndex 页码
+   * @param pageSize 每页大小
+   * @returns BackendResponse<PageModel<WithdrawalOrder>>
+   */
+  async getWithdrawalOrders(
+    userId: string,
+    pageIndex: number = 1,
+    pageSize: number = 10
+  ): Promise<BackendResponse<PageModel<WithdrawalOrder>>> {
+    return this.request<PageModel<WithdrawalOrder>>(`/withdrawal/orders/${userId}/${pageIndex}/${pageSize}`)
+  }
+
+  /**
+   * 获取提币订单详情
+   * @param orderId 订单ID
+   * @returns BackendResponse<WithdrawalOrder>
+   */
+  async getWithdrawalOrderDetail(orderId: string): Promise<BackendResponse<WithdrawalOrder>> {
+    return this.request<WithdrawalOrder>(`/withdrawal/order/${orderId}`)
   }
 }
 

@@ -8,6 +8,7 @@ import { useGame } from '@/contexts/GameContext';
 import { apiService } from '@/lib/api';
 import { DiceEntity } from '@/lib/types';
 import { getChooseBetId } from '@/lib/betMapping';
+import WithdrawalHistory from '@/components/wallet/WithdrawalHistory';
 
 /**
  * 历史记录页面
@@ -19,7 +20,7 @@ import { getChooseBetId } from '@/lib/betMapping';
  * 4. 筛选与搜索（按日期、结果类型）
  */
 
-type TabType = 'my-bets' | 'results' | 'trends';
+type TabType = 'my-bets' | 'results' | 'trends' | 'withdrawals';
 
 export default function HistoryPage() {
   const router = useRouter();
@@ -208,6 +209,17 @@ export default function HistoryPage() {
             )}
           >
             开奖历史
+          </button>
+          <button
+            onClick={() => setActiveTab('withdrawals')}
+            className={cn(
+              'flex-1 py-3 text-sm font-semibold transition-all',
+              activeTab === 'withdrawals'
+                ? 'text-primary-gold border-b-3 border-primary-gold'
+                : 'text-text-secondary'
+            )}
+          >
+            提币记录
           </button>
           <button
             onClick={() => setActiveTab('trends')}
@@ -425,6 +437,11 @@ export default function HistoryPage() {
               </div>
             )}
           </div>
+        )}
+
+        {/* 提币记录页 */}
+        {activeTab === 'withdrawals' && user && (
+          <WithdrawalHistory userId={String(user.id)} />
         )}
 
         {/* 走势分析页 */}

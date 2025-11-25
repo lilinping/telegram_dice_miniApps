@@ -186,6 +186,48 @@ export interface WithdrawRequest {
   actualAmount: number
 }
 
+// ==================== 地址管理类型 ====================
+
+export interface AddressEntity {
+  id: number
+  userId: number
+  address: string
+  defaultAddress: boolean
+  createTime: number
+  modifyTime: number
+}
+
+// ==================== 提币订单类型 ====================
+
+export interface WithdrawalOrder {
+  id: string
+  userId: number
+  amount: string          // 提币金额
+  fee: string            // 手续费
+  actualAmount: string   // 实际到账金额
+  address: string        // 目标地址
+  txid?: string          // 交易ID（完成后返回）
+  txCode: number         // 状态码：-1=未确认, 0=成功, 1=失败
+  createTime: number
+  updateTime: number
+  confirmTime?: number   // 确认时间
+}
+
+export interface WithdrawalOrderResponse {
+  orderId: string
+  txCode: number
+  txid?: string
+}
+
+// ==================== 分页模型 ====================
+
+export interface PageModel<T> {
+  list: T[]
+  totalCount: number
+  pageIndex: number
+  pageSize: number
+}
+
 // ==================== 历史记录类型 ====================
 
 export interface BetHistory {

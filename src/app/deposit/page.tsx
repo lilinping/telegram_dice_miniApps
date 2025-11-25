@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useTelegram } from '@/contexts/TelegramContext';
 import { useWallet } from '@/contexts/WalletContext';
 import { apiService } from '@/lib/api';
+import { AddressEntity } from '@/lib/types';
 
 /**
  * 充值页面
@@ -30,12 +31,44 @@ export default function DepositPage() {
   const router = useRouter();
   const { user } = useTelegram();
   const { refreshBalance } = useWallet();
+  const userId = user?.id;
+  
   const [amount, setAmount] = useState<number>(100);
   const [customAmount, setCustomAmount] = useState<string>('');
   const [selectedMethod, setSelectedMethod] = useState<string>('usdt-trc20');
   const [showQR, setShowQR] = useState(false);
   const [loading, setLoading] = useState(false);
   const [depositSuccess, setDepositSuccess] = useState(false);
+  const [defaultAddress, setDefaultAddress] = useState<AddressEntity | null>(null);
+  const [addressLoading, setAddressLoading] = useState(false);
+  const [addressError, setAddressError] = useState<string>('');
+
+  // 加载默认地址
+  useEffect(() => {
+    if (userId) {
+      loadDefaultAddress();
+    }
+  }, [userId]);
+
+  const loadDefaultAddress = async () => {
+    try {
+      setAddressLoading(true);
+      const result = await apiService.getAddressList(String(userId));
+      
+      if (result.success && result.data) {
+        const defaultAddr = result.data.find(addr => addr.defaultAddress);
+        setDefaultAddress(defaultAddr || null);
+        if (!defaultAddr && result.data.length === 0) {
+          setAddressError('请先在提币页面添加并设置默认地址');
+        }
+      }
+    } catch (err) {
+      console.error('加载默认地址失败:', err);
+      setAddressError('加载地址失败');
+    } finally {
+      setAddressLoading(false);
+    }
+  };
 
   // 处理快捷金额选择
   const handleQuickAmount = (value: number) => {
@@ -214,6 +247,61 @@ export default function DepositPage() {
               </button>
             ))}
           </div>
+        </section>
+
+        {/* 充值地址信息 */}
+        <section>
+          <h2 className="text-base font-semibold text-text-primary mb-4">充值地址</h2>
+          
+          {addressLoading ? (
+            <div className="bg-bg-dark rounded-xl p-4 border border-border text-center">
+              <p className="text-sm text-text-secondary">加载中...</p>
+            </div>
+          ) : addressError ? (
+            <div className="bg-warning/10 border border-warning/30 rounded-xl p-4">
+              <div className="flex items-start gap-3">
+                <span className="text-xl">⚠️</span>
+                <div className="flex-1">
+                  <p className="text-sm text-warning mb-2">{addressError}</p>
+                  <button
+                    onClick={() => router.push('/withdraw')}
+                    className="text-sm text-primary-gold hover:text-primary-light-gold underline"
+                  >
+                    前往设置地址 →
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : defaultAddress ? (
+            <div className="bg-bg-dark rounded-xl p-4 border border-border">
+              <div className="flex items-start gap-3 mb-3">
+                <span className="text-2xl">💳</span>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-text-primary mb-1">
+                    默认充值地址 (TRC20)
+                  </p>
+                  <p className="text-xs font-mono text-text-secondary break-all bg-bg-medium p-2 rounded">
+                    {defaultAddress.address}
+                  </p>
+                </div>
+              </div>
+              <div className="bg-info/10 border border-info/30 rounded-lg p-3">
+                <p className="text-xs text-info">
+                  ℹ️ 请向此地址转账 USDT (TRC20)，到账后余额将自动更新
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-bg-dark rounded-xl p-4 border border-border text-center">
+              <p className="text-sm text-text-secondary mb-2">暂无默认地址</p>
+              <button
+                onClick={() => router.push('/withdraw')}
+                className="text-sm text-primary-gold hover:text-primary-light-gold underline"
+              >
+                前往设置地址 →
+              </button>
+            </div>
+          )}
         </section>
 
         {/* 优惠活动 */}
