@@ -1,12 +1,14 @@
-'use client';
+'use client'
 
-import { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
-import { cn } from '@/lib/utils';
-import { useTelegram } from '@/contexts/TelegramContext';
-import { useWallet } from '@/contexts/WalletContext';
-import { apiService } from '@/lib/api';
-import { AddressEntity } from '@/lib/types';
+import { useState, useEffect, useRef } from 'react'
+import { useRouter } from 'next/navigation'
+import { cn, validateDepositAmount } from '@/lib/utils'
+import { useTelegram } from '@/contexts/TelegramContext'
+import { useWallet } from '@/contexts/WalletContext'
+import { apiService } from '@/lib/api'
+import { PaymentOrder } from '@/lib/types'
+import QRCodeDisplay from '@/components/wallet/QRCodeDisplay'
+import Modal from '@/components/ui/Modal'
 
 /**
  * 充值页面
@@ -19,121 +21,107 @@ import { AddressEntity } from '@/lib/types';
  * 5. 对接充值API
  */
 
-const quickAmounts = [10, 50, 100, 500, 1000];
-
-const paymentMethods = [
-  { id: 'usdt-trc20', name: 'USDT (TRC20)', recommended: true, fee: 0, icon: '💵' },
-  { id: 'usdt-erc20', name: 'USDT (ERC20)', recommended: false, fee: 0, icon: '💵' },
-  { id: 'ton', name: 'TON', recommended: false, fee: 0, icon: '💎' },
-];
+const quickAmounts = [10, 50, 100, 500, 1000]
 
 export default function DepositPage() {
-  const router = useRouter();
-  const { user } = useTelegram();
-  const { refreshBalance } = useWallet();
-  const userId = user?.id;
-  
-  const [amount, setAmount] = useState<number>(100);
-  const [customAmount, setCustomAmount] = useState<string>('');
-  const [selectedMethod, setSelectedMethod] = useState<string>('usdt-trc20');
-  const [showQR, setShowQR] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [depositSuccess, setDepositSuccess] = useState(false);
-  const [defaultAddress, setDefaultAddress] = useState<AddressEntity | null>(null);
-  const [addressLoading, setAddressLoading] = useState(false);
-  const [addressError, setAddressError] = useState<string>('');
-  const lastFetchKeyRef = useRef('');
+  const router = useRouter()
+  const { user } = useTelegram()
+  const { refreshBalance } = useWallet()
+  const userId = user?.id
 
-  const loadDefaultAddress = async () => {
-    if (!userId) return;
+  const [amount, setAmount] = useState<number>(100)
+  const [customAmount, setCustomAmount] = useState<string>('')
+  const [showQRCode, setShowQRCode] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string>('')
+  const [paymentOrder, setPaymentOrder] = useState<PaymentOrder | null>(null)
+  const [paymentStatus, setPaymentStatus] = useState<'pending' | 'success' | 'failed'>('pending')
 
-    // 防止重复请求
-    const fetchKey = `${userId}`;
-    if (lastFetchKeyRef.current === fetchKey) {
-      return;
-    }
-    lastFetchKeyRef.current = fetchKey;
-    try {
-      setAddressLoading(true);
-      const result = await apiService.getAddressList(String(userId));
-      
-      if (result.success && result.data) {
-        const defaultAddr = result.data.find(addr => addr.defaultAddress);
-        setDefaultAddress(defaultAddr || null);
-        if (!defaultAddr && result.data.length === 0) {
-          setAddressError('请先在提币页面添加并设置默认地址');
-        }
-      }
-    } catch (err) {
-      console.error('加载默认地址失败:', err);
-      setAddressError('加载地址失败');
-    } finally {
-      setAddressLoading(false);
-    }
-  };
 
-  // 加载默认地址
-  useEffect(() => {
-    loadDefaultAddress();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId]);
 
   // 处理快捷金额选择
   const handleQuickAmount = (value: number) => {
-    setAmount(value);
-    setCustomAmount('');
-  };
+    setAmount(value)
+    setCustomAmount('')
+    setError('')
+  }
 
   // 处理自定义金额输入
   const handleCustomAmountChange = (value: string) => {
-    setCustomAmount(value);
-    const num = parseFloat(value);
+    setCustomAmount(value)
+    setError('')
+    const num = parseFloat(value)
     if (!isNaN(num) && num > 0) {
-      setAmount(num);
+      setAmount(num)
     }
-  };
+  }
+
+  // 验证金额
+  const validateAmount = (): boolean => {
+    const validation = validateDepositAmount(amount)
+    if (!validation.valid) {
+      setError(validation.error || '金额无效')
+      return false
+    }
+    return true
+  }
 
   // 处理充值确认
   const handleDeposit = async () => {
-    if (amount < 10) {
-      alert('最小充值金额为 10 USDT');
-      return;
+    // 验证金额
+    if (!validateAmount()) {
+      return
     }
 
     if (!user) {
-      alert('请先登录');
-      return;
+      setError('请先登录')
+      return
     }
 
-    setLoading(true);
-    try {
-      // 调用充值API
-      const response = await apiService.rechargeAccount(
-        String(user.id),
-        amount.toFixed(2)
-      );
+    setLoading(true)
+    setError('')
 
-      if (response.success) {
-        setDepositSuccess(true);
-        setShowQR(true);
-        
-        // 刷新余额
-        await refreshBalance();
-        
-        // 3秒后自动跳转到钱包页面
-        setTimeout(() => {
-          router.push('/wallet');
-        }, 3000);
+    try {
+      // 调用支付订单API
+      const response = await apiService.createPaymentOrder(String(user.id), amount.toFixed(2))
+
+      if (response.success && response.data) {
+        setPaymentOrder(response.data)
+        setShowQRCode(true)
+        setPaymentStatus('pending')
       } else {
-        alert('充值失败: ' + (response.message || '未知错误'));
+        setError(response.message || '创建支付订单失败，请稍后重试')
       }
     } catch (error) {
-      console.error('充值失败:', error);
-      alert('充值失败，请稍后重试');
+      console.error('创建支付订单失败:', error)
+      setError('网络错误，请稍后重试')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
+
+  // 处理取消支付
+  const handleCancelPayment = () => {
+    setShowQRCode(false)
+    setPaymentOrder(null)
+    setPaymentStatus('pending')
+  }
+
+  // 处理支付成功
+  const handlePaymentSuccess = async () => {
+    setPaymentStatus('success')
+
+    // 刷新余额
+    await refreshBalance()
+
+    // 3秒后自动跳转到钱包页面
+    setTimeout(() => {
+      router.push('/wallet')
+    }, 3000)
+  }
+
+  // 检查按钮是否应该禁用
+  const isButtonDisabled = amount < 10 || loading
 
   return (
     <div className="min-h-screen bg-bg-darkest pb-20">
@@ -201,115 +189,17 @@ export default function DepositPage() {
           </div>
         </section>
 
-        {/* 步骤2：选择支付方式 */}
-        <section>
-          <h2 className="text-base font-semibold text-text-primary mb-4">选择支付方式</h2>
-
-          <div className="space-y-2">
-            {paymentMethods.map((method) => (
-              <button
-                key={method.id}
-                onClick={() => setSelectedMethod(method.id)}
-                className={cn(
-                  'w-full p-4 rounded-xl border-2 transition-all text-left',
-                  selectedMethod === method.id
-                    ? 'bg-primary-gold/10 border-primary-gold'
-                    : 'bg-bg-dark border-border hover:border-primary-gold/50'
-                )}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    {/* 单选按钮 */}
-                    <div
-                      className={cn(
-                        'w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all',
-                        selectedMethod === method.id
-                          ? 'border-primary-gold bg-primary-gold'
-                          : 'border-border'
-                      )}
-                    >
-                      {selectedMethod === method.id && (
-                        <div className="w-2.5 h-2.5 rounded-full bg-bg-darkest" />
-                      )}
-                    </div>
-
-                    {/* 图标和名称 */}
-                    <span className="text-2xl">{method.icon}</span>
-                    <div>
-                      <p className="text-base font-semibold text-text-primary">
-                        {method.name}
-                      </p>
-                      <p className="text-xs text-text-secondary">
-                        手续费: {method.fee === 0 ? '免费' : `${method.fee} USDT`}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* 推荐标签 */}
-                  {method.recommended && (
-                    <span className="px-2 py-1 bg-success text-white text-xs rounded-full">
-                      推荐
-                    </span>
-                  )}
-                </div>
-              </button>
-            ))}
+        {/* 支付方式说明 */}
+        <section className="bg-bg-dark rounded-xl p-4 border border-border">
+          <div className="flex items-start gap-3">
+            <span className="text-2xl">💵</span>
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-text-primary mb-1">支付方式</p>
+              <p className="text-xs text-text-secondary">
+                仅支持 USDT 充值，扫描二维码即可完成支付
+              </p>
+            </div>
           </div>
-        </section>
-
-        {/* 充值地址信息 */}
-        <section>
-          <h2 className="text-base font-semibold text-text-primary mb-4">充值地址</h2>
-          
-          {addressLoading ? (
-            <div className="bg-bg-dark rounded-xl p-4 border border-border text-center">
-              <p className="text-sm text-text-secondary">加载中...</p>
-            </div>
-          ) : addressError ? (
-            <div className="bg-warning/10 border border-warning/30 rounded-xl p-4">
-              <div className="flex items-start gap-3">
-                <span className="text-xl">⚠️</span>
-                <div className="flex-1">
-                  <p className="text-sm text-warning mb-2">{addressError}</p>
-                  <button
-                    onClick={() => router.push('/withdraw')}
-                    className="text-sm text-primary-gold hover:text-primary-light-gold underline"
-                  >
-                    前往设置地址 →
-                  </button>
-                </div>
-              </div>
-            </div>
-          ) : defaultAddress ? (
-            <div className="bg-bg-dark rounded-xl p-4 border border-border">
-              <div className="flex items-start gap-3 mb-3">
-                <span className="text-2xl">💳</span>
-                <div className="flex-1">
-                  <p className="text-sm font-semibold text-text-primary mb-1">
-                    默认充值地址 (TRC20)
-                  </p>
-                  <p className="text-xs font-mono text-text-secondary break-all bg-bg-medium p-2 rounded">
-                    {defaultAddress.address}
-                  </p>
-                </div>
-              </div>
-              <div className="bg-info/10 border border-info/30 rounded-lg p-3">
-                <p className="text-xs text-info">
-                  ℹ️ 请向此地址转账 USDT (TRC20)，到账后余额将自动更新
-                </p>
-              </div>
-            </div>
-          ) : (
-            <div className="bg-bg-dark rounded-xl p-4 border border-border text-center">
-              <p className="text-sm text-text-secondary mb-2">暂无默认地址</p>
-              <button
-                onClick={() => router.push('/withdraw')}
-                className="text-sm text-primary-gold hover:text-primary-light-gold underline"
-              >
-                前往设置地址 →
-              </button>
-            </div>
-          )}
         </section>
 
         {/* 优惠活动 */}
@@ -317,12 +207,22 @@ export default function DepositPage() {
           <div className="flex items-start gap-3">
             <span className="text-2xl">🎁</span>
             <div className="flex-1">
-              <p className="text-sm font-semibold text-primary-gold mb-1">充值优惠</p>
+              <p className="text-sm font-semibold text-primary-gold mb-1">充值优惠（USDT）</p>
               <p className="text-xs text-text-secondary">• 首充送20%奖励</p>
-              <p className="text-xs text-text-secondary">• 充值≥500送50 USDT</p>
+              <p className="text-xs text-text-secondary">• 充值≥500 USDT 送50 USDT</p>
             </div>
           </div>
         </section>
+
+        {/* 错误提示 */}
+        {error && (
+          <div className="bg-error/10 border border-error/30 rounded-xl p-4">
+            <div className="flex items-start gap-3">
+              <span className="text-xl">⚠️</span>
+              <p className="text-sm text-error flex-1">{error}</p>
+            </div>
+          </div>
+        )}
 
         {/* 预计到账 */}
         <section className="bg-bg-dark rounded-xl p-4 border border-border">
@@ -350,15 +250,31 @@ export default function DepositPage() {
         {/* 确认充值按钮 */}
         <button
           onClick={handleDeposit}
-          disabled={amount < 10 || loading}
+          disabled={isButtonDisabled}
           className="w-full h-14 bg-gradient-to-r from-primary-gold to-primary-dark-gold text-bg-darkest text-lg font-bold rounded-xl shadow-gold hover:shadow-gold-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all"
         >
-          {loading ? '充值中...' : '确认充值'}
+          {loading ? '创建订单中...' : '确认充值'}
         </button>
       </div>
 
-      {/* 充值成功弹窗 */}
-      {showQR && depositSuccess && (
+      {/* QR Code 支付弹窗 */}
+      {showQRCode && paymentOrder && (
+        <Modal isOpen={showQRCode} onClose={handleCancelPayment} title="">
+          <QRCodeDisplay
+            qrCodeUrl={paymentOrder.qrCodeUrl}
+            orderId={paymentOrder.orderId}
+            amount={parseFloat(paymentOrder.amount)}
+            paymentStatus={paymentStatus}
+            onCancel={handleCancelPayment}
+            onCopyOrderId={() => {
+              // 可选：显示复制成功提示
+            }}
+          />
+        </Modal>
+      )}
+
+      {/* 支付成功弹窗 */}
+      {paymentStatus === 'success' && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-5 animate-fade-in">
           <div className="bg-bg-dark border-2 border-success rounded-2xl p-6 max-w-md w-full animate-scale-in">
             <div className="text-center">
@@ -367,10 +283,8 @@ export default function DepositPage() {
                 <span className="text-4xl text-white">✓</span>
               </div>
 
-              <h3 className="text-xl font-bold text-success mb-2">充值成功！</h3>
-              <p className="text-sm text-text-secondary mb-6">
-                您的账户已成功充值
-              </p>
+              <h3 className="text-xl font-bold text-success mb-2">支付成功！</h3>
+              <p className="text-sm text-text-secondary mb-6">您的账户已成功充值</p>
 
               {/* 充值金额 */}
               <div className="mb-6 p-4 bg-success/10 border border-success/30 rounded-lg">
@@ -399,5 +313,5 @@ export default function DepositPage() {
         </div>
       )}
     </div>
-  );
+  )
 }

@@ -9,7 +9,9 @@ import {
   AddressEntity,
   WithdrawalOrder,
   WithdrawalOrderResponse,
-  PageModel
+  PageModel,
+  PaymentOrder,
+  PaymentOrderStatus
 } from '@/lib/types'
 
 // 使用Next.js代理避免跨域问题
@@ -265,6 +267,29 @@ class ApiService {
    */
   async getWithdrawalOrderDetail(orderId: string): Promise<BackendResponse<WithdrawalOrder>> {
     return this.request<WithdrawalOrder>(`/withdrawal/order/${orderId}`)
+  }
+
+  // ==================== 支付订单相关接口 ====================
+
+  /**
+   * 创建支付订单
+   * @param userId 用户ID
+   * @param amount 充值金额
+   * @returns BackendResponse<PaymentOrder>
+   */
+  async createPaymentOrder(userId: string, amount: string): Promise<BackendResponse<PaymentOrder>> {
+    return this.request<PaymentOrder>(`/payment/order/${userId}/${amount}`, {
+      method: 'POST'
+    })
+  }
+
+  /**
+   * 查询支付订单状态
+   * @param orderId 订单ID
+   * @returns BackendResponse<PaymentOrderStatus>
+   */
+  async getPaymentOrderStatus(orderId: string): Promise<BackendResponse<PaymentOrderStatus>> {
+    return this.request<PaymentOrderStatus>(`/payment/order/status/${orderId}`)
   }
 }
 

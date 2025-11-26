@@ -1,4 +1,4 @@
-import { validateTRC20Address, calculateWithdrawalFee } from '../utils'
+import { validateTRC20Address, calculateWithdrawalFee, validateDepositAmount } from '../utils'
 
 describe('validateTRC20Address - Edge Cases', () => {
   describe('Empty and null inputs', () => {
@@ -237,6 +237,201 @@ describe('calculateWithdrawalFee - Edge Cases', () => {
 
     it('should handle amount just above 1000', () => {
       expect(calculateWithdrawalFee(1000.001)).toBeCloseTo(20.00002, 4)
+    })
+  })
+})
+
+describe('validateDepositAmount - Edge Cases', () => {
+  describe('Boundary value (exactly 10 USDT)', () => {
+    it('should accept exactly 10 USDT', () => {
+      const result = validateDepositAmount(10)
+      expect(result.valid).toBe(true)
+      expect(result.error).toBeUndefined()
+    })
+
+    it('should accept exactly 10.00 as string', () => {
+      const result = validateDepositAmount('10.00')
+      expect(result.valid).toBe(true)
+      expect(result.error).toBeUndefined()
+    })
+
+    it('should reject 9.99 USDT (just below minimum)', () => {
+      const result = validateDepositAmount(9.99)
+      expect(result.valid).toBe(false)
+      expect(result.error).toBe('最小充值金额为 10 USDT')
+    })
+
+    it('should accept 10.01 USDT (just above minimum)', () => {
+      const result = validateDepositAmount(10.01)
+      expect(result.valid).toBe(true)
+      expect(result.error).toBeUndefined()
+    })
+  })
+
+  describe('Negative amounts', () => {
+    it('should reject negative amount -1', () => {
+      const result = validateDepositAmount(-1)
+      expect(result.valid).toBe(false)
+      expect(result.error).toBe('充值金额不能为负数')
+    })
+
+    it('should reject negative amount -10', () => {
+      const result = validateDepositAmount(-10)
+      expect(result.valid).toBe(false)
+      expect(result.error).toBe('充值金额不能为负数')
+    })
+
+    it('should reject negative amount -100.50', () => {
+      const result = validateDepositAmount(-100.50)
+      expect(result.valid).toBe(false)
+      expect(result.error).toBe('充值金额不能为负数')
+    })
+
+    it('should reject negative amount as string', () => {
+      const result = validateDepositAmount('-50')
+      expect(result.valid).toBe(false)
+      expect(result.error).toBe('充值金额不能为负数')
+    })
+  })
+
+  describe('Zero amount', () => {
+    it('should reject zero as number', () => {
+      const result = validateDepositAmount(0)
+      expect(result.valid).toBe(false)
+      expect(result.error).toBe('充值金额不能为零')
+    })
+
+    it('should reject zero as string', () => {
+      const result = validateDepositAmount('0')
+      expect(result.valid).toBe(false)
+      expect(result.error).toBe('充值金额不能为零')
+    })
+
+    it('should reject 0.00 as string', () => {
+      const result = validateDepositAmount('0.00')
+      expect(result.valid).toBe(false)
+      expect(result.error).toBe('充值金额不能为零')
+    })
+  })
+
+  describe('Non-numeric input', () => {
+    it('should reject empty string', () => {
+      const result = validateDepositAmount('')
+      expect(result.valid).toBe(false)
+      expect(result.error).toBe('请输入有效的充值金额')
+    })
+
+    it('should reject alphabetic string', () => {
+      const result = validateDepositAmount('abc')
+      expect(result.valid).toBe(false)
+      expect(result.error).toBe('请输入有效的充值金额')
+    })
+
+    it('should reject special characters', () => {
+      const result = validateDepositAmount('$100')
+      expect(result.valid).toBe(false)
+      expect(result.error).toBe('请输入有效的充值金额')
+    })
+
+    it('should reject whitespace only', () => {
+      const result = validateDepositAmount('   ')
+      expect(result.valid).toBe(false)
+      expect(result.error).toBe('请输入有效的充值金额')
+    })
+
+    it('should accept mixed alphanumeric that starts with valid number', () => {
+      // parseFloat('10abc') returns 10, which is valid
+      const result = validateDepositAmount('10abc')
+      expect(result.valid).toBe(true)
+      expect(result.error).toBeUndefined()
+    })
+
+    it('should reject NaN', () => {
+      const result = validateDepositAmount(NaN)
+      expect(result.valid).toBe(false)
+      expect(result.error).toBe('请输入有效的充值金额')
+    })
+  })
+
+  describe('Valid amounts', () => {
+    it('should accept 10 USDT', () => {
+      const result = validateDepositAmount(10)
+      expect(result.valid).toBe(true)
+      expect(result.error).toBeUndefined()
+    })
+
+    it('should accept 50 USDT', () => {
+      const result = validateDepositAmount(50)
+      expect(result.valid).toBe(true)
+      expect(result.error).toBeUndefined()
+    })
+
+    it('should accept 100 USDT', () => {
+      const result = validateDepositAmount(100)
+      expect(result.valid).toBe(true)
+      expect(result.error).toBeUndefined()
+    })
+
+    it('should accept 500 USDT', () => {
+      const result = validateDepositAmount(500)
+      expect(result.valid).toBe(true)
+      expect(result.error).toBeUndefined()
+    })
+
+    it('should accept 1000 USDT', () => {
+      const result = validateDepositAmount(1000)
+      expect(result.valid).toBe(true)
+      expect(result.error).toBeUndefined()
+    })
+
+    it('should accept large amount 10000 USDT', () => {
+      const result = validateDepositAmount(10000)
+      expect(result.valid).toBe(true)
+      expect(result.error).toBeUndefined()
+    })
+
+    it('should accept decimal amount 99.99', () => {
+      const result = validateDepositAmount(99.99)
+      expect(result.valid).toBe(true)
+      expect(result.error).toBeUndefined()
+    })
+
+    it('should accept string amount "100"', () => {
+      const result = validateDepositAmount('100')
+      expect(result.valid).toBe(true)
+      expect(result.error).toBeUndefined()
+    })
+
+    it('should accept string amount "50.50"', () => {
+      const result = validateDepositAmount('50.50')
+      expect(result.valid).toBe(true)
+      expect(result.error).toBeUndefined()
+    })
+  })
+
+  describe('Below minimum amounts', () => {
+    it('should reject 1 USDT', () => {
+      const result = validateDepositAmount(1)
+      expect(result.valid).toBe(false)
+      expect(result.error).toBe('最小充值金额为 10 USDT')
+    })
+
+    it('should reject 5 USDT', () => {
+      const result = validateDepositAmount(5)
+      expect(result.valid).toBe(false)
+      expect(result.error).toBe('最小充值金额为 10 USDT')
+    })
+
+    it('should reject 9 USDT', () => {
+      const result = validateDepositAmount(9)
+      expect(result.valid).toBe(false)
+      expect(result.error).toBe('最小充值金额为 10 USDT')
+    })
+
+    it('should reject 0.01 USDT', () => {
+      const result = validateDepositAmount(0.01)
+      expect(result.valid).toBe(false)
+      expect(result.error).toBe('最小充值金额为 10 USDT')
     })
   })
 })

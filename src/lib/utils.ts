@@ -332,3 +332,35 @@ export function calculateWithdrawalFee(amount: number): number {
   // 统一手续费: 2 USDT
   return 2
 }
+
+/**
+ * 验证充值金额
+ * @param amount 充值金额
+ * @returns 验证结果和错误消息
+ */
+export function validateDepositAmount(amount: number | string): { valid: boolean; error?: string } {
+  // 转换为数字
+  const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount
+
+  // 检查是否为有效数字
+  if (isNaN(numAmount)) {
+    return { valid: false, error: '请输入有效的充值金额' }
+  }
+
+  // 检查是否为负数
+  if (numAmount < 0) {
+    return { valid: false, error: '充值金额不能为负数' }
+  }
+
+  // 检查是否为零
+  if (numAmount === 0) {
+    return { valid: false, error: '充值金额不能为零' }
+  }
+
+  // 检查最小金额（10 USDT）
+  if (numAmount < 10) {
+    return { valid: false, error: '最小充值金额为 10 USDT' }
+  }
+
+  return { valid: true }
+}

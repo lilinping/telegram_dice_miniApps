@@ -225,6 +225,32 @@ export interface WithdrawalOrderResponse {
   txid?: string
 }
 
+// ==================== 支付订单类型 ====================
+
+export interface PaymentOrder {
+  orderId: string          // 订单ID
+  userId: number           // 用户ID
+  amount: string           // 充值金额
+  currency: string         // 币种 (USDT)
+  qrCodeUrl: string        // 二维码图片URL
+  status: number           // 订单状态：0=待支付, 1=已支付, 2=已取消, 3=已过期
+  createTime: number       // 创建时间
+  expireTime?: number      // 过期时间
+}
+
+export interface PaymentOrderStatus {
+  orderId: string
+  status: number           // 订单状态：0=待支付, 1=已支付, 2=已取消, 3=已过期
+  paidAmount?: string      // 实际支付金额
+  paidTime?: number        // 支付时间
+}
+
+export interface PaymentOrderRequest {
+  userId: string
+  amount: string
+  currency: 'USDT'
+}
+
 // ==================== 分页模型 ====================
 
 export interface PageModel<T> {

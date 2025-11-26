@@ -193,8 +193,8 @@ export default function WithdrawPage() {
   const handleConfirm = () => {
     setError('');
     
-    if (withdrawAmount < 50) {
-      setError('最小提现金额为 50 USDT');
+    if (withdrawAmount < 10) {
+      setError('最小提现金额为 10 USDT');
       return;
     }
 
@@ -294,7 +294,7 @@ export default function WithdrawPage() {
               onChange={(e) => setAmount(e.target.value)}
               placeholder="输入提现金额"
               className="w-full h-12 bg-bg-medium border-2 border-border rounded-lg px-4 pr-24 text-base text-text-primary placeholder:text-text-disabled focus:border-primary-gold focus:outline-none focus:ring-2 focus:ring-primary-gold/20 transition-all"
-              min="50"
+              min="10"
               step="0.01"
             />
             <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-text-secondary">
@@ -311,7 +311,7 @@ export default function WithdrawPage() {
           </button>
 
           <p className="mt-2 text-xs text-text-secondary">
-            最小提现金额: 50 USDT
+            最小提现金额: 10 USDT
           </p>
         </section>
 
@@ -438,7 +438,7 @@ export default function WithdrawPage() {
             <span className="text-xl">ℹ️</span>
             <div className="flex-1 space-y-1">
               <p className="text-sm font-semibold text-info">提现规则</p>
-              <p className="text-xs text-text-secondary">• 最小提现金额: 50 USDT</p>
+              <p className="text-xs text-text-secondary">• 最小提现金额: 10 USDT</p>
               <p className="text-xs text-text-secondary">• 手续费: 2 USDT（统一费率）</p>
               <p className="text-xs text-text-secondary">• 自动审核，2小时内到账</p>
               <p className="text-xs text-text-secondary">• 不限提现次数</p>
@@ -449,7 +449,7 @@ export default function WithdrawPage() {
         {/* 提现按钮 */}
         <button
           onClick={handleConfirm}
-          disabled={loading || withdrawAmount < 50 || withdrawAmount > balance || !selectedAddressId}
+          disabled={loading || withdrawAmount < 10 || withdrawAmount > balance || !selectedAddressId}
           className="w-full h-14 bg-gradient-to-r from-warning to-orange-600 text-white text-lg font-bold rounded-xl shadow-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
         >
           {loading ? '处理中...' : '确认提现'}
