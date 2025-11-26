@@ -299,8 +299,9 @@ export function debounce<T extends (...args: any[]) => any>(
  * @returns 验证结果和错误消息
  */
 export function validateTRC20Address(address: string): { valid: boolean; error?: string } {
+  // 空输入不显示错误（让用户可以正常输入）
   if (!address || address.trim() === '') {
-    return { valid: false, error: '请输入钱包地址' }
+    return { valid: false, error: '' }
   }
 
   const trimmedAddress = address.trim()
@@ -328,8 +329,6 @@ export function validateTRC20Address(address: string): { valid: boolean; error?:
  * @returns 手续费金额
  */
 export function calculateWithdrawalFee(amount: number): number {
-  if (amount < 1000) {
-    return 5
-  }
-  return amount * 0.02
+  // 统一手续费: 2 USDT
+  return 2
 }

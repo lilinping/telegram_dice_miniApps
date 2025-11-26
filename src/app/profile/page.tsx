@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import TopBar from '@/components/layout/TopBar';
 import Modal from '@/components/ui/Modal';
@@ -15,6 +15,7 @@ export default function ProfilePage() {
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [statistics, setStatistics] = useState<DiceStatisticEntity | null>(null);
   const [loading, setLoading] = useState(true);
+  const lastFetchKeyRef = useRef('');
 
   // 获取用户统计数据
   useEffect(() => {
@@ -23,6 +24,13 @@ export default function ProfilePage() {
         setLoading(false);
         return;
       }
+
+      // 防止重复请求
+      const fetchKey = `${user.id}`;
+      if (lastFetchKeyRef.current === fetchKey) {
+        return;
+      }
+      lastFetchKeyRef.current = fetchKey;
 
       try {
         const response = await apiService.getUserStatistics(String(user.id));
@@ -39,6 +47,7 @@ export default function ProfilePage() {
     };
 
     fetchStatistics();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
   // 计算用户数据

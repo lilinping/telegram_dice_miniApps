@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useWallet } from '@/contexts/WalletContext';
 import { useTelegram } from '@/contexts/TelegramContext';
@@ -34,15 +34,17 @@ export default function WithdrawPage() {
   const [error, setError] = useState<string>('');
   const [newAddress, setNewAddress] = useState<string>('');
   const [addressValidationError, setAddressValidationError] = useState<string>('');
+  const lastFetchKeyRef = useRef('');
 
-  // 加载地址列表
-  useEffect(() => {
-    if (userId) {
-      loadAddresses();
+  const loadAddresses = async (forceRefresh: boolean = false) => {
+    if (!userId) return;
+
+    // 防止重复请求（除非强制刷新）
+    const fetchKey = `${userId}`;
+    if (!forceRefresh && lastFetchKeyRef.current === fetchKey) {
+      return;
     }
-  }, [userId]);
-
-  const loadAddresses = async () => {
+    lastFetchKeyRef.current = fetchKey;
     try {
       setLoading(true);
       const result = await apiService.getAddressList(String(userId));
@@ -63,10 +65,18 @@ export default function WithdrawPage() {
     }
   };
 
+  // 加载地址列表
+  useEffect(() => {
+    loadAddresses();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
+
   // 实时验证地址
   const handleAddressChange = (value: string) => {
     setNewAddress(value);
-    if (value.trim()) {
+    
+    // 只在有输入内容时才验证
+    if (value.trim().length > 0) {
       const validation = validateTRC20Address(value);
       if (!validation.valid) {
         setAddressValidationError(validation.error || '');
@@ -74,6 +84,7 @@ export default function WithdrawPage() {
         setAddressValidationError('');
       }
     } else {
+      // 清空输入时，清除错误提示
       setAddressValidationError('');
     }
   };
@@ -101,7 +112,8 @@ export default function WithdrawPage() {
         setNewAddress('');
         setAddressValidationError('');
         setShowAddAddress(false);
-        await loadAddresses();
+        // 强制刷新地址列表
+        await loadAddresses(true);
       } else {
         setError(result.message || '添加地址失败');
       }
@@ -131,7 +143,8 @@ export default function WithdrawPage() {
       const result = await apiService.deleteAddress(addressId, String(userId));
       
       if (result.success) {
-        await loadAddresses();
+        // 强制刷新地址列表
+        await loadAddresses(true);
         if (selectedAddressId === addressId) {
           setSelectedAddressId(null);
         }
@@ -153,7 +166,8 @@ export default function WithdrawPage() {
       const result = await apiService.setDefaultAddress(addressId, String(userId));
       
       if (result.success) {
-        await loadAddresses();
+        // 强制刷新地址列表
+        await loadAddresses(true);
       } else {
         setError(result.message || '设置默认地址失败');
       }
@@ -381,7 +395,12 @@ export default function WithdrawPage() {
 
           {/* 添加新地址按钮 */}
           <button
-            onClick={() => setShowAddAddress(true)}
+            onClick={() => {
+              setShowAddAddress(true);
+              setNewAddress('');
+              setAddressValidationError('');
+              setError('');
+            }}
             disabled={loading || addresses.length >= 20}
             className="w-full py-3 border-2 border-dashed border-primary-gold/30 text-primary-gold rounded-lg hover:bg-primary-gold/5 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
           >
@@ -420,11 +439,9 @@ export default function WithdrawPage() {
             <div className="flex-1 space-y-1">
               <p className="text-sm font-semibold text-info">提现规则</p>
               <p className="text-xs text-text-secondary">• 最小提现金额: 50 USDT</p>
-              <p className="text-xs text-text-secondary">• 小额（&lt;1000）手续费: 5 USDT</p>
-              <p className="text-xs text-text-secondary">• 大额（≥1000）手续费: 2%</p>
-              <p className="text-xs text-text-secondary">• 小额自动审核，2小时内到账</p>
-              <p className="text-xs text-text-secondary">• 大额人工审核，24小时内到账</p>
-              <p className="text-xs text-text-secondary">• 每日提现限额: 3次</p>
+              <p className="text-xs text-text-secondary">• 手续费: 2 USDT（统一费率）</p>
+              <p className="text-xs text-text-secondary">• 自动审核，2小时内到账</p>
+              <p className="text-xs text-text-secondary">• 不限提现次数</p>
             </div>
           </div>
         </section>
@@ -545,7 +562,7 @@ export default function WithdrawPage() {
                 <div>
                   <p className="text-sm text-text-secondary mb-1">到账时间</p>
                   <p className="text-xs text-text-primary">
-                    {withdrawAmount >= 1000 ? '24小时内' : '2小时内'}
+                    2小时内
                   </p>
                 </div>
               </div>

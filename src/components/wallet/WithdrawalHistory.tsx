@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { apiService } from '@/lib/api';
 import { WithdrawalOrder } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -49,16 +49,36 @@ export default function WithdrawalHistory({ userId }: WithdrawalHistoryProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const pageSize = 10;
+  const lastFetchKeyRef = useRef('');
 
   // 加载提币订单
   const loadOrders = async (page: number = 1) => {
+    // 防止重复请求
+    const fetchKey = `${userId}-${page}`;
+    if (lastFetchKeyRef.current === fetchKey) {
+      return;
+    }
+    lastFetchKeyRef.current = fetchKey;
+
     try {
       setLoading(true);
       setError('');
       const result = await apiService.getWithdrawalOrders(userId, page, pageSize);
       
       if (result.success && result.data) {
-        setOrders(result.data.list);
+        // 转换后端数据格式以适配前端显示
+        const transformedOrders = result.data.list.map(order => ({
+          ...order,
+          amount: order.money,
+          address: order.toAddress,
+          txid: order.txId,
+          confirmTime: order.modifyTime,
+          // 计算手续费和实际到账（假设手续费为2%或5 USDT）
+          fee: calculateFee(parseFloat(order.money)),
+          actualAmount: calculateActualAmount(parseFloat(order.money)),
+        }));
+        
+        setOrders(transformedOrders);
         setTotalCount(result.data.totalCount);
         setCurrentPage(page);
       } else {
@@ -71,12 +91,25 @@ export default function WithdrawalHistory({ userId }: WithdrawalHistoryProps) {
       setLoading(false);
     }
   };
+  
+  // 计算手续费
+  const calculateFee = (amount: number): string => {
+    // 统一手续费: 2 USDT
+    return '2.00';
+  };
+  
+  // 计算实际到账金额
+  const calculateActualAmount = (amount: number): string => {
+    // 统一手续费: 2 USDT
+    return (amount - 2).toFixed(2);
+  };
 
   // 初始加载
   useEffect(() => {
     if (userId) {
       loadOrders(1);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
   // 刷新订单
@@ -161,7 +194,7 @@ export default function WithdrawalHistory({ userId }: WithdrawalHistoryProps) {
                 <div>
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-sm font-semibold text-text-primary">
-                      订单 #{order.id.slice(0, 8)}
+                      订单 #{order.id}
                     </span>
                     <span
                       className={cn(
@@ -178,10 +211,10 @@ export default function WithdrawalHistory({ userId }: WithdrawalHistoryProps) {
                 </div>
                 <div className="text-right">
                   <p className="text-lg font-bold font-mono text-text-primary">
-                    -{order.amount} USDT
+                    -{order.money} USDT
                   </p>
                   <p className="text-xs text-text-secondary">
-                    手续费: {order.fee} USDT
+                    手续费: {order.fee || '0.00'} USDT
                   </p>
                 </div>
               </div>
@@ -191,28 +224,28 @@ export default function WithdrawalHistory({ userId }: WithdrawalHistoryProps) {
                 <div className="flex justify-between text-sm">
                   <span className="text-text-secondary">实际到账</span>
                   <span className="font-mono font-semibold text-primary-gold">
-                    {order.actualAmount} USDT
+                    {order.actualAmount || order.money} USDT
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-text-secondary">提币地址</span>
                   <span className="font-mono text-text-primary">
-                    {formatAddress(order.address)}
+                    {formatAddress(order.toAddress)}
                   </span>
                 </div>
-                {order.txid && (
+                {order.txId && (
                   <div className="flex justify-between text-sm">
                     <span className="text-text-secondary">交易ID</span>
                     <span className="font-mono text-xs text-text-primary break-all">
-                      {order.txid}
+                      {order.txId}
                     </span>
                   </div>
                 )}
-                {order.confirmTime && (
+                {order.modifyTime && order.modifyTime !== order.createTime && (
                   <div className="flex justify-between text-sm">
                     <span className="text-text-secondary">确认时间</span>
                     <span className="text-text-primary">
-                      {formatTime(order.confirmTime)}
+                      {formatTime(order.modifyTime)}
                     </span>
                   </div>
                 )}

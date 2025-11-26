@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useTelegram } from '@/contexts/TelegramContext';
@@ -42,15 +42,17 @@ export default function DepositPage() {
   const [defaultAddress, setDefaultAddress] = useState<AddressEntity | null>(null);
   const [addressLoading, setAddressLoading] = useState(false);
   const [addressError, setAddressError] = useState<string>('');
-
-  // 加载默认地址
-  useEffect(() => {
-    if (userId) {
-      loadDefaultAddress();
-    }
-  }, [userId]);
+  const lastFetchKeyRef = useRef('');
 
   const loadDefaultAddress = async () => {
+    if (!userId) return;
+
+    // 防止重复请求
+    const fetchKey = `${userId}`;
+    if (lastFetchKeyRef.current === fetchKey) {
+      return;
+    }
+    lastFetchKeyRef.current = fetchKey;
     try {
       setAddressLoading(true);
       const result = await apiService.getAddressList(String(userId));
@@ -69,6 +71,12 @@ export default function DepositPage() {
       setAddressLoading(false);
     }
   };
+
+  // 加载默认地址
+  useEffect(() => {
+    loadDefaultAddress();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
 
   // 处理快捷金额选择
   const handleQuickAmount = (value: number) => {

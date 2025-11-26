@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useRef, ReactNode } from 'react';
 import { apiService } from '@/lib/api';
 import { BackendUser } from '@/lib/types';
 
@@ -35,8 +35,11 @@ export function TelegramProvider({ children }: { children: ReactNode }) {
   const [webApp, setWebApp] = useState<any>(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const [initError, setInitError] = useState<string | null>(null);
+  const initializationRef = useRef(false);
 
   useEffect(() => {
+    if (initializationRef.current) return;
+    initializationRef.current = true;
     initializeTelegram();
   }, []);
 

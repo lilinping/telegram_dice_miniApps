@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useTelegram } from '@/contexts/TelegramContext';
@@ -32,16 +32,17 @@ export default function HistoryPage() {
   const [pageIndex, setPageIndex] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const pageSize = 20;
-
-  // 加载历史记录
-  useEffect(() => {
-    if (user) {
-      loadHistory();
-    }
-  }, [user, pageIndex]);
+  const lastFetchKeyRef = useRef('');
 
   const loadHistory = async () => {
     if (!user) return;
+
+    // 防止重复请求
+    const fetchKey = `${user.id}-${pageIndex}`;
+    if (lastFetchKeyRef.current === fetchKey) {
+      return;
+    }
+    lastFetchKeyRef.current = fetchKey;
 
     setLoading(true);
     try {
@@ -61,6 +62,14 @@ export default function HistoryPage() {
       setLoading(false);
     }
   };
+
+  // 加载历史记录
+  useEffect(() => {
+    if (user) {
+      loadHistory();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, pageIndex]);
 
   // 格式化时间
   const formatTime = (timestamp: number): string => {

@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, ReactNode, useCallback, useEffect } from 'react';
+import { createContext, useContext, useState, ReactNode, useCallback, useEffect, useRef } from 'react';
 import { apiService } from '@/lib/api';
 import { useTelegram } from './TelegramContext';
 import { useWallet } from './WalletContext';
@@ -82,6 +82,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
   // 上一局下注记录
   const [lastBets, setLastBets] = useState<Record<string, number>>({});
 
+  // 防止Strict Mode重复调用
+  const diceOptionsLoadedRef = useRef(false);
+  const startingGameRef = useRef(false);
+
   // 加载骰宝选项对照表
   const loadDiceOptions = useCallback(async () => {
     try {
@@ -102,6 +106,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   // 初始化时加载骰宝选项
   useEffect(() => {
+    if (diceOptionsLoadedRef.current) return;
+    diceOptionsLoadedRef.current = true;
     loadDiceOptions();
   }, [loadDiceOptions]);
 
@@ -111,6 +117,13 @@ export function GameProvider({ children }: { children: ReactNode }) {
       console.error('用户未登录');
       return;
     }
+
+    if (startingGameRef.current) {
+      console.log('游戏正在启动中，跳过重复请求');
+      return;
+    }
+
+    startingGameRef.current = true;
 
     try {
       const response = await apiService.startGame(String(user.id));
@@ -124,6 +137,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
       }
     } catch (error) {
       console.error('开始游戏失败:', error);
+    } finally {
+      startingGameRef.current = false;
     }
   }, [user]);
 

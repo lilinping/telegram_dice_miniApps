@@ -200,17 +200,23 @@ export interface AddressEntity {
 // ==================== 提币订单类型 ====================
 
 export interface WithdrawalOrder {
-  id: string
+  id: number
   userId: number
-  amount: string          // 提币金额
-  fee: string            // 手续费
-  actualAmount: string   // 实际到账金额
-  address: string        // 目标地址
-  txid?: string          // 交易ID（完成后返回）
+  money: string          // 提币金额
+  txId: string           // 交易ID
   txCode: number         // 状态码：-1=未确认, 0=成功, 1=失败
+  fromAddress: string    // 来源地址
+  toAddress: string      // 目标地址
   createTime: number
-  updateTime: number
-  confirmTime?: number   // 确认时间
+  modifyTime: number
+  
+  // 计算属性（前端使用）
+  amount?: string        // 等同于 money
+  fee?: string          // 手续费（需要计算）
+  actualAmount?: string // 实际到账金额（需要计算）
+  address?: string      // 等同于 toAddress
+  txid?: string         // 等同于 txId
+  confirmTime?: number  // 确认时间（等同于 modifyTime）
 }
 
 export interface WithdrawalOrderResponse {

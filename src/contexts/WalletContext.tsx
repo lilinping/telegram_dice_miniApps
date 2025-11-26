@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, ReactNode, useCallback, useEffect } from 'react';
+import { createContext, useContext, useState, ReactNode, useCallback, useEffect, useRef } from 'react';
 import { apiService } from '@/lib/api';
 import { useTelegram } from './TelegramContext';
 import { AccountModel } from '@/lib/types';
@@ -37,6 +37,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const [bonusBalance, setBonusBalance] = useState(0);
   const [depositAmount, setDepositAmount] = useState(0);
   const [accountInfo, setAccountInfo] = useState<AccountModel | null>(null);
+  const isFetchingRef = useRef(false);
 
   // 刷新余额
   const refreshBalance = useCallback(async () => {
@@ -44,6 +45,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       console.error('用户未登录');
       return;
     }
+
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
 
     try {
       const response = await apiService.queryAccount(String(user.id));
@@ -63,6 +67,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       }
     } catch (error) {
       console.error('刷新余额失败:', error);
+    } finally {
+      isFetchingRef.current = false;
     }
   }, [user]);
 

@@ -9,6 +9,24 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        // 主题颜色系统
+        'primary-gold': '#FFD700',
+        'primary-light-gold': '#FFED4E',
+        'primary-dark-gold': '#B8860B',
+        
+        // 背景色系统
+        'bg-darkest': '#0D0D0D',
+        'bg-dark': '#1A1A1A',
+        'bg-medium': '#2B2B2B',
+        
+        // 文字色系统
+        'text-primary': '#FFFFFF',
+        'text-secondary': '#A0A0A0',
+        'text-disabled': '#666666',
+        
+        // 边框色
+        'border': '#3B3B3B',
+        
         // 金色系统
         gold: {
           primary: '#D4AF37',

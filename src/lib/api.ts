@@ -255,7 +255,7 @@ class ApiService {
     pageIndex: number = 1,
     pageSize: number = 10
   ): Promise<BackendResponse<PageModel<WithdrawalOrder>>> {
-    return this.request<PageModel<WithdrawalOrder>>(`/withdrawal/orders/${userId}/${pageIndex}/${pageSize}`)
+    return this.request<PageModel<WithdrawalOrder>>(`/account/take/history/usdt/${userId}/${pageIndex}/${pageSize}`)
   }
 
   /**
