@@ -120,6 +120,35 @@ export default function DepositPage() {
     }, 3000)
   }
 
+  // 查询支付状态
+  const handleCheckPayment = async () => {
+    if (!user || !paymentOrder) return
+
+    try {
+      const response = await apiService.getPaymentOrderStatus(
+        String(user.id),
+        paymentOrder.orderId
+      )
+
+      if (response.success && response.data) {
+        // 检查订单状态
+        // state: "WAIT" = 待支付, "SUCCESS" = 已支付, "CANCEL" = 已取消
+        if (response.data.state === 'SUCCESS') {
+          await handlePaymentSuccess()
+        } else if (response.data.state === 'WAIT') {
+          setError('订单尚未支付，请完成支付后再试')
+        } else {
+          setError('订单状态异常，请联系客服')
+        }
+      } else {
+        setError(response.message || '查询订单状态失败')
+      }
+    } catch (error) {
+      console.error('查询支付状态失败:', error)
+      setError('查询失败，请稍后重试')
+    }
+  }
+
   // 检查按钮是否应该禁用
   const isButtonDisabled = amount < 10 || loading
 
@@ -261,11 +290,13 @@ export default function DepositPage() {
       {showQRCode && paymentOrder && (
         <Modal isOpen={showQRCode} onClose={handleCancelPayment} title="">
           <QRCodeDisplay
-            qrCodeUrl={paymentOrder.qrCodeUrl}
+            qrCodeUrl={paymentOrder.payImageUrl}
             orderId={paymentOrder.orderId}
-            amount={parseFloat(paymentOrder.amount)}
+            amount={parseFloat(paymentOrder.money)}
             paymentStatus={paymentStatus}
             onCancel={handleCancelPayment}
+            onCheckPayment={handleCheckPayment}
+            userId={user ? String(user.id) : undefined}
             onCopyOrderId={() => {
               // 可选：显示复制成功提示
             }}

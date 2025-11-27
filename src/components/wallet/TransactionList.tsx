@@ -137,10 +137,13 @@ export default function TransactionList() {
         }
       }
 
-      // 3. 充值记录（暂时使用模拟数据，因为后端没有充值历史API）
+      // 3. 充值记录
+      // 注意：后端暂时没有提供充值历史列表接口
+      // 只有单个订单查询接口 /order/query/{userId}/{orderNo}
+      // 如果需要显示充值记录，需要后端添加类似 /order/list/{userId}/{pageIndex}/{pageSize} 的接口
       if (activeFilter === 'all' || activeFilter === 'deposit') {
-        // TODO: 等待后端提供充值历史API
-        // 暂时不显示充值记录
+        // TODO: 等待后端提供充值订单列表接口
+        // 目前无法获取充值历史记录
       }
 
       // 按时间倒序排序

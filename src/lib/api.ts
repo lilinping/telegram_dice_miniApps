@@ -278,19 +278,21 @@ class ApiService {
    * @returns BackendResponse<PaymentOrder>
    */
   async createPaymentOrder(userId: string, amount: string): Promise<BackendResponse<PaymentOrder>> {
-    return this.request<PaymentOrder>(`/payment/order/${userId}/${amount}`, {
+    return this.request<PaymentOrder>(`/order/create/${userId}/${amount}`, {
       method: 'POST'
     })
   }
 
   /**
    * 查询支付订单状态
-   * @param orderId 订单ID
+   * @param userId 用户ID
+   * @param orderNo 订单号
    * @returns BackendResponse<PaymentOrderStatus>
    */
-  async getPaymentOrderStatus(orderId: string): Promise<BackendResponse<PaymentOrderStatus>> {
-    return this.request<PaymentOrderStatus>(`/payment/order/status/${orderId}`)
+  async getPaymentOrderStatus(userId: string, orderNo: string): Promise<BackendResponse<PaymentOrderStatus>> {
+    return this.request<PaymentOrderStatus>(`/order/query/${userId}/${orderNo}`)
   }
+
 }
 
 // 导出单例实例

@@ -13,7 +13,8 @@ import { cn, copyToClipboard } from '@/lib/utils'
  * 4. 支付方式（USDT）
  * 5. 支付说明
  * 6. 支付状态指示器
- * 7. 取消按钮
+ * 7. 已充值按钮（查询支付状态）
+ * 8. 取消按钮
  */
 
 interface QRCodeDisplayProps {
@@ -23,6 +24,8 @@ interface QRCodeDisplayProps {
   paymentStatus: 'pending' | 'success' | 'failed'
   onCancel: () => void
   onCopyOrderId?: () => void
+  onCheckPayment?: () => void
+  userId?: string
 }
 
 export default function QRCodeDisplay({
@@ -32,9 +35,12 @@ export default function QRCodeDisplay({
   paymentStatus,
   onCancel,
   onCopyOrderId,
+  onCheckPayment,
+  userId,
 }: QRCodeDisplayProps) {
   const [imageError, setImageError] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [checking, setChecking] = useState(false)
 
   const handleCopyOrderId = async () => {
     const success = await copyToClipboard(orderId)
@@ -77,8 +83,19 @@ export default function QRCodeDisplay({
 
   const statusConfig = getStatusConfig()
 
+  const handleCheckPayment = async () => {
+    if (onCheckPayment) {
+      setChecking(true)
+      try {
+        await onCheckPayment()
+      } finally {
+        setChecking(false)
+      }
+    }
+  }
+
   return (
-    <div className="w-full max-w-md mx-auto">
+    <div className="w-full max-w-md mx-auto overflow-y-auto max-h-[85vh] px-1">
       {/* 支付状态指示器 */}
       <div
         className={cn(
@@ -187,13 +204,27 @@ export default function QRCodeDisplay({
         </ul>
       </div>
 
-      {/* 取消按钮 */}
-      <button
-        onClick={onCancel}
-        className="w-full py-3 rounded-xl bg-bg-medium hover:bg-bg-light text-text-secondary hover:text-text-primary transition-all font-medium"
-      >
-        取消支付
-      </button>
+      {/* 按钮组 */}
+      <div className="space-y-3">
+        {/* 已充值按钮 */}
+        {paymentStatus === 'pending' && onCheckPayment && (
+          <button
+            onClick={handleCheckPayment}
+            disabled={checking}
+            className="w-full py-3 rounded-xl bg-gradient-to-r from-primary-gold to-primary-light-gold text-bg-darkest font-bold hover:opacity-90 disabled:opacity-50 transition-all"
+          >
+            {checking ? '查询中...' : '我已充值'}
+          </button>
+        )}
+        
+        {/* 取消按钮 */}
+        <button
+          onClick={onCancel}
+          className="w-full py-3 rounded-xl bg-bg-medium hover:bg-bg-dark text-text-secondary hover:text-text-primary transition-all font-medium"
+        >
+          取消支付
+        </button>
+      </div>
     </div>
   )
 }
