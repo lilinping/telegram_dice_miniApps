@@ -235,17 +235,18 @@ export default function GamePage() {
         </div>
       </header>
 
-      {/* 3D骰盅展示区 - 优化高度 */}
-      <div
-        className="relative h-[120px] pt-6 pb-0"
-        style={{
-          background: 'linear-gradient(180deg, var(--onyx-black) 0%, var(--rich-black) 100%)',
-        }}
-      >
-        <DiceAnimation />
+      {/* 3D骰盅展示区 - 优化高度，在开奖时隐藏 */}
+      {gameState === 'betting' && (
+        <div
+          className="relative h-[120px] pt-6 pb-0"
+          style={{
+            background: 'linear-gradient(180deg, var(--onyx-black) 0%, var(--rich-black) 100%)',
+          }}
+        >
+          <DiceAnimation />
 
-        {/* 右上角按钮组 */}
-        <div className="absolute top-4 right-4 flex gap-2">
+          {/* 右上角按钮组 */}
+          <div className="absolute top-4 right-4 flex gap-2">
           {/* 设置按钮 - 音效和震动开关 */}
           <button
             onClick={() => {
@@ -281,7 +282,8 @@ export default function GamePage() {
             <span className="text-xl">❓</span>
           </button>
         </div>
-      </div>
+        </div>
+      )}
 
       {/* 投注面板 - 可滚动 */}
       <div
@@ -440,16 +442,22 @@ export default function GamePage() {
         </button>
       </div>
 
-      {/* 开奖动画遮罩 */}
-      {(gameState === 'rolling' || gameState === 'revealing') && (
+      {/* 开奖动画遮罩 - 完全覆盖整个屏幕，在开奖和结算时都显示 */}
+      {(gameState === 'rolling' || gameState === 'revealing' || gameState === 'settled') && (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center animate-fade-in"
+          className="fixed inset-0 z-[200] flex items-center justify-center animate-fade-in"
           style={{
-            background: 'rgba(0, 0, 0, 0.85)',
+            background: 'var(--rich-black)',
             backdropFilter: 'blur(12px)',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: '100vw',
+            height: '100vh',
           }}
         >
-          <div className="text-center">
+          <div className="text-center w-full h-full flex items-center justify-center">
             <DiceAnimation fullscreen />
           </div>
         </div>

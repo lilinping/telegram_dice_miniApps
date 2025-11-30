@@ -319,12 +319,12 @@ export default function DiceAnimation({ fullscreen = false }: DiceAnimationProps
               <Dice3D key={`dice-${idx}`} value={value} delay={0} />
             ))}
           </div>
-          <p
+          {/* <p
             className="text-sm"
             style={{ color: 'rgba(255, 255, 255, 0.6)' }}
           >
             {gameState === 'betting' ? '请下注' : '准备开始'}
-          </p>
+          </p> */}
         </div>
       );
     }
