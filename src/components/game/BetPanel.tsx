@@ -98,10 +98,10 @@ export default function BetPanel({ disabled = false }: BetPanelProps) {
   };
 
   return (
-    <div className="px-sm py-xs space-y-0.5">
+    <div className="px-2 py-1 space-y-1">
       {/* 第一排：小 / 单 / 任意三 / 双 / 大 （浅色瓷片风格） */}
       <div
-        className="grid gap-0.5"
+        className="grid gap-1"
         style={{
           gridTemplateColumns: '1.35fr 0.75fr 1.45fr 0.75fr 1.35fr',
         }}
@@ -129,7 +129,7 @@ export default function BetPanel({ disabled = false }: BetPanelProps) {
       </div>
 
       {/* 第二排：双骰（对子）- 可下注 */}
-      <div className="grid gap-0.5"
+      <div className="grid gap-1"
         style={{
           gridTemplateColumns: 'repeat(6, 1fr)',
         }}
@@ -157,7 +157,7 @@ export default function BetPanel({ disabled = false }: BetPanelProps) {
               boxShadow: bets[bet.id]
                 ? 'inset 0 2px 4px rgba(0, 0, 0, 0.2), 0 0 16px rgba(255, 215, 0, 0.6)'
                 : 'none',
-              minHeight: 50,
+              minHeight: 42,
               opacity: disabled ? 0.5 : 1,
             }}
           >
@@ -184,7 +184,7 @@ export default function BetPanel({ disabled = false }: BetPanelProps) {
       </div>
 
       {/* 第三排：三同号（豹子）- 可下注 */}
-      <div className="grid gap-0.5"
+      <div className="grid gap-1"
         style={{
           gridTemplateColumns: 'repeat(6, 1fr)',
         }}
@@ -201,7 +201,7 @@ export default function BetPanel({ disabled = false }: BetPanelProps) {
             key={bet.id}
             onClick={() => !disabled && placeBet(bet.id)}
             disabled={disabled}
-            className="relative flex flex-col items-center justify-center gap-1 rounded-lg transition-all duration-200 active:scale-95 p-xs"
+            className="relative flex flex-col items-center justify-center gap-0.5 rounded-lg transition-all duration-200 active:scale-95 p-1"
             style={{
               background: bets[bet.id]
                 ? 'linear-gradient(135deg, #FFD700 0%, #FFA500 100%)'
@@ -212,7 +212,7 @@ export default function BetPanel({ disabled = false }: BetPanelProps) {
               boxShadow: bets[bet.id]
                 ? 'inset 0 2px 4px rgba(0, 0, 0, 0.3), 0 0 20px rgba(255, 215, 0, 0.8)'
                 : 'inset 0 2px 4px rgba(0, 0, 0, 0.3)',
-              minHeight: 60,
+              minHeight: 50,
               opacity: disabled ? 0.5 : 1,
             }}
           >
@@ -241,7 +241,7 @@ export default function BetPanel({ disabled = false }: BetPanelProps) {
 
       {/* 第四排：点数4-10 */}
       <div>
-        <div className="grid grid-cols-7 gap-0.5">
+        <div className="grid grid-cols-7 gap-1">
           {betTypes.numbersLow.map((bet) => (
             <BetCell
               key={bet.id}
@@ -260,7 +260,7 @@ export default function BetPanel({ disabled = false }: BetPanelProps) {
 
       {/* 第五排：点数11-17 */}
       <div>
-        <div className="grid grid-cols-7 gap-0.5">
+        <div className="grid grid-cols-7 gap-1">
           {betTypes.numbersHigh.map((bet) => (
             <BetCell
               key={bet.id}
@@ -279,13 +279,13 @@ export default function BetPanel({ disabled = false }: BetPanelProps) {
 
       {/* 第六排：两骰组合（3行5列）- 显示骰子图案 */}
       <div>
-        <div className="grid grid-cols-5 gap-0.5">
+        <div className="grid grid-cols-5 gap-1">
           {betTypes.pairs.map((bet) => (
             <button
               key={bet.id}
               onClick={() => !disabled && placeBet(bet.id)}
               disabled={disabled}
-              className="relative flex flex-col items-center justify-center gap-0.5 rounded-lg transition-all duration-200 active:scale-95 min-h-[40px] p-xs"
+              className="relative flex flex-col items-center justify-center gap-0.5 rounded-lg transition-all duration-200 active:scale-95 min-h-[36px] p-1"
               style={{
                 background: bets[bet.id]
                   ? 'linear-gradient(135deg, var(--burgundy) 0%, var(--casino-red) 100%)'
@@ -327,7 +327,7 @@ export default function BetPanel({ disabled = false }: BetPanelProps) {
 
       {/* 第七排：单骰号1-6 - 显示骰子图案（2行3列） */}
       <div>
-        <div className="grid grid-cols-3 gap-0.5">
+        <div className="grid grid-cols-3 gap-1">
           {betTypes.single.map((bet) => {
             // 中文数字映射
             const chineseNumbers = ['一', '二', '三', '四', '五', '六'];
@@ -338,7 +338,7 @@ export default function BetPanel({ disabled = false }: BetPanelProps) {
               key={bet.id}
               onClick={() => !disabled && placeBet(bet.id)}
               disabled={disabled}
-                className="relative flex flex-row items-center justify-between gap-2 rounded-lg transition-all duration-200 active:scale-95 min-h-[50px] p-sm px-md"
+              className="relative flex flex-row items-center justify-between gap-2 rounded-lg transition-all duration-200 active:scale-95 min-h-[44px] p-2 px-3"
               style={{
                 background: bets[bet.id]
                   ? 'linear-gradient(135deg, var(--burgundy) 0%, var(--casino-red) 100%)'
@@ -390,13 +390,13 @@ export default function BetPanel({ disabled = false }: BetPanelProps) {
       <div
         className="text-center"
         style={{
-          paddingTop: '12px',
-          paddingBottom: '10px',
+          paddingTop: '8px',
+          paddingBottom: '6px',
         }}
       >
         <p
           className="text-tiny"
-          style={{ color: 'rgba(255, 255, 255, 0.45)' }}
+          style={{ color: 'rgba(255, 255, 255, 0.45)', fontSize: '10px' }}
         >
           点击投注格进行下注 · 可重复点击累加金额
         </p>

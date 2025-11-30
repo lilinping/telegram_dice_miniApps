@@ -175,14 +175,14 @@ export default function GamePage() {
 
   return (
     <div className="flex flex-col h-screen overflow-hidden" style={{ background: 'var(--rich-black)' }}>
-      {/* 顶部栏 - 72px */}
+      {/* 顶部栏 - 60px */}
       <header
-        className="sticky top-0 z-50 h-18 border-b-2 flex items-center justify-between px-4"
+        className="sticky top-0 z-50 border-b-2 flex items-center justify-between px-3 py-2"
         style={{
           background: 'linear-gradient(180deg, var(--rich-black) 0%, var(--onyx-black) 100%)',
           borderBottomColor: 'var(--gold-primary)',
           backdropFilter: 'blur(10px)',
-          minHeight: '72px',
+          minHeight: '60px',
         }}
       >
         {/* 左侧：局号 */}
@@ -235,9 +235,9 @@ export default function GamePage() {
         </div>
       </header>
 
-      {/* 3D骰盅展示区 - 调整内边距避免重叠并贴近下注面板 */}
+      {/* 3D骰盅展示区 - 优化高度 */}
       <div
-        className="relative h-[160px] pt-10 pb-0"
+        className="relative h-[120px] pt-6 pb-0"
         style={{
           background: 'linear-gradient(180deg, var(--onyx-black) 0%, var(--rich-black) 100%)',
         }}
@@ -289,11 +289,11 @@ export default function GamePage() {
         className="flex-1 overflow-hidden"
         style={{
           background: 'var(--rich-black)',
-          paddingBottom: '34px',
+          paddingBottom: '20px',
           display: 'flex',
           justifyContent: 'center',
-          height: 'calc(100vh - 72px - 220px - 122px - 64px - 32px)',
-          maxHeight: 'calc(100vh - 72px - 220px - 122px - 64px - 32px)',
+          height: 'calc(100vh - 60px - 120px - 160px - 56px)',
+          maxHeight: 'calc(100vh - 60px - 120px - 160px - 56px)',
         }}
       >
         <div
@@ -313,39 +313,44 @@ export default function GamePage() {
         </div>
       </div>
 
-      {/* 倍投选择器 + 筹码选择器 - 固定在底部操作栏上方 */}
+      {/* 倍投选择器 + 筹码选择器 - 固定在底部操作栏上方，优化移动端布局 */}
       <div
         className="fixed z-[60] left-0 right-0"
         style={{
-          bottom: '64px',
-          height: '210px', // 增加高度以容纳倍投选择器
-          overflow: 'visible',
+          bottom: '56px',
+          height: '160px', // 减少总高度：70px (倍投) + 90px (筹码) = 160px
+          overflow: 'hidden',
         }}
       >
-        <div className="relative w-full h-full overflow-visible flex flex-col">
-          {/* 倍投选择器 */}
-          <MultiplierSelector
-            value={multiplier}
-            onChange={(newMultiplier) => {
-              setMultiplier(newMultiplier);
-              hapticChipSelect();
-              playChipSelect();
-            }}
-            disabled={!canBet}
-          />
+        <div className="relative w-full h-full flex flex-col">
+          {/* 倍投选择器 - 减少高度到70px */}
+          <div style={{ height: '70px', flexShrink: 0 }}>
+            <MultiplierSelector
+              value={multiplier}
+              onChange={(newMultiplier) => {
+                setMultiplier(newMultiplier);
+                hapticChipSelect();
+                playChipSelect();
+              }}
+              disabled={!canBet}
+            />
+          </div>
 
-          {/* 筹码选择器 */}
-          <ChipSelector />
+          {/* 筹码选择器 - 固定高度90px */}
+          <div style={{ height: '90px', flexShrink: 0 }}>
+            <ChipSelector />
+          </div>
         </div>
       </div>
 
-      {/* 底部操作栏 - 64px, 固定 */}
+      {/* 底部操作栏 - 56px, 固定 */}
       <div
-        className="fixed bottom-0 left-0 right-0 z-50 h-16 border-t-2 px-xs py-sm flex items-center gap-xs"
+        className="fixed bottom-0 left-0 right-0 z-50 border-t-2 px-2 py-2 flex items-center gap-1.5"
         style={{
           background: 'var(--onyx-black)',
           borderTopColor: 'var(--gold-primary)',
           paddingBottom: 'calc(8px + env(safe-area-inset-bottom))',
+          minHeight: '56px',
         }}
       >
         {/* 清空按钮 */}
@@ -355,7 +360,7 @@ export default function GamePage() {
             hapticChipSelect();
           }}
           disabled={totalBetAmount === 0 || !canBet}
-          className="flex-1 h-12 rounded-lg text-tiny font-bold flex flex-col items-center justify-center transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+          className="flex-1 h-10 rounded-lg text-tiny font-bold flex flex-col items-center justify-center transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
           style={{
             background: 'transparent',
             border: '2px solid var(--gold-primary)',
@@ -383,7 +388,7 @@ export default function GamePage() {
             hapticChipSelect();
           }}
           disabled={!canUndo || !canBet}
-          className="flex-1 h-12 rounded-lg text-tiny font-bold flex flex-col items-center justify-center transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+          className="flex-1 h-10 rounded-lg text-tiny font-bold flex flex-col items-center justify-center transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
           style={{
             background: 'transparent',
             border: '2px solid var(--gold-primary)',
@@ -400,7 +405,7 @@ export default function GamePage() {
         <button
           onClick={handleConfirmBet}
           disabled={totalBetAmount === 0 || !canBet}
-          className="flex-[2] h-12 rounded-lg text-small font-bold flex flex-col items-center justify-center transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex-[2] h-10 rounded-lg text-small font-bold flex flex-col items-center justify-center transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
           style={{
             background: totalBetAmount > 0 && canBet
               ? 'linear-gradient(135deg, var(--gold-bright) 0%, var(--gold-dark) 100%)'
@@ -421,7 +426,7 @@ export default function GamePage() {
         {/* 走势按钮 */}
         <button
           onClick={() => router.push('/history')}
-          className="flex-1 h-12 rounded-lg text-tiny font-bold flex flex-col items-center justify-center transition-all active:scale-95"
+          className="flex-1 h-10 rounded-lg text-tiny font-bold flex flex-col items-center justify-center transition-all active:scale-95"
           style={{
             background: 'transparent',
             border: '2px solid var(--gold-primary)',

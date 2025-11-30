@@ -90,96 +90,100 @@ export default function ChipSelector() {
 
   return (
     <div
-      className="flex gap-md items-center overflow-x-auto scrollbar-hide"
+      className="w-full"
       style={{
-        scrollSnapType: 'x mandatory',
-        WebkitOverflowScrolling: 'touch',
-        overflowY: 'visible',
-        overflowX: 'auto',
-        position: 'relative',
-        width: '100%',
-        height: '100%',
-        paddingTop: '0',
-        paddingBottom: '0',
-        paddingLeft: '16px', // 左侧padding确保第一个筹码可以完全显示
-        paddingRight: '16px', // 右侧padding确保最后一个筹码可以完全显示
+        background: 'linear-gradient(180deg, rgba(26, 26, 26, 0.95) 0%, rgba(13, 13, 13, 0.95) 100%)',
+        backdropFilter: 'blur(10px)',
+        borderTop: '1px solid rgba(212, 175, 55, 0.1)',
+        height: '90px', // 固定高度，防止重叠
+        minHeight: '90px',
+        maxHeight: '90px',
+        padding: '8px 12px',
+        overflow: 'hidden',
       }}
     >
-      {chips.map((chip) => {
-        const isSelected = selectedChip === chip.value;
+      <div
+        className="flex justify-between items-center w-full h-full"
+        style={{
+          gap: '6px', // 减少间距，让筹码更紧凑
+        }}
+      >
+        {chips.map((chip) => {
+          const isSelected = selectedChip === chip.value;
 
-        return (
-          <div
-            key={chip.value}
-            className="flex flex-col items-center gap-xs flex-shrink-0"
-            style={{ 
-              scrollSnapAlign: 'center',
-              position: 'relative',
-              // 不添加paddingTop，避免筹码下移
-            }}
-          >
-            {/* 筹码 */}
-            <div className="relative z-10">
-              {/* 发光效果 - 相对于筹码按钮居中，在所有方向扩展 */}
-              {isSelected && (
-                <div
-                  className="absolute"
-                  style={{
-                    top: '50%',
-                    left: '50%',
-                    transform: 'translate(-50%, -50%)',
-                    width: 'calc(64px + 32px)', // 筹码宽度64px + 发光扩展32px
-                    height: 'calc(64px + 32px)',
-                    borderRadius: '50%',
-                    background: 'radial-gradient(circle, rgba(255, 215, 0, 0.35) 0%, rgba(255, 215, 0, 0) 70%)',
-                    filter: 'blur(2px)',
-                    zIndex: 0,
-                    pointerEvents: 'none',
-                  }}
-                />
-              )}
-              <button
-                onClick={() => handleChipClick(chip.value)}
-                className={cn(
-                  'relative z-10 w-16 h-16 rounded-full transition-all duration-200 active:scale-98'
-                )}
-                style={{
-                  background: chip.gradient,
-                  border: isSelected ? '3px solid var(--gold-bright)' : '3px solid transparent',
-                  boxShadow: isSelected
-                    ? `0 0 22px rgba(255, 215, 0, 0.35), 0 8px 16px rgba(0, 0, 0, 0.45), inset 0 3px 6px rgba(255, 255, 255, 0.4), inset 0 -3px 6px rgba(0, 0, 0, 0.4)`
-                    : `inset 0 3px 6px rgba(255, 255, 255, 0.3), inset 0 -3px 6px rgba(0, 0, 0, 0.3), 0 6px 12px rgba(0, 0, 0, 0.4)`,
-                  filter: isSelected ? 'drop-shadow(0 0 8px rgba(255, 215, 0, 0.35))' : undefined,
-                }}
-              >
-                {/* 中心内容 */}
-                <div className="relative z-10 flex items-center justify-center w-full h-full">
-                  <span
-                    className="font-mono font-black text-lg"
-                    style={{
-                      color: chip.textColor,
-                      textShadow: '0 1px 2px rgba(0, 0, 0, 0.5)',
-                    }}
-                  >
-                    {chip.label}
-                  </span>
-                </div>
-              </button>
-            </div>
-
-            {/* 筹码标签 */}
-            <span
-              className="text-small font-semibold"
-              style={{
-                color: isSelected ? 'var(--gold-bright)' : 'rgba(255, 255, 255, 0.6)',
-                transition: 'color 0.3s',
+          return (
+            <div
+              key={chip.value}
+              className="flex flex-col items-center gap-1 flex-1"
+              style={{ 
+                position: 'relative',
+                minWidth: '0', // 允许flex收缩
               }}
             >
-              {chip.shortLabel}
-            </span>
-          </div>
-        );
-      })}
+              {/* 筹码 */}
+              <div className="relative z-10">
+                {/* 发光效果 - 优化移动端显示 */}
+                {isSelected && (
+                  <div
+                    className="absolute"
+                    style={{
+                      top: '50%',
+                      left: '50%',
+                      transform: 'translate(-50%, -50%)',
+                      width: 'calc(48px + 20px)', // 筹码宽度48px + 发光扩展20px
+                      height: 'calc(48px + 20px)',
+                      borderRadius: '50%',
+                      background: 'radial-gradient(circle, rgba(255, 215, 0, 0.3) 0%, rgba(255, 215, 0, 0) 70%)',
+                      filter: 'blur(2px)',
+                      zIndex: 0,
+                      pointerEvents: 'none',
+                    }}
+                  />
+                )}
+                <button
+                  onClick={() => handleChipClick(chip.value)}
+                  className={cn(
+                    'relative z-10 w-12 h-12 rounded-full transition-all duration-200 active:scale-95'
+                  )}
+                  style={{
+                    background: chip.gradient,
+                    border: isSelected ? '2px solid var(--gold-bright)' : '2px solid transparent',
+                    boxShadow: isSelected
+                      ? `0 0 16px rgba(255, 215, 0, 0.3), 0 6px 12px rgba(0, 0, 0, 0.4), inset 0 2px 4px rgba(255, 255, 255, 0.3), inset 0 -2px 4px rgba(0, 0, 0, 0.3)`
+                      : `inset 0 2px 4px rgba(255, 255, 255, 0.25), inset 0 -2px 4px rgba(0, 0, 0, 0.25), 0 4px 8px rgba(0, 0, 0, 0.3)`,
+                    filter: isSelected ? 'drop-shadow(0 0 6px rgba(255, 215, 0, 0.3))' : undefined,
+                  }}
+                >
+                  {/* 中心内容 */}
+                  <div className="relative z-10 flex items-center justify-center w-full h-full">
+                    <span
+                      className="font-mono font-black text-xs"
+                      style={{
+                        color: chip.textColor,
+                        textShadow: '0 1px 2px rgba(0, 0, 0, 0.5)',
+                      }}
+                    >
+                      {chip.label}
+                    </span>
+                  </div>
+                </button>
+              </div>
+
+              {/* 筹码标签 - 优化移动端显示 */}
+              <span
+                className="text-xs font-semibold"
+                style={{
+                  color: isSelected ? 'var(--gold-bright)' : 'rgba(255, 255, 255, 0.6)',
+                  transition: 'color 0.3s',
+                  fontSize: '10px',
+                }}
+              >
+                {chip.shortLabel}
+              </span>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

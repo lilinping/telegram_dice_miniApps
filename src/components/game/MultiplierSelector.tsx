@@ -29,24 +29,28 @@ export default function MultiplierSelector({
 
   return (
     <div
-      className="w-full px-sm py-xs"
+      className="w-full px-3 py-1.5"
       style={{
         background: 'linear-gradient(180deg, rgba(42, 42, 42, 0.95) 0%, rgba(26, 26, 26, 0.95) 100%)',
         backdropFilter: 'blur(10px)',
         borderTop: '1px solid rgba(212, 175, 55, 0.2)',
+        height: '70px', // 减少高度，防止重叠
+        minHeight: '70px',
+        maxHeight: '70px',
+        overflow: 'hidden',
       }}
     >
       {/* 标题 */}
-      <div className="flex items-center justify-between mb-xs">
+      <div className="flex items-center justify-between mb-1.5">
         <span
-          className="text-tiny font-semibold"
+          className="text-xs font-semibold"
           style={{ color: 'var(--gold-primary)' }}
         >
           倍投设置
         </span>
         {value > 1 && (
           <span
-            className="text-tiny font-mono font-bold px-2 py-0.5 rounded animate-pulse"
+            className="text-xs font-mono font-bold px-1.5 py-0.5 rounded animate-pulse"
             style={{
               background: 'linear-gradient(135deg, var(--gold-bright) 0%, var(--gold-dark) 100%)',
               color: 'var(--rich-black)',
@@ -58,8 +62,8 @@ export default function MultiplierSelector({
         )}
       </div>
 
-      {/* 倍投选项 */}
-      <div className="grid grid-cols-5 gap-xs">
+      {/* 倍投选项 - 优化移动端布局 */}
+      <div className="grid grid-cols-5 gap-1 mobile-gap-1">
         {MULTIPLIERS.map((multiplier) => {
           const isSelected = value === multiplier;
           const isHovered = hoveredMultiplier === multiplier;
@@ -71,7 +75,7 @@ export default function MultiplierSelector({
               onMouseEnter={() => setHoveredMultiplier(multiplier)}
               onMouseLeave={() => setHoveredMultiplier(null)}
               disabled={disabled}
-              className="relative flex flex-col items-center justify-center rounded-lg transition-all duration-200 active:scale-95 py-sm"
+              className="relative flex items-center justify-center rounded-md transition-all duration-200 active:scale-95"
               style={{
                 background: isSelected
                   ? 'linear-gradient(135deg, var(--gold-bright) 0%, var(--gold-dark) 100%)'
@@ -82,16 +86,19 @@ export default function MultiplierSelector({
                   ? '2px solid var(--gold-bright)'
                   : '2px solid rgba(212, 175, 55, 0.4)',
                 boxShadow: isSelected
-                  ? '0 0 20px rgba(255, 215, 0, 0.6), inset 0 2px 4px rgba(255, 255, 255, 0.2)'
-                  : 'inset 0 2px 4px rgba(0, 0, 0, 0.2)',
+                  ? '0 0 16px rgba(255, 215, 0, 0.5), inset 0 1px 2px rgba(255, 255, 255, 0.2)'
+                  : 'inset 0 1px 2px rgba(0, 0, 0, 0.2)',
                 opacity: disabled ? 0.5 : 1,
                 cursor: disabled ? 'not-allowed' : 'pointer',
                 animation: isSelected ? 'float 2s ease-in-out infinite' : 'none',
+                height: '28px', // 减少按钮高度
+                minHeight: '28px',
+                maxHeight: '28px',
               }}
             >
               {/* 倍数文字 */}
               <span
-                className="text-body font-bold font-mono"
+                className="text-sm font-bold font-mono mobile-text-xs mobile-ultra-text-xs"
                 style={{
                   color: isSelected ? 'var(--rich-black)' : 'var(--gold-primary)',
                   textShadow: isSelected ? 'none' : '0 1px 2px rgba(0, 0, 0, 0.5)',
@@ -103,14 +110,14 @@ export default function MultiplierSelector({
               {/* 选中图标 */}
               {isSelected && (
                 <div
-                  className="absolute -top-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center animate-scale-in"
+                  className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full flex items-center justify-center animate-scale-in"
                   style={{
                     background: 'var(--gold-bright)',
-                    border: '2px solid var(--rich-black)',
-                    boxShadow: '0 2px 8px rgba(255, 215, 0, 0.8)',
+                    border: '1px solid var(--rich-black)',
+                    boxShadow: '0 1px 4px rgba(255, 215, 0, 0.8)',
                   }}
                 >
-                  <span className="text-tiny" style={{ color: 'var(--rich-black)' }}>✓</span>
+                  <span className="text-xs" style={{ color: 'var(--rich-black)' }}>✓</span>
                 </div>
               )}
             </button>
@@ -118,11 +125,11 @@ export default function MultiplierSelector({
         })}
       </div>
 
-      {/* 说明文字 */}
-      <div className="mt-xs text-center">
+      {/* 说明文字 - 简化移动端显示 */}
+      <div className="mt-0.5 text-center">
         <p
-          className="text-tiny"
-          style={{ color: 'rgba(255, 255, 255, 0.45)' }}
+          className="text-xs leading-tight"
+          style={{ color: 'rgba(255, 255, 255, 0.45)', fontSize: '9px' }}
         >
           {value > 1
             ? `当前所有下注金额将乘以 ${value} 倍`
