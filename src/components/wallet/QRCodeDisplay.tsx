@@ -95,7 +95,7 @@ export default function QRCodeDisplay({
   }
 
   return (
-    <div className="w-full max-w-md mx-auto overflow-y-auto max-h-[85vh] px-1">
+    <div className="w-full max-w-md mx-auto">
       {/* 支付状态指示器 */}
       <div
         className={cn(

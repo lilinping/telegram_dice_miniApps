@@ -80,7 +80,7 @@ const Modal: React.FC<ModalProps> = ({
               className={clsx(
                 'bg-bg-dark rounded-xl shadow-lg pointer-events-auto w-full',
                 'border-2 border-primary-gold/50',
-                'max-h-[90vh] overflow-y-auto',
+                'max-h-[90vh] overflow-hidden flex flex-col',
                 sizeStyles[size],
                 className
               )}
@@ -88,7 +88,7 @@ const Modal: React.FC<ModalProps> = ({
             >
               {/* 头部 */}
               {(title || showCloseButton) && (
-                <div className="flex items-center justify-between p-6 border-b border-border">
+                <div className="flex items-center justify-between p-6 border-b border-border flex-shrink-0">
                   {title && (
                     <h2 className="text-xl font-bold text-white">{title}</h2>
                   )}
@@ -107,7 +107,7 @@ const Modal: React.FC<ModalProps> = ({
               )}
 
               {/* 内容 */}
-              <div className="p-6">
+              <div className="overflow-y-auto flex-1 p-6">
                 {children}
               </div>
             </motion.div>

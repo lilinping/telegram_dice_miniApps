@@ -293,6 +293,17 @@ class ApiService {
     return this.request<PaymentOrderStatus>(`/order/query/${userId}/${orderNo}`)
   }
 
+  /**
+   * 获取充值历史订单列表
+   * @param userId 用户ID
+   * @param pageIndex 页码
+   * @param pageSize 每页大小
+   * @returns BackendResponse<PageModel<PaymentOrder>>
+   */
+  async getDepositHistory(userId: string, pageIndex: number = 1, pageSize: number = 20): Promise<BackendResponse<PageModel<PaymentOrder>>> {
+    return this.request<PageModel<PaymentOrder>>(`/order/history/${userId}/${pageIndex}/${pageSize}`)
+  }
+
 }
 
 // 导出单例实例

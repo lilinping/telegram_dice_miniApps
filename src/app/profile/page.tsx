@@ -139,13 +139,48 @@ export default function ProfilePage() {
     router.push('/');
   };
 
+  const userInfoItems = [
+    {
+      label: 'UID',
+      value: user?.id ? `#${user.id}` : '--',
+      copyValue: user?.id ? String(user.id) : undefined,
+    },
+    {
+      label: '账号',
+      value: userData.telegramId || '未绑定',
+      copyValue: userData.telegramId?.replace('@', ''),
+    },
+    {
+      label: '语言',
+      value: user?.languageCode?.toUpperCase() || '未知',
+    },
+    {
+      label: '会员等级',
+      value: `${currentVip.name} · VIP${currentVip.level}`,
+    },
+    {
+      label: '邀请数',
+      value: `${userData.inviteCount} 人`,
+    },
+  ];
+
+  const handleCopy = async (text?: string) => {
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      (window as any)?.Telegram?.WebApp?.showPopup?.({ title: '复制成功', message: text, buttons: [{ id: 'ok', type: 'close' }] });
+    } catch (error) {
+      console.warn('复制失败', error);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#0A0A0A] to-[#1A1A1A] pb-20">
+    <div className="min-h-screen bg-gradient-to-b from-[#0A0A0A] to-[#1A1A1A] pt-16 safe-top pb-20">
       {/* 顶部导航 */}
       <TopBar title="个人中心" />
 
       {/* 用户头部卡片 */}
-      <div className="px-5 pt-6 pb-4">
+      <div className="px-5 pt-2 pb-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -206,6 +241,38 @@ export default function ProfilePage() {
               </div>
               <div className="text-xs text-[#A0A0A0] mt-1">胜率</div>
             </div>
+          </div>
+        </motion.div>
+      </div>
+
+      {/* 用户信息补充 */}
+      <div className="px-5">
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-[#111111]/80 border border-[#2C2C2C] rounded-2xl p-4 space-y-3"
+        >
+          <div className="flex items-center justify-between">
+            <p className="text-white font-semibold">账户信息</p>
+            <span className="text-xs text-[#8a8a8a]">实时同步</span>
+          </div>
+          <div className="divide-y divide-[#1F1F1F]">
+            {userInfoItems.map((item) => (
+              <div key={item.label} className="flex items-center justify-between py-3 text-sm">
+                <div className="text-[#A0A0A0]">{item.label}</div>
+                <div className="flex items-center gap-2">
+                  <span className="text-white font-medium">{item.value}</span>
+                  {item.copyValue && (
+                    <button
+                      onClick={() => handleCopy(item.copyValue)}
+                      className="text-xs text-primary-gold border border-primary-gold/40 rounded-full px-2 py-0.5 hover:bg-primary-gold/10 transition"
+                    >
+                      复制
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
         </motion.div>
       </div>

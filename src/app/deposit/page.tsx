@@ -6,7 +6,7 @@ import { cn, validateDepositAmount } from '@/lib/utils'
 import { useTelegram } from '@/contexts/TelegramContext'
 import { useWallet } from '@/contexts/WalletContext'
 import { apiService } from '@/lib/api'
-import { PaymentOrder } from '@/lib/types'
+import { PaymentOrder, PaymentOrderStatus } from '@/lib/types'
 import QRCodeDisplay from '@/components/wallet/QRCodeDisplay'
 import Modal from '@/components/ui/Modal'
 
@@ -36,6 +36,8 @@ export default function DepositPage() {
   const [error, setError] = useState<string>('')
   const [paymentOrder, setPaymentOrder] = useState<PaymentOrder | null>(null)
   const [paymentStatus, setPaymentStatus] = useState<'pending' | 'success' | 'failed'>('pending')
+  const [showOrderInfo, setShowOrderInfo] = useState(false)
+  const [orderInfo, setOrderInfo] = useState<PaymentOrderStatus | null>(null)
 
 
 
@@ -131,14 +133,16 @@ export default function DepositPage() {
       )
 
       if (response.success && response.data) {
+        const orderData = response.data
+        
         // 检查订单状态
-        // state: "WAIT" = 待支付, "SUCCESS" = 已支付, "CANCEL" = 已取消
-        if (response.data.state === 'SUCCESS') {
+        if (orderData.state === 'SUCCESS' || orderData.state === '成功') {
+          // 支付成功
           await handlePaymentSuccess()
-        } else if (response.data.state === 'WAIT') {
-          setError('订单尚未支付，请完成支付后再试')
         } else {
-          setError('订单状态异常，请联系客服')
+          // 显示订单状态信息弹框
+          setOrderInfo(orderData)
+          setShowOrderInfo(true)
         }
       } else {
         setError(response.message || '查询订单状态失败')
@@ -340,6 +344,83 @@ export default function DepositPage() {
                 立即查看余额
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 订单信息弹框 */}
+      {showOrderInfo && orderInfo && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-5 animate-fade-in">
+          <div className="bg-bg-dark border-2 border-primary-gold rounded-2xl p-6 max-w-md w-full animate-scale-in">
+            <h3 className="text-xl font-bold text-primary-gold mb-6 text-center">充值订单信息</h3>
+
+            {/* 订单状态 */}
+            <div className="bg-bg-darkest rounded-xl p-4 mb-6 space-y-3">
+              <div className="flex justify-between">
+                <span className="text-sm text-text-secondary">订单状态</span>
+                <span className={cn(
+                  'text-sm font-semibold',
+                  orderInfo.state === '成功' || orderInfo.state === 'SUCCESS' ? 'text-success' :
+                  orderInfo.state === '超时' || orderInfo.state === '失败' ? 'text-error' :
+                  'text-warning'
+                )}>
+                  {orderInfo.state}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm text-text-secondary">订单号</span>
+                <span className="text-sm font-mono text-text-primary">{orderInfo.orderId}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm text-text-secondary">充值金额</span>
+                <span className="text-base font-mono font-bold text-primary-gold">
+                  {orderInfo.money} USDT
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm text-text-secondary">创建时间</span>
+                <span className="text-sm text-text-primary">
+                  {new Date(orderInfo.createTime).toLocaleString('zh-CN')}
+                </span>
+              </div>
+              {orderInfo.modifyTime && orderInfo.modifyTime !== orderInfo.createTime && (
+                <div className="flex justify-between">
+                  <span className="text-sm text-text-secondary">更新时间</span>
+                  <span className="text-sm text-text-primary">
+                    {new Date(orderInfo.modifyTime).toLocaleString('zh-CN')}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* 提示信息 */}
+            <div className={cn(
+              'rounded-lg p-3 mb-6',
+              orderInfo.state === 'WAIT' || orderInfo.state === '未完成' 
+                ? 'bg-warning/10 border border-warning/30' 
+                : 'bg-info/10 border border-info/30'
+            )}>
+              <p className={cn(
+                'text-xs',
+                orderInfo.state === 'WAIT' || orderInfo.state === '未完成' 
+                  ? 'text-warning' 
+                  : 'text-info'
+              )}>
+                {orderInfo.state === 'WAIT' || orderInfo.state === '未完成' 
+                  ? '⏳ 订单尚未支付，请完成支付后再次点击"我已充值"按钮' 
+                  : orderInfo.state === '超时' 
+                  ? '⚠️ 订单已超时，如有疑问请联系客服' 
+                  : 'ℹ️ 如有疑问，请联系客服并提供订单号'}
+              </p>
+            </div>
+
+            {/* 关闭按钮 */}
+            <button
+              onClick={() => setShowOrderInfo(false)}
+              className="w-full py-3 bg-bg-medium hover:bg-bg-dark text-text-primary rounded-lg transition-all font-medium"
+            >
+              关闭
+            </button>
           </div>
         </div>
       )}

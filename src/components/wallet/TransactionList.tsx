@@ -26,6 +26,7 @@ interface Transaction {
   orderId?: string;
   timestamp: number;
   gameId?: string;
+  originalStatus?: string; // 保存原始状态，用于详情展示
 }
 
 const filterTabs: { key: TransactionType; label: string }[] = [
@@ -138,17 +139,62 @@ export default function TransactionList() {
       }
 
       // 3. 充值记录
-      // 注意：后端暂时没有提供充值历史列表接口
-      // 只有单个订单查询接口 /order/query/{userId}/{orderNo}
-      // 如果需要显示充值记录，需要后端添加类似 /order/list/{userId}/{pageIndex}/{pageSize} 的接口
       if (activeFilter === 'all' || activeFilter === 'deposit') {
-        // TODO: 等待后端提供充值订单列表接口
-        // 目前无法获取充值历史记录
+        try {
+          const depositHistory = await apiService.getDepositHistory(String(user.id), 1, 20);
+          console.log('充值历史响应:', depositHistory);
+          
+          if (depositHistory.success && depositHistory.data) {
+            console.log('充值订单列表:', depositHistory.data.list);
+            
+            depositHistory.data.list.forEach((order) => {
+              console.log('处理充值订单:', order);
+              
+              // 状态映射：根据后端返回的中文状态映射到前端状态
+              // 默认为 pending（待处理），只有明确的成功状态才显示为 success
+              let status: 'success' | 'pending' | 'failed' = 'pending';
+              let description = '充值';
+              
+              if (order.state === '成功' || order.state === 'SUCCESS') {
+                status = 'success';
+                description = '充值';
+              } else if (order.state === '超时' || order.state === 'TIMEOUT' || order.state === '失败' || order.state === 'FAILED') {
+                status = 'failed';
+                description = order.state === '超时' ? '充值（超时）' : '充值（失败）';
+              } else if (order.state === '未完成' || order.state === '等待' || order.state === 'WAIT' || order.state === 'PENDING') {
+                status = 'pending';
+                description = '充值（处理中）';
+              } else {
+                // 其他未知状态，默认为待处理
+                status = 'pending';
+                description = `充值（${order.state}）`;
+              }
+              
+              const transaction = {
+                id: `deposit-${order.orderId}`,
+                type: 'deposit' as const,
+                amount: parseFloat(order.money),
+                status: status,
+                description: description,
+                orderId: order.orderId,
+                timestamp: order.createTime,
+                originalStatus: order.state, // 保存原始状态
+              };
+              console.log('添加充值交易:', transaction, '原始状态:', order.state, '映射状态:', status);
+              allTransactions.push(transaction);
+            });
+          }
+        } catch (err) {
+          console.error('获取充值历史失败:', err);
+        }
       }
 
       // 按时间倒序排序
       allTransactions.sort((a, b) => b.timestamp - a.timestamp);
 
+      console.log('最终交易列表:', allTransactions);
+      console.log('交易数量:', allTransactions.length);
+      
       setTransactions(allTransactions);
     } catch (err) {
       console.error('加载交易记录失败:', err);
@@ -256,6 +302,18 @@ export default function TransactionList() {
             const isExpanded = expandedId === tx.id;
             const isPositive = tx.amount > 0;
 
+            // 根据状态选择图标（充值和提现需要根据状态显示不同颜色）
+            let displayIcon = config.icon;
+            if (tx.type === 'deposit' || tx.type === 'withdraw') {
+              if (tx.status === 'success') {
+                displayIcon = '🟢'; // 成功 - 绿色
+              } else if (tx.status === 'pending') {
+                displayIcon = '🟡'; // 处理中 - 黄色
+              } else if (tx.status === 'failed') {
+                displayIcon = '🔴'; // 失败 - 红色
+              }
+            }
+
             return (
               <button
                 key={tx.id}
@@ -267,7 +325,7 @@ export default function TransactionList() {
                   {/* 左侧：图标 + 类型 + 描述 */}
                   <div className="flex items-start gap-3 flex-1 min-w-0">
                     {/* 图标 */}
-                    <span className="text-2xl flex-shrink-0">{config.icon}</span>
+                    <span className="text-2xl flex-shrink-0">{displayIcon}</span>
 
                     {/* 类型和描述 */}
                     <div className="flex-1 min-w-0">
@@ -287,18 +345,28 @@ export default function TransactionList() {
 
                   {/* 右侧：金额 + 时间 */}
                   <div className="flex-shrink-0 text-right">
-                    <p
-                      className={cn(
-                        'text-lg font-bold font-mono',
-                        isPositive ? 'text-success' : 'text-error'
-                      )}
-                    >
-                      {isPositive ? '+' : ''}
-                      {Math.abs(tx.amount).toLocaleString('en-US', {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
-                    </p>
+                    {/* 充值和提现：只有成功状态才显示金额变化，否则显示订单金额但不带正负号 */}
+                    {(tx.type === 'deposit' || tx.type === 'withdraw') && tx.status !== 'success' ? (
+                      <p className="text-lg font-bold font-mono text-text-secondary">
+                        {Math.abs(tx.amount).toLocaleString('en-US', {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </p>
+                    ) : (
+                      <p
+                        className={cn(
+                          'text-lg font-bold font-mono',
+                          isPositive ? 'text-success' : 'text-error'
+                        )}
+                      >
+                        {isPositive ? '+' : ''}
+                        {Math.abs(tx.amount).toLocaleString('en-US', {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </p>
+                    )}
                     <p className="text-xs text-text-secondary mt-1">
                       {formatTimeShort(tx.timestamp)}
                     </p>
@@ -310,7 +378,9 @@ export default function TransactionList() {
                   <div className="mt-4 pt-4 border-t border-border space-y-2 animate-slide-down">
                     <div className="flex justify-between text-sm">
                       <span className="text-text-secondary">状态</span>
-                      <span className={statusInfo.color}>{statusInfo.label}</span>
+                      <span className={statusInfo.color}>
+                        {tx.originalStatus || statusInfo.label}
+                      </span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-text-secondary">时间</span>
