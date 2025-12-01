@@ -37,19 +37,8 @@ const nextConfig = {
     ]
   },
 
-  // API代理配置 - 解决跨域问题
-  async rewrites() {
-    return [
-      {
-        source: '/api/backend/:path*/',
-        destination: 'http://46.250.168.177:8079/:path*/',
-      },
-      {
-        source: '/api/backend/:path*',
-        destination: 'http://46.250.168.177:8079/:path*',
-      },
-    ]
-  },
+  // API 代理现在通过 API Routes 实现 (src/app/api/backend/[...path]/route.ts)
+  // 不再需要 rewrites 配置
 
   // Telegram WebApp环境变量
   env: {

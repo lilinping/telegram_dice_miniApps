@@ -61,59 +61,71 @@ async function handleRequest(
       }
     }
 
-    // 转发请求到后端
-    const response = await fetch(fullUrl, {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        // 转发 Telegram initData 认证头（最重要！）
-        ...(request.headers.get('initdata') && {
-          'initData': request.headers.get('initdata')!
-        }),
-        // 转发 Authorization 头
-        ...(request.headers.get('authorization') && {
-          'Authorization': request.headers.get('authorization')!
-        }),
-      },
-      body,
-      // 添加超时和重试配置
-      signal: AbortSignal.timeout(30000), // 30秒超时
-    });
+    // 创建超时控制器
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30秒超时
 
-    console.log(`[API Proxy] Response status: ${response.status}`);
+    try {
+      // 转发请求到后端
+      const response = await fetch(fullUrl, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          // 转发 Telegram initData 认证头（最重要！）
+          ...(request.headers.get('initdata') && {
+            'initData': request.headers.get('initdata')!
+          }),
+          // 转发 Authorization 头
+          ...(request.headers.get('authorization') && {
+            'Authorization': request.headers.get('authorization')!
+          }),
+        },
+        body,
+        signal: controller.signal,
+      });
 
-    // 获取响应数据
-    const data = await response.text();
-    
-    // 如果后端返回 401，记录详细信息
-    if (response.status === 401) {
-      console.error(`[API Proxy] 401 Unauthorized for ${fullUrl}`);
-      console.error(`[API Proxy] Response:`, data);
+      clearTimeout(timeoutId);
+
+      console.log(`[API Proxy] Response status: ${response.status}`);
+
+      // 获取响应数据
+      const data = await response.text();
+      
+      // 如果后端返回 401，记录详细信息
+      if (response.status === 401) {
+        console.error(`[API Proxy] 401 Unauthorized for ${fullUrl}`);
+        console.error(`[API Proxy] Response:`, data);
+      }
+      
+      // 返回响应
+      return new NextResponse(data, {
+        status: response.status,
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-store, no-cache, must-revalidate',
+        },
+      });
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
+      
+      // 如果是中止错误（超时）
+      if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+        console.error('[API Proxy] Request timeout');
+        return NextResponse.json(
+          { 
+            code: 504, 
+            message: 'Gateway Timeout',
+            data: null 
+          },
+          { status: 504 }
+        );
+      }
+      
+      throw fetchError;
     }
-    
-    // 返回响应
-    return new NextResponse(data, {
-      status: response.status,
-      headers: {
-        'Content-Type': 'application/json',
-        'Cache-Control': 'no-store, no-cache, must-revalidate',
-      },
-    });
   } catch (error) {
     console.error('[API Proxy] Error:', error);
-    
-    // 如果是超时错误
-    if (error instanceof Error && error.name === 'TimeoutError') {
-      return NextResponse.json(
-        { 
-          code: 504, 
-          message: 'Gateway Timeout',
-          data: null 
-        },
-        { status: 504 }
-      );
-    }
     
     return NextResponse.json(
       { 
