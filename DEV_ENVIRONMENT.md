@@ -1,220 +1,171 @@
 # 开发环境配置指南
 
-## 🎯 当前状态
+## 问题：为什么本地测试用户"消失"了？
 
-✅ **好消息**: API 路由工作正常！
-- 500 错误已修复
-- 现在返回 401 错误，说明请求成功到达后端
-- 后端正确验证 `initData` 并拒绝无效的认证
-
-## ⚠️ 开发环境的 401 问题
-
-### 问题原因
-后端 API 需要有效的 Telegram `initData` 进行认证。在开发环境中：
-- 我们模拟了 `initData`，但它无法通过后端的签名验证
-- 后端会验证 `initData` 的 hash 是否与 Telegram Bot Token 匹配
-- 模拟的 `initData` 无法通过这个验证
+### 原因
+添加了 `initData` 认证后，所有 API 请求都需要有效的 Telegram 认证信息。虽然前端会自动使用测试用户（ID: 6784471903），但后端 API 仍然会验证 `initData` 的有效性。
 
 ### 解决方案
 
-有三种方法可以在开发环境中测试：
+有两种方式在本地开发环境中测试：
 
----
+## 方案 1: 使用模拟的 initData（推荐用于前端开发）
 
-## 方案 1: 使用真实的 Telegram 环境（推荐）
+开发环境会自动生成模拟的 `initData`，但后端可能不接受这个模拟数据。
 
-### 步骤 1: 使用 ngrok 暴露本地服务
-```bash
-# 安装 ngrok
-brew install ngrok  # macOS
-# 或从 https://ngrok.com/download 下载
+### 配置步骤
 
-# 启动本地开发服务器
-npm run dev
+1. **确保 `.env.local` 文件存在**
+   ```bash
+   # 文件已创建，包含以下配置：
+   NEXT_PUBLIC_TEST_USER_ID=6784471903
+   NEXT_PUBLIC_TEST_USER_NAME=测试用户
+   NEXT_PUBLIC_TEST_USERNAME=test_user
+   ```
 
-# 在另一个终端窗口，暴露本地服务
-ngrok http 3000
-```
+2. **重启开发服务器**
+   ```bash
+   npm run dev
+   ```
 
-### 步骤 2: 更新 Telegram Bot 配置
-1. 复制 ngrok 提供的 HTTPS URL（例如：`https://abc123.ngrok.io`）
-2. 打开 [@BotFather](https://t.me/BotFather)
-3. 发送 `/mybots` → 选择你的 Bot → Bot Settings → Menu Button → Edit Menu Button URL
-4. 输入：`https://abc123.ngrok.io`
+3. **查看控制台输出**
+   应该看到：
+   ```
+   🔧 开发模式：模拟 Telegram WebApp
+   ✅ Telegram WebApp 模拟完成
+   👤 模拟用户: { id: 6784471903, ... }
+   🔑 initData: user=%7B%22id%22%3A6784471903...
+   ```
 
-### 步骤 3: 在 Telegram 中测试
-1. 打开你的 Bot
-2. 点击菜单按钮或发送 `/start`
-3. 现在应该可以正常使用了！
+### 限制
+- 后端 API 会返回 401 错误（因为 initData 是模拟的）
+- 无法测试需要后端数据的功能
+- 只能测试前端 UI 和交互
 
-**优点**:
-- ✅ 使用真实的 Telegram 环境
-- ✅ 可以测试所有功能
-- ✅ `initData` 是真实有效的
+## 方案 2: 使用真实的 Telegram 环境（推荐用于完整测试）
 
-**缺点**:
-- ❌ 需要额外的工具（ngrok）
-- ❌ 每次重启 ngrok 都需要更新 Bot URL
+### 配置步骤
 
----
+1. **安装 ngrok**
+   ```bash
+   # macOS
+   brew install ngrok
+   
+   # 或从官网下载
+   # https://ngrok.com/download
+   ```
 
-## 方案 2: 后端添加开发模式（需要后端配合）
+2. **启动本地开发服务器**
+   ```bash
+   npm run dev
+   ```
 
-如果你可以修改后端代码，可以添加一个开发模式：
+3. **使用 ngrok 暴露本地服务**
+   ```bash
+   ngrok http 3000
+   ```
+   
+   会得到一个公网 URL，例如：
+   ```
+   https://abc123.ngrok.io
+   ```
+
+4. **配置 Telegram Bot**
+   - 打开 [@BotFather](https://t.me/BotFather)
+   - 发送 `/mybots`
+   - 选择你的 Bot
+   - 选择 "Bot Settings" → "Menu Button"
+   - 设置 Web App URL 为 ngrok 提供的 URL
+
+5. **在 Telegram 中测试**
+   - 打开你的 Bot
+   - 点击菜单按钮
+   - 应用会在 Telegram 中打开，使用真实的 `initData`
+
+### 优点
+- 使用真实的 Telegram 认证
+- 可以测试所有功能
+- 后端 API 正常工作
+
+### 缺点
+- 需要额外的工具（ngrok）
+- 每次重启 ngrok 都需要更新 Bot 配置
+- 需要网络连接
+
+## 方案 3: 后端开发模式（需要后端支持）
+
+如果你有后端代码的访问权限，可以在后端添加开发模式，跳过 `initData` 验证。
 
 ### 后端修改（示例）
 ```java
 // 在后端添加开发模式配置
-@Value("${app.dev-mode:false}")
-private boolean devMode;
-
-// 在验证 initData 的地方
-if (devMode && initData.startsWith("DEV_MODE_")) {
-    // 开发模式：跳过验证
+if (isDevelopmentMode && initData.startsWith("mock_")) {
+    // 跳过验证，直接使用 mock 数据
     return true;
 }
 ```
 
 ### 前端配置
-在 `.env.local` 中添加：
-```env
-NEXT_PUBLIC_DEV_MODE=true
-```
+在 `src/lib/dev-telegram.ts` 中，`initData` 已经包含了 `mock_` 前缀的标识。
 
-修改 `src/lib/api.ts`：
-```typescript
-private getInitData(): string {
-  if (typeof window === 'undefined') return '';
-  
-  // 开发模式：使用特殊的 initData
-  if (process.env.NEXT_PUBLIC_DEV_MODE === 'true') {
-    return 'DEV_MODE_123456789';
-  }
-  
-  // 生产模式：使用真实的 initData
-  if (window.Telegram?.WebApp?.initData) {
-    return window.Telegram.WebApp.initData;
-  }
-  
-  return '';
-}
-```
+## 当前状态
 
-**优点**:
-- ✅ 不需要额外工具
-- ✅ 开发体验好
+### ✅ 已配置
+- 开发环境自动模拟 Telegram WebApp
+- 使用测试用户 ID: 6784471903
+- 自动生成模拟的 `initData`
+- API 请求自动包含 `initData` 请求头
 
-**缺点**:
-- ❌ 需要修改后端代码
-- ❌ 需要确保生产环境不启用开发模式
+### ⚠️ 限制
+- 后端 API 会返回 401 错误（需要有效的 `initData`）
+- 需要使用方案 2（ngrok）或方案 3（后端开发模式）来完整测试
 
----
+## 快速测试
 
-## 方案 3: 使用测试账号的真实 initData（临时方案）
-
-### 步骤 1: 获取真实的 initData
-1. 部署到 Vercel（或其他平台）
-2. 在 Telegram 中打开 Mini App
-3. 打开浏览器开发者工具（Telegram Desktop）
-4. 在 Console 中运行：
-   ```javascript
-   console.log(window.Telegram.WebApp.initData);
-   ```
-5. 复制输出的字符串
-
-### 步骤 2: 在本地使用
-在 `.env.local` 中添加：
-```env
-NEXT_PUBLIC_TEST_INIT_DATA=你复制的initData字符串
-```
-
-修改 `src/lib/api.ts`：
-```typescript
-private getInitData(): string {
-  if (typeof window === 'undefined') return '';
-  
-  // 开发环境：使用测试 initData
-  if (process.env.NODE_ENV === 'development' && process.env.NEXT_PUBLIC_TEST_INIT_DATA) {
-    return process.env.NEXT_PUBLIC_TEST_INIT_DATA;
-  }
-  
-  // 生产环境：使用真实 initData
-  if (window.Telegram?.WebApp?.initData) {
-    return window.Telegram.WebApp.initData;
-  }
-  
-  return '';
-}
-```
-
-**优点**:
-- ✅ 不需要修改后端
-- ✅ 不需要额外工具
-
-**缺点**:
-- ❌ initData 会过期（通常 24 小时）
-- ❌ 需要定期更新
-- ❌ 只能使用一个测试账号
-
----
-
-## 🚀 推荐的开发流程
-
-### 日常开发
-1. 使用 **方案 1（ngrok）** 进行完整功能测试
-2. 或使用 **方案 3（测试 initData）** 进行快速开发
-
-### 生产部署
-1. 部署到 Vercel
-2. 在 Vercel Dashboard 设置环境变量：
-   - `BACKEND_API_URL` = `http://46.250.168.177:8079`
-   - `NEXT_PUBLIC_TELEGRAM_BOT_TOKEN` = 你的 Bot Token
-3. 在 Telegram 中测试
-
----
-
-## 📝 验证 API 路由是否正常
-
-即使返回 401，你也可以验证 API 路由是否正常工作：
-
-### 测试 1: 检查请求是否到达后端
+### 测试前端 UI（不需要后端）
 ```bash
-# 在终端运行
-curl -v http://localhost:3000/api/backend/dice/display \
-  -H "Content-Type: application/json" \
-  -H "initData: test"
+npm run dev
+# 访问 http://localhost:3000
+# 可以看到 UI，但 API 请求会失败
 ```
 
-**期望结果**:
-- 状态码: 401
-- 响应: "Missing initData header" 或类似的认证错误
-- ✅ 这说明 API 路由工作正常！
+### 测试完整功能（需要后端）
+```bash
+# 终端 1: 启动开发服务器
+npm run dev
 
-### 测试 2: 查看 Next.js 日志
-在终端中应该看到：
-```
-[API Proxy] GET http://46.250.168.177:8079/dice/display
-[API Proxy] Response status: 401
-[API Proxy] 401 Unauthorized for http://46.250.168.177:8079/dice/display
-[API Proxy] Response: Missing initData header
+# 终端 2: 启动 ngrok
+ngrok http 3000
+
+# 然后在 Telegram Bot 中配置 ngrok URL
 ```
 
-✅ 如果看到这些日志，说明一切正常！
+## 常见问题
 
----
+### Q: 为什么看不到用户数据？
+A: 因为后端 API 返回 401 错误。使用方案 2（ngrok）或方案 3（后端开发模式）。
 
-## 🎉 总结
+### Q: 如何查看模拟的 initData？
+A: 打开浏览器控制台，输入：
+```javascript
+console.log(window.Telegram?.WebApp?.initData);
+```
 
-**当前状态**: ✅ API 路由工作正常
-- 500 错误已修复
-- 401 错误是预期的（因为缺少有效的 initData）
+### Q: 可以修改测试用户 ID 吗？
+A: 可以！修改 `.env.local` 文件中的 `NEXT_PUBLIC_TEST_USER_ID`，然后重启开发服务器。
 
-**下一步**:
-1. 选择一个开发方案（推荐方案 1 或 3）
-2. 或者直接部署到 Vercel 进行测试
-3. 在真实的 Telegram 环境中，一切都会正常工作！
+### Q: 为什么之前可以测试，现在不行了？
+A: 之前可能后端没有启用 `initData` 验证，或者使用了不同的认证方式。现在添加了标准的 Telegram 认证，更安全但需要额外配置。
 
-**部署到 Vercel 后**:
-- ✅ 不会有 401 错误（因为有真实的 initData）
-- ✅ 所有功能都会正常工作
-- ✅ 只需要在 Telegram 中打开 Mini App
+## 推荐的开发流程
+
+1. **前端 UI 开发**: 直接使用 `npm run dev`，忽略 API 错误
+2. **功能测试**: 使用 ngrok + Telegram
+3. **部署前测试**: 部署到 Vercel，在 Telegram 中测试
+
+## 相关文件
+
+- `.env.local` - 本地环境变量配置
+- `src/lib/dev-telegram.ts` - 开发环境 Telegram 模拟
+- `src/contexts/TelegramContext.tsx` - Telegram 用户管理
+- `src/lib/api.ts` - API 服务（包含 initData 认证）
