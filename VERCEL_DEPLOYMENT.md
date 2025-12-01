@@ -76,19 +76,32 @@ vercel env add NEXT_PUBLIC_USDT_TRC20_ADDRESS production
 
 ### 401 Unauthorized 错误
 
+**重要**: 后端 API 需要 Telegram `initData` 请求头进行认证！
+
 如果遇到 401 错误，检查：
 
-1. **环境变量是否正确配置**
+1. **Telegram initData 认证**
+   - 后端 API 要求所有请求必须包含 `initData` 请求头
+   - 这个头包含 Telegram WebApp 的认证信息
+   - 前端会自动从 `window.Telegram.WebApp.initData` 获取并添加到请求中
+   - **必须在 Telegram 中打开应用**，不能直接在浏览器中访问
+
+2. **环境变量是否正确配置**
    - 在 Vercel Dashboard 中检查 `BACKEND_API_URL` 是否设置
    - 确保值为 `http://46.250.168.177:8079`（不要有尾部斜杠）
 
-2. **API 路由是否正常工作**
-   - 访问 `https://your-domain.vercel.app/api/backend/dice/display`
-   - 应该返回后端数据，而不是 404
+3. **API 路由是否正常工作**
+   - API 路由会自动转发 `initData` 请求头到后端
+   - 检查 Vercel Functions 日志，查看是否有错误
 
-3. **后端服务是否可访问**
+4. **后端服务是否可访问**
    - 确保后端服务 `http://46.250.168.177:8079` 正常运行
    - 检查后端是否允许来自 Vercel 的请求
+
+5. **测试方法**
+   - ❌ 不要直接在浏览器中访问 `https://your-domain.vercel.app`
+   - ✅ 必须通过 Telegram Bot 打开 Mini App
+   - ✅ 使用 Telegram Desktop 或移动端测试
 
 ### CORS 错误
 

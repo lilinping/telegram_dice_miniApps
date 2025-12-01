@@ -27,16 +27,38 @@ class ApiService {
     this.baseUrl = baseUrl
   }
 
+  // 获取 Telegram initData
+  private getInitData(): string {
+    if (typeof window === 'undefined') return '';
+    
+    // 从 Telegram WebApp 获取 initData
+    if (window.Telegram?.WebApp?.initData) {
+      return window.Telegram.WebApp.initData;
+    }
+    
+    // 开发环境：从 localStorage 获取（如果有）
+    if (process.env.NODE_ENV === 'development') {
+      return localStorage.getItem('telegram_init_data') || '';
+    }
+    
+    return '';
+  }
+
   // 通用请求方法
   private async request<T>(
     endpoint: string,
     options: RequestInit = {}
   ): Promise<BackendResponse<T>> {
     const url = `${this.baseUrl}${endpoint}`
+    
+    // 获取 Telegram initData 用于认证
+    const initData = this.getInitData();
 
     const defaultOptions: RequestInit = {
       headers: {
         'Content-Type': 'application/json',
+        // 添加 Telegram 认证头
+        ...(initData && { 'initData': initData }),
         ...options.headers,
       },
       // 在浏览器环境中使用cors模式
@@ -47,6 +69,11 @@ class ApiService {
       const response = await fetch(url, { ...defaultOptions, ...options })
 
       if (!response.ok) {
+        // 如果是 401 错误，提供更详细的错误信息
+        if (response.status === 401) {
+          const errorText = await response.text();
+          throw new Error(`Authentication failed: ${errorText}`);
+        }
         throw new Error(`HTTP error! status: ${response.status}`)
       }
 

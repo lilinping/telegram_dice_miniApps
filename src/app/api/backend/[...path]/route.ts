@@ -37,48 +37,88 @@ async function handleRequest(
   method: string
 ) {
   try {
+    // 构建完整路径
     const path = params.path.join('/');
     const url = `${BACKEND_URL}/${path}`;
+    
+    // 添加查询参数（如果有）
+    const searchParams = request.nextUrl.searchParams.toString();
+    const fullUrl = searchParams ? `${url}?${searchParams}` : url;
+    
+    console.log(`[API Proxy] ${method} ${fullUrl}`);
     
     // 获取请求体（如果有）
     let body = undefined;
     if (method !== 'GET' && method !== 'DELETE') {
       try {
-        body = await request.text();
+        const text = await request.text();
+        if (text) {
+          body = text;
+          console.log(`[API Proxy] Request body:`, text);
+        }
       } catch (e) {
-        // 如果没有请求体，忽略错误
+        console.log(`[API Proxy] No request body`);
       }
     }
 
     // 转发请求到后端
-    const response = await fetch(url, {
+    const response = await fetch(fullUrl, {
       method,
       headers: {
         'Content-Type': 'application/json',
-        // 转发必要的请求头
+        'Accept': 'application/json',
+        // 转发 Telegram initData 认证头（最重要！）
+        ...(request.headers.get('initdata') && {
+          'initData': request.headers.get('initdata')!
+        }),
+        // 转发 Authorization 头
         ...(request.headers.get('authorization') && {
           'Authorization': request.headers.get('authorization')!
         }),
       },
       body,
+      // 添加超时和重试配置
+      signal: AbortSignal.timeout(30000), // 30秒超时
     });
+
+    console.log(`[API Proxy] Response status: ${response.status}`);
 
     // 获取响应数据
     const data = await response.text();
+    
+    // 如果后端返回 401，记录详细信息
+    if (response.status === 401) {
+      console.error(`[API Proxy] 401 Unauthorized for ${fullUrl}`);
+      console.error(`[API Proxy] Response:`, data);
+    }
     
     // 返回响应
     return new NextResponse(data, {
       status: response.status,
       headers: {
         'Content-Type': 'application/json',
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
       },
     });
   } catch (error) {
-    console.error('API Proxy Error:', error);
+    console.error('[API Proxy] Error:', error);
+    
+    // 如果是超时错误
+    if (error instanceof Error && error.name === 'TimeoutError') {
+      return NextResponse.json(
+        { 
+          code: 504, 
+          message: 'Gateway Timeout',
+          data: null 
+        },
+        { status: 504 }
+      );
+    }
+    
     return NextResponse.json(
       { 
         code: 500, 
-        message: 'Internal Server Error',
+        message: error instanceof Error ? error.message : 'Internal Server Error',
         data: null 
       },
       { status: 500 }

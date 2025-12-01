@@ -5,6 +5,7 @@ import { TelegramProvider } from '@/contexts/TelegramContext';
 import { GameProvider } from '@/contexts/GameContext';
 import { WalletProvider } from '@/contexts/WalletContext';
 import BottomNavigation from '@/components/layout/BottomNav';
+import DevTelegramInit from '@/components/DevTelegramInit';
 
 // 字体配置
 const inter = Inter({
@@ -51,6 +52,9 @@ export default function RootLayout({
         <script src="https://telegram.org/js/telegram-web-app.js" async></script>
       </head>
       <body className="bg-bg-darkest text-text-primary antialiased">
+        {/* 开发环境 Telegram 模拟 */}
+        <DevTelegramInit />
+        
         <TelegramProvider>
           <WalletProvider>
             <GameProvider>
