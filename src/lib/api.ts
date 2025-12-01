@@ -15,10 +15,10 @@ import {
 } from '@/lib/types'
 
 // 使用Next.js代理避免跨域问题
-// 开发环境使用代理路径，生产环境可能需要直接访问或使用环境变量
+// 客户端和服务端都使用代理路径，由 Next.js API 路由转发到后端
 const API_BASE_URL = typeof window !== 'undefined' 
   ? '/api/backend'  // 客户端使用代理
-  : 'http://46.250.168.177:8079'  // 服务端直接访问
+  : (process.env.NEXT_PUBLIC_API_BASE_URL || '/api/backend')  // 服务端也使用代理
 
 class ApiService {
   private baseUrl: string
