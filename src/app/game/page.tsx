@@ -6,7 +6,7 @@ import { useWallet } from '@/contexts/WalletContext';
 import { useTelegram } from '@/contexts/TelegramContext';
 import { useGameSounds } from '@/hooks/useSound';
 import { useGameHaptics } from '@/hooks/useHaptic';
-import DiceAnimation from '@/components/game/DiceAnimation';
+import DiceAnimation from '@/components/game/DiceAnimationSwitch'; // 智能切换版本
 import BetPanel from '@/components/game/BetPanel';
 import ChipSelector from '@/components/game/ChipSelector';
 import MultiplierSelector from '@/components/game/MultiplierSelector';
