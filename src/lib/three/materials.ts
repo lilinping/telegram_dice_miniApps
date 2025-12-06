@@ -28,14 +28,28 @@ export function createGlassMaterial(): THREE.MeshPhysicalMaterial {
 
 /**
  * 创建骰子材质
- * 白色塑料质感，带轻微反光
+ * 白色塑料质感，带轻微反光和发光边缘
  */
 export function createDiceMaterial(): THREE.MeshStandardMaterial {
   return new THREE.MeshStandardMaterial({
     color: 0xffffff,
-    roughness: 0.3,
-    metalness: 0.1,
-    emissive: 0x000000,
+    roughness: 0.2,
+    metalness: 0.15,
+    emissive: 0x111111, // 轻微发光
+    emissiveIntensity: 0.1,
+  });
+}
+
+/**
+ * 创建发光骰子材质（中奖时使用）
+ */
+export function createGlowingDiceMaterial(): THREE.MeshStandardMaterial {
+  return new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    roughness: 0.1,
+    metalness: 0.3,
+    emissive: 0xffd700, // 金色发光
+    emissiveIntensity: 0.5,
   });
 }
 

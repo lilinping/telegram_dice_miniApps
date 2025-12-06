@@ -55,12 +55,12 @@ export class DiceScene {
   }
 
   private setupLights() {
-    // 环境光 - 提供基础照明
-    this.ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+    // 环境光 - 提供基础照明（增强）
+    this.ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
     this.scene.add(this.ambientLight);
 
-    // 主光源 - 模拟顶部照明
-    this.directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    // 主光源 - 模拟顶部照明（增强阴影质量）
+    this.directionalLight = new THREE.DirectionalLight(0xffffff, 1.0);
     this.directionalLight.position.set(5, 10, 5);
     this.directionalLight.castShadow = true;
     this.directionalLight.shadow.mapSize.width = 2048;
@@ -71,15 +71,33 @@ export class DiceScene {
     this.directionalLight.shadow.camera.right = 10;
     this.directionalLight.shadow.camera.top = 10;
     this.directionalLight.shadow.camera.bottom = -10;
+    this.directionalLight.shadow.bias = -0.0001; // 减少阴影瑕疵
     this.scene.add(this.directionalLight);
 
-    // 聚光灯 - 增强戏剧效果
-    this.spotLight = new THREE.SpotLight(0xffd700, 0.5);
+    // 聚光灯 - 增强戏剧效果（金色光）
+    this.spotLight = new THREE.SpotLight(0xffd700, 0.8);
     this.spotLight.position.set(0, 15, 0);
     this.spotLight.angle = Math.PI / 6;
     this.spotLight.penumbra = 0.3;
+    this.spotLight.decay = 2;
+    this.spotLight.distance = 30;
     this.spotLight.castShadow = true;
+    this.spotLight.shadow.mapSize.width = 1024;
+    this.spotLight.shadow.mapSize.height = 1024;
     this.scene.add(this.spotLight);
+
+    // 添加辅助光源 - 填充阴影
+    const fillLight1 = new THREE.DirectionalLight(0x4488ff, 0.3);
+    fillLight1.position.set(-5, 5, -5);
+    this.scene.add(fillLight1);
+
+    const fillLight2 = new THREE.DirectionalLight(0xff8844, 0.2);
+    fillLight2.position.set(5, 3, -5);
+    this.scene.add(fillLight2);
+
+    // 添加半球光 - 模拟天空和地面反射
+    const hemisphereLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.3);
+    this.scene.add(hemisphereLight);
   }
 
   private createTable() {

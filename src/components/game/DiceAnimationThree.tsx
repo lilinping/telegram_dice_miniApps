@@ -16,6 +16,9 @@ import { createDiceBody, throwDice, isDiceStopped, getDiceUpNumber, correctDiceT
 import { CupAnimationController } from '@/lib/animations/cupAnimation';
 import { DiceSoundManager, SimpleSoundGenerator } from '@/lib/sounds/diceSound';
 import { detectDevicePerformance, getOptimizedSettings, FPSMonitor } from '@/lib/utils/performance';
+import { DustParticles, WinSparkles } from '@/lib/three/particles';
+import { PostProcessingManager } from '@/lib/three/postprocessing';
+import { makeDiceGlow, makeDiceBlink, makeCupGlow, createHaloEffect, shakeCameraEffect } from '@/lib/three/effects';
 
 interface DiceAnimationThreeProps {
   fullscreen?: boolean;
@@ -48,6 +51,11 @@ export default function DiceAnimationThree({
   const cupAnimationRef = useRef<CupAnimationController | null>(null);
   const soundManagerRef = useRef<DiceSoundManager | null>(null);
   const simpleSoundRef = useRef<SimpleSoundGenerator | null>(null);
+  
+  // 视觉效果
+  const dustParticlesRef = useRef<DustParticles[]>([]);
+  const winSparklesRef = useRef<WinSparkles | null>(null);
+  const postProcessingRef = useRef<PostProcessingManager | null>(null);
   
   // 3D对象引用
   const diceGroupsRef = useRef<THREE.Group[]>([]);
@@ -139,10 +147,41 @@ export default function DiceAnimationThree({
     base.position.y = 0.15;
     scene.scene.add(base);
 
+    // 创建粒子效果
+    for (let i = 0; i < 3; i++) {
+      const dust = new DustParticles(50);
+      scene.scene.add(dust.getObject());
+      dustParticlesRef.current.push(dust);
+    }
+
+    // 创建中奖特效
+    const sparkles = new WinSparkles(100);
+    scene.scene.add(sparkles.getObject());
+    winSparklesRef.current = sparkles;
+
+    // 创建后处理效果（仅高端设备）
+    if (settings.usePostProcessing) {
+      postProcessingRef.current = new PostProcessingManager(
+        scene.renderer,
+        scene.scene,
+        scene.camera,
+        {
+          enableBloom: true,
+          enableFXAA: true,
+          bloomStrength: 0.6,
+          bloomRadius: 0.4,
+          bloomThreshold: 0.85,
+        }
+      );
+    }
+
     // 窗口大小调整
     const handleResize = () => {
       const rect = container.getBoundingClientRect();
       scene.resize(rect.width, rect.height);
+      if (postProcessingRef.current) {
+        postProcessingRef.current.setSize(rect.width, rect.height);
+      }
     };
     window.addEventListener('resize', handleResize);
 
@@ -164,9 +203,20 @@ export default function DiceAnimationThree({
         dice.position.copy(body.position as any);
         dice.quaternion.copy(body.quaternion as any);
       });
+
+      // 更新粒子效果
+      dustParticlesRef.current.forEach(dust => dust.update(deltaTime));
+      if (winSparklesRef.current) {
+        winSparklesRef.current.update(deltaTime);
+      }
       
-      // 渲染场景
-      scene.render();
+      // 渲染场景（使用后处理或普通渲染）
+      if (postProcessingRef.current) {
+        postProcessingRef.current.render();
+      } else {
+        scene.render();
+      }
+    };
     };
     animate();
 
@@ -176,6 +226,9 @@ export default function DiceAnimationThree({
       cancelAnimationFrame(animationFrameRef.current);
       scene.dispose();
       soundManagerRef.current?.dispose();
+      dustParticlesRef.current.forEach(dust => dust.dispose());
+      winSparklesRef.current?.dispose();
+      postProcessingRef.current?.dispose();
     };
   }, []);
 
@@ -244,6 +297,14 @@ export default function DiceAnimationThree({
     setAnimationPhase('cup_drop');
     soundManagerRef.current?.playCupDrop(); // 落盅声
     simpleSoundRef.current?.playDrop();
+    
+    // 触发落地粉尘效果
+    diceGroupsRef.current.forEach((dice, index) => {
+      if (dustParticlesRef.current[index]) {
+        dustParticlesRef.current[index].trigger(dice.position);
+      }
+    });
+    
     await new Promise<void>((resolve) => {
       cupAnimationRef.current!.drop(0.2, resolve);
     });
@@ -279,6 +340,20 @@ export default function DiceAnimationThree({
     // 阶段7：展示结果
     setAnimationPhase('result_show');
     soundManagerRef.current?.playResultShow(); // 结果音效
+    
+    // 如果中奖，触发特效
+    if (hasWon && winAmount > 0) {
+      // 触发中奖闪光
+      if (winSparklesRef.current) {
+        winSparklesRef.current.trigger(new THREE.Vector3(0, 2, 0));
+      }
+      
+      // 触发辉光效果
+      if (postProcessingRef.current) {
+        postProcessingRef.current.triggerWinGlow();
+      }
+    }
+    
     console.log('🎲 动画流程完成');
   };
 
