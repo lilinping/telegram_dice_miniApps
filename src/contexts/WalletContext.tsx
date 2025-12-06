@@ -31,7 +31,7 @@ interface WalletContextType {
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
 export function WalletProvider({ children }: { children: ReactNode }) {
-  const { user } = useTelegram();
+  const { user, isInitialized } = useTelegram();
   const [balance, setBalance] = useState(0);
   const [frozenBalance, setFrozenBalance] = useState(0);
   const [bonusBalance, setBonusBalance] = useState(0);
@@ -39,18 +39,29 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const [accountInfo, setAccountInfo] = useState<AccountModel | null>(null);
   const isFetchingRef = useRef(false);
 
-  // 刷新余额
+  // 使用 ref 存储 user，避免 refreshBalance 依赖 user 导致循环依赖
+  const userRef = useRef(user);
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
+
+  // 刷新余额 - 使用 ref 访问 user，避免依赖变化
   const refreshBalance = useCallback(async () => {
-    if (!user) {
+    const currentUser = userRef.current;
+    if (!currentUser) {
       console.error('用户未登录');
       return;
     }
 
-    if (isFetchingRef.current) return;
+    if (isFetchingRef.current) {
+      console.log('⏸️ 余额刷新中，跳过重复请求');
+      return;
+    }
     isFetchingRef.current = true;
 
     try {
-      const response = await apiService.queryAccount(String(user.id));
+      console.log('📡 开始请求余额...', currentUser.id);
+      const response = await apiService.queryAccount(String(currentUser.id));
       if (response.success && response.data) {
         const account = response.data;
         setAccountInfo(account);
@@ -61,23 +72,33 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         setBonusBalance(parseFloat(account.redPack) || 0);
         setDepositAmount(parseFloat(account.deposit) || 0);
 
-        console.log('余额刷新成功:', account);
+        console.log('✅ 余额刷新成功:', account);
       } else {
-        console.error('获取余额失败:', response.message);
+        console.error('❌ 获取余额失败:', response.message);
       }
     } catch (error) {
-      console.error('刷新余额失败:', error);
+      console.error('❌ 刷新余额失败:', error);
     } finally {
       isFetchingRef.current = false;
     }
-  }, [user]);
+  }, []); // 空依赖数组，使用 ref 访问 user
 
-  // 初始化时加载余额
+  // 初始化时加载余额 - 等待用户初始化完成
   useEffect(() => {
-    if (user) {
+    if (user && isInitialized) {
+      console.log('🔄 WalletContext: 用户已初始化，开始刷新余额...', user.id);
       refreshBalance();
+    } else if (user && !isInitialized) {
+      console.log('⏳ WalletContext: 用户已登录但后端未初始化，等待中...', user.id);
     }
-  }, [user, refreshBalance]);
+  }, [user, isInitialized]); // 移除 refreshBalance 依赖
+  
+  // 添加调试日志：监控余额变化
+  useEffect(() => {
+    if (balance > 0 || frozenBalance > 0 || bonusBalance > 0) {
+      console.log('💰 余额状态更新:', { balance, frozenBalance, bonusBalance });
+    }
+  }, [balance, frozenBalance, bonusBalance]);
 
   // 充值
   const deposit = useCallback(

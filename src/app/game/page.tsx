@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useLayoutEffect } from 'react';
+import { useState, useRef, useLayoutEffect, useEffect } from 'react';
 import { useGame } from '@/contexts/GameContext';
 import { useWallet } from '@/contexts/WalletContext';
 import { useTelegram } from '@/contexts/TelegramContext';
@@ -13,7 +13,7 @@ import MultiplierSelector from '@/components/game/MultiplierSelector';
 import CountdownTimer from '@/components/game/CountdownTimer';
 import WinAnimation from '@/components/game/WinAnimation';
 import ToastContainer, { toast } from '@/components/ui/Toast';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 
 /**
  * 游戏大厅页面 - 专业赌场版V2.0
@@ -28,7 +28,20 @@ import { useRouter } from 'next/navigation';
 export default function GamePage() {
   const router = useRouter();
   const { user } = useTelegram();
-  const { balance } = useWallet();
+  const { balance, refreshBalance } = useWallet();
+  
+  // 页面加载时刷新余额（WalletContext已经在初始化时刷新了，这里只是确保）
+  useEffect(() => {
+    // 延迟一下，让WalletContext先完成初始化
+    const timer = setTimeout(() => {
+      if (user) {
+        console.log('🎮 游戏页面：刷新余额');
+        refreshBalance();
+      }
+    }, 500);
+    
+    return () => clearTimeout(timer);
+  }, [user, refreshBalance]);
   const {
     gameState,
     currentRound,
@@ -45,6 +58,8 @@ export default function GamePage() {
     canUndo,
     repeatLastBets,
     lastBets,
+    winAmount,
+    hasWon,
   } = useGame();
 
   // 音效和震动反馈
@@ -71,7 +86,6 @@ export default function GamePage() {
 
   // 中奖动画状态
   const [showWinAnimation, setShowWinAnimation] = useState(false);
-  const [winAmount, setWinAmount] = useState(0);
 
   // 下注限额
   const BET_LIMITS = {
@@ -177,7 +191,7 @@ export default function GamePage() {
     <div className="flex flex-col h-screen overflow-hidden" style={{ background: 'var(--rich-black)' }}>
       {/* 顶部栏 - 60px */}
       <header
-        className="sticky top-0 z-50 border-b-2 flex items-center justify-between px-3 py-2"
+        className="sticky top-0 z-50 border-b-2 flex items-center justify-between px-3 py-1"
         style={{
           background: 'linear-gradient(180deg, var(--rich-black) 0%, var(--onyx-black) 100%)',
           borderBottomColor: 'var(--gold-primary)',
@@ -238,7 +252,7 @@ export default function GamePage() {
       {/* 3D骰盅展示区 - 优化高度，在开奖时隐藏 */}
       {gameState === 'betting' && (
         <div
-          className="relative h-[120px] pt-6 pb-0"
+          className="relative h-[100px] pt-2 pb-0"
           style={{
             background: 'linear-gradient(180deg, var(--onyx-black) 0%, var(--rich-black) 100%)',
           }}
@@ -246,7 +260,21 @@ export default function GamePage() {
           <DiceAnimation />
 
           {/* 右上角按钮组 */}
-          <div className="absolute top-4 right-4 flex gap-2">
+          <div className="absolute top-4 right-4 flex flex-col gap-2 items-center">
+          {/* 规则按钮 */}
+          <button
+            onClick={() => router.push('/rules')}
+            className="w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-95"
+            style={{
+              background: 'rgba(42, 42, 42, 0.8)',
+              backdropFilter: 'blur(8px)',
+              border: '1px solid rgba(212, 175, 55, 0.3)',
+              color: 'var(--gold-primary)',
+            }}
+          >
+            <span className="text-xl">❓</span>
+          </button>
+
           {/* 设置按钮 - 音效和震动开关 */}
           <button
             onClick={() => {
@@ -267,20 +295,6 @@ export default function GamePage() {
           >
             <span className="text-lg">{soundEnabled || hapticEnabled ? '🔊' : '🔇'}</span>
           </button>
-
-          {/* 规则按钮 */}
-          <button
-            onClick={() => router.push('/rules')}
-            className="w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-95"
-            style={{
-              background: 'rgba(42, 42, 42, 0.8)',
-              backdropFilter: 'blur(8px)',
-              border: '1px solid rgba(212, 175, 55, 0.3)',
-              color: 'var(--gold-primary)',
-            }}
-          >
-            <span className="text-xl">❓</span>
-          </button>
         </div>
         </div>
       )}
@@ -294,8 +308,8 @@ export default function GamePage() {
           paddingBottom: '20px',
           display: 'flex',
           justifyContent: 'center',
-          height: 'calc(100vh - 60px - 120px - 160px - 56px)',
-          maxHeight: 'calc(100vh - 60px - 120px - 160px - 56px)',
+          height: 'calc(100vh - 60px - 120px - 160px - 56px - 64px)', // 额外减去底部导航64px
+          maxHeight: 'calc(100vh - 60px - 120px - 160px - 56px - 64px)',
         }}
       >
         <div
@@ -315,11 +329,11 @@ export default function GamePage() {
         </div>
       </div>
 
-      {/* 倍投选择器 + 筹码选择器 - 固定在底部操作栏上方，优化移动端布局 */}
+      {/* 倍投选择器 + 筹码选择器 - 固定在底部操作栏上方 */}
       <div
         className="fixed z-[60] left-0 right-0"
         style={{
-          bottom: '56px',
+          bottom: '120px', // 底部导航64px + 操作栏56px = 120px
           height: '160px', // 减少总高度：70px (倍投) + 90px (筹码) = 160px
           overflow: 'hidden',
         }}
@@ -345,13 +359,13 @@ export default function GamePage() {
         </div>
       </div>
 
-      {/* 底部操作栏 - 56px, 固定 */}
+      {/* 底部操作栏 - 56px, 固定在底部导航之上 */}
       <div
-        className="fixed bottom-0 left-0 right-0 z-50 border-t-2 px-2 py-2 flex items-center gap-1.5"
+        className="fixed left-0 right-0 z-50 border-t-2 px-2 py-2 flex items-center gap-1.5"
         style={{
+          bottom: '64px', // 底部导航高度 64px
           background: 'var(--onyx-black)',
           borderTopColor: 'var(--gold-primary)',
-          paddingBottom: 'calc(8px + env(safe-area-inset-bottom))',
           minHeight: '56px',
         }}
       >
@@ -455,10 +469,12 @@ export default function GamePage() {
             bottom: 0,
             width: '100vw',
             height: '100vh',
+            overflow: 'auto',
+            padding: '20px',
           }}
         >
-          <div className="text-center w-full h-full flex items-center justify-center">
-            <DiceAnimation fullscreen />
+          <div className="text-center w-full h-full flex items-center justify-center" style={{ minHeight: '100vh' }}>
+            <DiceAnimation fullscreen winAmount={winAmount} hasWon={hasWon} />
           </div>
         </div>
       )}

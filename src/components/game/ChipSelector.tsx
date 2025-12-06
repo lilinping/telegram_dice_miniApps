@@ -17,6 +17,14 @@ import { cn } from '@/lib/utils';
 
 const chips = [
   {
+    value: 2,
+    label: '$2',
+    shortLabel: '2',
+    gradient: 'radial-gradient(circle, #00BCD4 0%, #0097A7 100%)', // 青色
+    textColor: '#FFFFFF',
+    borderColor: '#FFFFFF',
+  },
+  {
     value: 5,
     label: '$5',
     shortLabel: '5',

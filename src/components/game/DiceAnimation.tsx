@@ -16,6 +16,8 @@ import { useGame } from '@/contexts/GameContext';
 
 interface DiceAnimationProps {
   fullscreen?: boolean;
+  winAmount?: number; // 中奖金额
+  hasWon?: boolean; // 是否中奖
 }
 
 // 骰子旋转角度映射（定义在组件外部，避免重复创建）
@@ -28,7 +30,7 @@ const FINAL_ROTATIONS: Record<number, { x: number; y: number; z: number }> = {
   6: { x: 90, y: 0, z: 0 },         // 向下转90度显示下面 (number=6)
 };
 
-export default function DiceAnimation({ fullscreen = false }: DiceAnimationProps) {
+export default function DiceAnimation({ fullscreen = false, winAmount = 0, hasWon = false }: DiceAnimationProps) {
   const { gameState, diceResults } = useGame();
   const [animationPhase, setAnimationPhase] = useState<'idle' | 'shaking' | 'rolling' | 'stopped'>('idle');
 
@@ -38,6 +40,13 @@ export default function DiceAnimation({ fullscreen = false }: DiceAnimationProps
       console.log('DiceAnimation - diceResults更新:', diceResults);
     }
   }, [diceResults]);
+
+  // 调试：监控中奖信息变化
+  useEffect(() => {
+    if (fullscreen) {
+      console.log('🎲 DiceAnimation (fullscreen) - hasWon:', hasWon, 'winAmount:', winAmount);
+    }
+  }, [fullscreen, hasWon, winAmount]);
 
   // 根据游戏状态更新动画阶段
   useEffect(() => {
@@ -388,14 +397,39 @@ export default function DiceAnimation({ fullscreen = false }: DiceAnimationProps
           {/* 总点数 */}
           <div className="text-center">
             <p
-              className="text-6xl font-bold font-mono animate-scale-in"
+              className="text-5xl md:text-6xl font-bold font-mono animate-scale-in"
               style={{
                 color: 'var(--gold-bright)',
                 textShadow: '0 0 20px rgba(255, 215, 0, 0.6)',
+                lineHeight: '1.2',
               }}
             >
               {total}
             </p>
+            
+            {/* 输赢提示 */}
+            {fullscreen && (
+              <div className="mt-4 animate-fade-in">
+                {hasWon && winAmount > 0 ? (
+                  <div className="flex flex-col items-center gap-2">
+                    <p className="text-2xl font-bold" style={{ color: '#10B981' }}>
+                      🎉 恭喜中奖！
+                    </p>
+                    <p className="text-3xl font-bold font-mono" style={{ 
+                      color: 'var(--gold-bright)',
+                      textShadow: '0 0 16px rgba(255, 215, 0, 0.8)',
+                    }}>
+                      +${winAmount.toFixed(2)}
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-xl font-semibold" style={{ color: 'rgba(255, 255, 255, 0.6)' }}>
+                    未中奖，再接再厉
+                  </p>
+                )}
+              </div>
+            )}
+            
             <div className="flex gap-2 mt-3 justify-center">
               <span
                 className="px-3 py-1 rounded-full text-sm font-semibold"

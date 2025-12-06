@@ -454,3 +454,19 @@
 .font-mono {
   font-family: var(--font-roboto-mono), monospace;
 }
+
+/* 只针对 iPhone SE (375×667) 等极小尺寸设备 */
+@media (max-height: 667px) {
+  /* 投注面板：启用滚动，不缩放 */
+  .flex-1.overflow-hidden {
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 180px !important;
+  }
+  
+  .flex-1.overflow-hidden > div {
+    transform: none !important;
+    width: 100% !important;
+  }
+}

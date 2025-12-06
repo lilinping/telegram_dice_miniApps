@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useWallet } from '@/contexts/WalletContext';
 import BalanceCard from '@/components/wallet/BalanceCard';
@@ -17,6 +18,12 @@ import TransactionList from '@/components/wallet/TransactionList';
 export default function WalletPage() {
   const router = useRouter();
   const { balance, frozenBalance, bonusBalance, refreshBalance } = useWallet();
+
+  // 页面加载时刷新余额
+  useEffect(() => {
+    console.log('💰 钱包页面加载，刷新余额...');
+    refreshBalance();
+  }, [refreshBalance]);
 
   return (
     <div className="min-h-screen bg-bg-darkest pb-20">

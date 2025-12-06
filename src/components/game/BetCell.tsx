@@ -188,7 +188,7 @@ export default function BetCell({
         // Hover效果 (非禁用且非封盘)
         !disabled && !closed && !win && !lose && 'hover:border-[var(--gold-bright)] hover:shadow-[0_0_16px_rgba(255,215,0,0.6)] hover:-translate-y-0.5',
         sizeStyles[size],
-        type === 'points' && 'aspect-square w-[48px] p-xs gap-0.5',
+        type === 'points' && 'aspect-square w-full min-h-[50px] p-1 gap-0.5',
         className
       )}
       style={{
@@ -238,7 +238,7 @@ export default function BetCell({
               style={{
                 color: '#1E1203',
                 textShadow: '0 1px 2px rgba(255, 255, 255, 0.5)',
-                fontSize: '24px',
+                fontSize: '22px',
                 lineHeight: 1,
               }}
             >
@@ -250,7 +250,8 @@ export default function BetCell({
                 style={{
                   color: ['4', '17'].includes(name) ? '#C08222' : '#4A2A0A',
                   textShadow: 'none',
-                  fontSize: '11px',
+                  fontSize: '10px',
+                  lineHeight: 1,
                 }}
               >
                 {odds}

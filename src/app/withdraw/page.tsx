@@ -21,7 +21,7 @@ import { AddressEntity } from '@/lib/types';
 
 export default function WithdrawPage() {
   const router = useRouter();
-  const { balance } = useWallet();
+  const { balance, refreshBalance } = useWallet();
   const { user } = useTelegram();
   const userId = user?.id;
   
@@ -219,16 +219,52 @@ export default function WithdrawPage() {
       
       const result = await apiService.withdrawUsdt(String(userId), withdrawAmount.toFixed(2));
       
+      console.log('💰 提现API完整返回:', JSON.stringify(result, null, 2));
+      
       if (result.success) {
         setShowConfirm(false);
-        alert(`提现申请已提交！\n订单ID: ${result.data.orderId}\n状态: 待确认`);
+        
+        // 检查data是否存在
+        if (!result.data) {
+          console.warn('⚠️ API返回success=true但data为空');
+          alert('提现申请已提交！\n请在钱包页面查看提现记录');
+          router.push('/wallet');
+          return;
+        }
+        
+        // 安全地获取订单ID - 兼容多种字段名
+        // 后端可能返回 orderId(string) 或 id(number)
+        const orderIdValue = (result.data as any).orderId || 
+                            (result.data as any).id || 
+                            (result.data as any).orderid ||
+                            '未知';
+        const orderId = String(orderIdValue);
+        const txCode = result.data.txCode ?? -1;
+        
+        console.log('💰 提现成功 - 订单ID:', orderId, 'txCode:', txCode);
+        
+        // 根据txCode显示不同的状态
+        let statusText = '待确认';
+        if (txCode === 0) {
+          statusText = '成功';
+        } else if (txCode === 1) {
+          statusText = '失败';
+        }
+        
+        // 刷新余额
+        console.log('💰 刷新余额...');
+        await refreshBalance();
+        console.log('💰 余额刷新完成');
+        
+        alert(`提现申请已提交！\n订单ID: ${orderId}\n状态: ${statusText}`);
         router.push('/wallet');
       } else {
+        console.error('❌ 提现失败:', result.message);
         setError(result.message || '提现失败');
         setShowConfirm(false);
       }
     } catch (err) {
-      console.error('提现失败:', err);
+      console.error('❌ 提现异常:', err);
       setError('提现失败，请稍后重试');
       setShowConfirm(false);
     } finally {

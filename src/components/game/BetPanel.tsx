@@ -241,7 +241,7 @@ export default function BetPanel({ disabled = false }: BetPanelProps) {
 
       {/* 第四排：点数4-10 */}
       <div>
-        <div className="grid grid-cols-7 gap-1">
+        <div className="grid grid-cols-7 gap-1" style={{ justifyItems: 'stretch' }}>
           {betTypes.numbersLow.map((bet) => (
             <BetCell
               key={bet.id}
@@ -260,7 +260,7 @@ export default function BetPanel({ disabled = false }: BetPanelProps) {
 
       {/* 第五排：点数11-17 */}
       <div>
-        <div className="grid grid-cols-7 gap-1">
+        <div className="grid grid-cols-7 gap-1" style={{ justifyItems: 'stretch' }}>
           {betTypes.numbersHigh.map((bet) => (
             <BetCell
               key={bet.id}

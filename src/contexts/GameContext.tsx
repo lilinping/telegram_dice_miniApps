@@ -54,6 +54,10 @@ interface GameContextType {
   diceResults: number[];
   setDiceResults: (results: number[]) => void;
 
+  // 中奖信息
+  winAmount: number;
+  hasWon: boolean;
+
   // 游戏控制
   startNewGame: () => Promise<void>;
   endCurrentGame: () => Promise<void>;
@@ -68,6 +72,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [currentGameId, setCurrentGameId] = useState<string | null>(null);
   const [currentRound, setCurrentRound] = useState(123456);
   const [countdown, setCountdown] = useState(30);
+  
+  // 中奖信息状态
+  const [winAmount, setWinAmount] = useState(0);
+  const [hasWon, setHasWon] = useState(false);
   const [selectedChip, setSelectedChip] = useState(100);
   const [bets, setBets] = useState<Record<string, number>>({});
   const [diceResults, setDiceResults] = useState<number[]>([]);
@@ -314,6 +322,13 @@ export function GameProvider({ children }: { children: ReactNode }) {
             console.error('骰子结果数据异常:', result.outCome);
           }
 
+          // 提取中奖信息
+          const winValue = parseFloat(result.win || '0');
+          console.log('🎰 游戏结果 - win字段:', result.win, '解析后:', winValue);
+          setWinAmount(winValue);
+          setHasWon(winValue > 0);
+          console.log('🎰 设置中奖状态 - hasWon:', winValue > 0, 'winAmount:', winValue);
+
           // 下单成功后刷新余额
           await refreshBalance();
         } catch (error) {
@@ -342,6 +357,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
         setBetHistory([]);
         setMultiplier(1);
         setCurrentRound((prev) => prev + 1);
+        
+        // 重置中奖信息
+        setWinAmount(0);
+        setHasWon(false);
 
         // 自动开始下一局
         await startNewGame();
@@ -387,6 +406,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
         repeatLastBets,
         diceResults,
         setDiceResults,
+        winAmount,
+        hasWon,
         startNewGame,
         endCurrentGame,
       }}

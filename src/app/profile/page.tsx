@@ -15,7 +15,6 @@ export default function ProfilePage() {
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [statistics, setStatistics] = useState<DiceStatisticEntity | null>(null);
   const [loading, setLoading] = useState(true);
-  const lastFetchKeyRef = useRef('');
 
   // 获取用户统计数据
   useEffect(() => {
@@ -25,30 +24,26 @@ export default function ProfilePage() {
         return;
       }
 
-      // 防止重复请求
-      const fetchKey = `${user.id}`;
-      if (lastFetchKeyRef.current === fetchKey) {
-        return;
-      }
-      lastFetchKeyRef.current = fetchKey;
+      setLoading(true);
+      console.log('👤 个人页面：获取用户统计数据', user.id);
 
       try {
         const response = await apiService.getUserStatistics(String(user.id));
         if (response.success && response.data) {
           setStatistics(response.data);
+          console.log('✅ 统计数据获取成功:', response.data);
         } else {
-          console.error('获取统计数据失败:', response.message);
+          console.error('❌ 获取统计数据失败:', response.message);
         }
       } catch (error) {
-        console.error('获取统计数据失败:', error);
+        console.error('❌ 获取统计数据失败:', error);
       } finally {
         setLoading(false);
       }
     };
 
     fetchStatistics();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
+  }, [user]); // 每次user变化或页面加载时都刷新
 
   // 计算用户数据
   const userData = {
