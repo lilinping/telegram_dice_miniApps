@@ -14,6 +14,8 @@ import { PhysicsWorld } from '@/lib/physics/world';
 import { createDice, createDiceCup, createCupBase, setDiceRotationForNumber } from '@/lib/three/models';
 import { createDiceBody, throwDice, isDiceStopped, getDiceUpNumber, correctDiceToNumber } from '@/lib/physics/bodies';
 import { CupAnimationController } from '@/lib/animations/cupAnimation';
+import { DiceSoundManager, SimpleSoundGenerator } from '@/lib/sounds/diceSound';
+import { detectDevicePerformance, getOptimizedSettings, FPSMonitor } from '@/lib/utils/performance';
 
 interface DiceAnimationThreeProps {
   fullscreen?: boolean;
@@ -44,6 +46,8 @@ export default function DiceAnimationThree({
   const sceneRef = useRef<DiceScene | null>(null);
   const physicsRef = useRef<PhysicsWorld | null>(null);
   const cupAnimationRef = useRef<CupAnimationController | null>(null);
+  const soundManagerRef = useRef<DiceSoundManager | null>(null);
+  const simpleSoundRef = useRef<SimpleSoundGenerator | null>(null);
   
   // 3D对象引用
   const diceGroupsRef = useRef<THREE.Group[]>([]);
@@ -55,6 +59,10 @@ export default function DiceAnimationThree({
   const animationFrameRef = useRef<number>(0);
   const clockRef = useRef<THREE.Clock>(new THREE.Clock());
   
+  // 性能监控
+  const [fps, setFps] = useState<number>(60);
+  const fpsMonitorRef = useRef<FPSMonitor | null>(null);
+  
   // 初始化Three.js场景
   useEffect(() => {
     if (!canvasRef.current || !containerRef.current) return;
@@ -63,12 +71,26 @@ export default function DiceAnimationThree({
     const container = containerRef.current;
     const rect = container.getBoundingClientRect();
 
+    // 检测设备性能
+    const devicePerf = detectDevicePerformance();
+    const settings = getOptimizedSettings(devicePerf);
+    
+    console.log('🎮 设备性能:', devicePerf.tier, '渲染器:', devicePerf.renderer);
+    console.log('⚙️ 优化设置:', settings);
+
     // 创建场景
     const scene = new DiceScene({
       canvas,
       width: rect.width,
       height: rect.height,
     });
+    
+    // 应用性能优化设置
+    scene.renderer.setPixelRatio(settings.pixelRatio);
+    if (settings.shadowMapSize) {
+      scene.renderer.shadowMap.enabled = true;
+    }
+    
     sceneRef.current = scene;
 
     // 创建物理世界
@@ -97,6 +119,21 @@ export default function DiceAnimationThree({
     // 创建筛盅动画控制器
     cupAnimationRef.current = new CupAnimationController(cup);
 
+    // 创建声效管理器
+    soundManagerRef.current = new DiceSoundManager();
+    simpleSoundRef.current = new SimpleSoundGenerator();
+
+    // 创建FPS监控器
+    fpsMonitorRef.current = new FPSMonitor((currentFps) => {
+      setFps(currentFps);
+      
+      // 如果FPS过低，自动降低画质
+      if (currentFps < 30 && settings.pixelRatio > 1) {
+        console.warn('⚠️ FPS过低，降低画质');
+        scene.renderer.setPixelRatio(1);
+      }
+    });
+
     // 创建底座
     const base = createCupBase(3);
     base.position.y = 0.15;
@@ -114,6 +151,9 @@ export default function DiceAnimationThree({
       animationFrameRef.current = requestAnimationFrame(animate);
       
       const deltaTime = clockRef.current.getDelta();
+      
+      // 更新FPS监控
+      fpsMonitorRef.current?.update();
       
       // 更新物理世界
       physics.step(deltaTime);
@@ -135,6 +175,7 @@ export default function DiceAnimationThree({
       window.removeEventListener('resize', handleResize);
       cancelAnimationFrame(animationFrameRef.current);
       scene.dispose();
+      soundManagerRef.current?.dispose();
     };
   }, []);
 
@@ -186,18 +227,23 @@ export default function DiceAnimationThree({
 
     // 阶段1：盖盅
     setAnimationPhase('cover_down');
+    simpleSoundRef.current?.playDrop(); // 简单音效
     await new Promise<void>((resolve) => {
       cupAnimationRef.current!.coverDown(0.3, resolve);
     });
 
     // 阶段2：摇盅
     setAnimationPhase('cup_shake');
+    soundManagerRef.current?.playCupShake(); // 开始摇盅声
     await new Promise<void>((resolve) => {
       cupAnimationRef.current!.shake(1.5, resolve);
     });
+    soundManagerRef.current?.stopCupShake(); // 停止摇盅声
 
     // 阶段3：落盅
     setAnimationPhase('cup_drop');
+    soundManagerRef.current?.playCupDrop(); // 落盅声
+    simpleSoundRef.current?.playDrop();
     await new Promise<void>((resolve) => {
       cupAnimationRef.current!.drop(0.2, resolve);
     });
@@ -210,8 +256,14 @@ export default function DiceAnimationThree({
       throwDice(body, 5);
     });
 
+    // 监听碰撞并播放音效
+    startCollisionSoundMonitoring();
+
     // 等待骰子停稳
     await waitForDiceStop();
+
+    // 停止碰撞音效监听
+    stopCollisionSoundMonitoring();
 
     // 阶段5：结果校正
     setAnimationPhase('result_correct');
@@ -219,13 +271,38 @@ export default function DiceAnimationThree({
 
     // 阶段6：抬盅
     setAnimationPhase('cup_up');
+    soundManagerRef.current?.playCupLift(); // 抬盅声
     await new Promise<void>((resolve) => {
       cupAnimationRef.current!.lift(1.0, resolve);
     });
 
     // 阶段7：展示结果
     setAnimationPhase('result_show');
+    soundManagerRef.current?.playResultShow(); // 结果音效
     console.log('🎲 动画流程完成');
+  };
+
+  // 碰撞音效监听
+  const collisionIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  
+  const startCollisionSoundMonitoring = () => {
+    collisionIntervalRef.current = setInterval(() => {
+      diceBodiesRef.current.forEach((body) => {
+        const velocity = body.velocity.length();
+        if (velocity > 1) {
+          // 根据速度计算碰撞强度
+          const intensity = Math.min(velocity / 10, 1);
+          simpleSoundRef.current?.playCollision(intensity);
+        }
+      });
+    }, 100); // 每100ms检查一次
+  };
+
+  const stopCollisionSoundMonitoring = () => {
+    if (collisionIntervalRef.current) {
+      clearInterval(collisionIntervalRef.current);
+      collisionIntervalRef.current = null;
+    }
   };
 
   // 等待骰子停稳
@@ -307,6 +384,25 @@ export default function DiceAnimationThree({
         }}
       />
       
+      {/* FPS显示（开发模式） */}
+      {process.env.NODE_ENV === 'development' && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '10px',
+            right: '10px',
+            padding: '5px 10px',
+            background: 'rgba(0, 0, 0, 0.7)',
+            color: fps >= 50 ? '#10B981' : fps >= 30 ? '#F59E0B' : '#EF4444',
+            fontSize: '14px',
+            fontFamily: 'monospace',
+            borderRadius: '4px',
+          }}
+        >
+          FPS: {fps}
+        </div>
+      )}
+
       {/* 状态提示 */}
       {animationPhase !== 'idle' && (
         <div 
