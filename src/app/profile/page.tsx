@@ -46,12 +46,14 @@ export default function ProfilePage() {
   }, [user]); // 每次user变化或页面加载时都刷新
 
   // 计算用户数据
+  const isPremiumUser = user?.isPremium || false;
+  
   const userData = {
     avatar: user?.photoUrl || 'https://i.pravatar.cc/150?img=33',
     username: user?.firstName || user?.username || 'Player',
     telegramId: user?.username ? `@${user.username}` : '',
     userId: `UID: ${user?.id || '0'}`,
-    vipLevel: 0, // 暂时固定为0，后续可以根据投注额计算
+    vipLevel: isPremiumUser ? 1 : 0, // 根据Telegram Premium状态设置VIP等级
     totalBet: statistics ? parseFloat(statistics.totalBet) : 0,
     totalWin: statistics ? parseFloat(statistics.winBet) : 0,
     winRate: statistics && statistics.totalCount > 0 
@@ -62,8 +64,8 @@ export default function ProfilePage() {
 
   // VIP等级配置
   const vipLevels = [
-    { level: 0, name: '普通', color: '#808080', icon: '⚪' },
-    { level: 1, name: '青铜', color: '#CD7F32', icon: '🥉' },
+    { level: 0, name: '普通用户', color: '#808080', icon: '👤' },
+    { level: 1, name: 'VIP会员', color: '#FFD700', icon: '⭐' },
     { level: 2, name: '白银', color: '#C0C0C0', icon: '🥈' },
     { level: 3, name: '黄金', color: '#FFD700', icon: '🥇' },
     { level: 4, name: '铂金', color: '#E5E4E2', icon: '💎' },
@@ -71,6 +73,9 @@ export default function ProfilePage() {
   ];
 
   const currentVip = vipLevels[userData.vipLevel];
+  
+  // VIP充值链接
+  const vipUpgradeUrl = 'https://t.me/dhtpay_bot?start=premium';
 
   // 功能菜单
   const menuItems = [
@@ -151,7 +156,7 @@ export default function ProfilePage() {
     },
     {
       label: '会员等级',
-      value: `${currentVip.name} · VIP${currentVip.level}`,
+      value: currentVip.name,
     },
     {
       label: '邀请数',
@@ -205,14 +210,21 @@ export default function ProfilePage() {
               <div className="text-xs text-[#505050]">{userData.userId}</div>
             </div>
 
-            {/* VIP等级 */}
+            {/* VIP等级 - 可点击升级 */}
             <div className="text-right">
-              <div
-                className="text-sm font-semibold px-3 py-1 rounded-full"
+              <button
+                onClick={() => {
+                  if (!isPremiumUser) {
+                    window.open(vipUpgradeUrl, '_blank');
+                  }
+                }}
+                className={`text-sm font-semibold px-3 py-1 rounded-full transition-all ${
+                  !isPremiumUser ? 'cursor-pointer hover:opacity-80 active:scale-95' : ''
+                }`}
                 style={{ backgroundColor: `${currentVip.color}20`, color: currentVip.color }}
               >
-                {currentVip.name}VIP
-              </div>
+                {currentVip.name}
+              </button>
             </div>
           </div>
 
@@ -239,6 +251,38 @@ export default function ProfilePage() {
           </div>
         </motion.div>
       </div>
+
+      {/* VIP升级提示 - 仅对非VIP用户显示 */}
+      {!isPremiumUser && (
+        <div className="px-5 pb-4">
+          <motion.button
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            onClick={() => window.open(vipUpgradeUrl, '_blank')}
+            className="w-full bg-gradient-to-r from-[#FFD700] to-[#FFA500] rounded-xl p-4 shadow-lg hover:shadow-xl transition-all active:scale-98"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center text-2xl">
+                  ⭐
+                </div>
+                <div className="text-left">
+                  <div className="text-white font-bold text-base">升级VIP会员</div>
+                  <div className="text-white/80 text-sm">享受专属特权和优惠</div>
+                </div>
+              </div>
+              <svg
+                className="w-6 h-6 text-white"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </div>
+          </motion.button>
+        </div>
+      )}
 
       {/* 用户信息补充 */}
       <div className="px-5">

@@ -11,6 +11,7 @@ interface TelegramUser {
   username?: string;
   languageCode?: string;
   photoUrl?: string;
+  isPremium?: boolean; // Telegram Premium 用户
 }
 
 interface TelegramContextType {
@@ -65,8 +66,10 @@ export function TelegramProvider({ children }: { children: ReactNode }) {
             username: telegramUser.username,
             languageCode: telegramUser.language_code,
             photoUrl: telegramUser.photo_url,
+            isPremium: telegramUser.is_premium || false,
           };
 
+          console.log('👤 Telegram用户信息:', { ...userObj, isPremium: userObj.isPremium });
           setUser(userObj);
 
           // 调用后端初始化接口
