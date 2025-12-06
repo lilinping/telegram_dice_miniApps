@@ -1023,6 +1023,11 @@
   resolved "https://registry.npmmirror.com/@types/draco3d/-/draco3d-1.4.10.tgz"
   integrity sha512-AX22jp8Y7wwaBgAixaSvkoG4M/+PlAcm3Qs4OW8yT9DM4xUpWKeFhLueTAyZF39pviAdcDdeJoACapiAceqNcw==
 
+"@types/howler@^2.2.12":
+  version "2.2.12"
+  resolved "https://registry.npmjs.org/@types/howler/-/howler-2.2.12.tgz"
+  integrity sha512-hy769UICzOSdK0Kn1FBk4gN+lswcj1EKRkmiDtMkUGvFfYJzgaDXmVXkSShS2m89ERAatGIPnTUlp2HhfkVo5g==
+
 "@types/istanbul-lib-coverage@*", "@types/istanbul-lib-coverage@^2.0.1", "@types/istanbul-lib-coverage@^2.0.6":
   version "2.0.6"
   resolved "https://registry.npmjs.org/@types/istanbul-lib-coverage/-/istanbul-lib-coverage-2.0.6.tgz"
@@ -1118,7 +1123,7 @@
 
 "@types/three@*", "@types/three@^0.163.0", "@types/three@>=0.134.0":
   version "0.163.0"
-  resolved "https://registry.npmmirror.com/@types/three/-/three-0.163.0.tgz"
+  resolved "https://registry.npmjs.org/@types/three/-/three-0.163.0.tgz"
   integrity sha512-uIdDhsXRpQiBUkflBS/i1l3JX14fW6Ot9csed60nfbZNXHDTRsnV2xnTVwXcgbvTiboAR4IW+t+lTL5f1rqIqA==
   dependencies:
     "@tweenjs/tween.js" "~23.1.1"
@@ -1707,6 +1712,11 @@ caniuse-lite@^1.0.30001579, caniuse-lite@^1.0.30001702, caniuse-lite@^1.0.300017
   version "1.0.30001754"
   resolved "https://registry.npmmirror.com/caniuse-lite/-/caniuse-lite-1.0.30001754.tgz"
   integrity sha512-x6OeBXueoAceOmotzx3PO4Zpt4rzpeIFsSr6AAePTZxSkXiYDUmpypEl7e2+8NCd9bD7bXjqyef8CJYPC1jfxg==
+
+cannon-es@^0.20.0:
+  version "0.20.0"
+  resolved "https://registry.npmjs.org/cannon-es/-/cannon-es-0.20.0.tgz"
+  integrity sha512-eZhWTZIkFOnMAJOgfXJa9+b3kVlvG+FX4mdkpePev/w/rP5V8NRquGyEozcjPfEoXUlb+p7d9SUcmDSn14prOA==
 
 chalk@^4.0.0, chalk@^4.1.2:
   version "4.1.2"
@@ -2857,6 +2867,11 @@ graphemer@^1.4.0:
   resolved "https://registry.npmmirror.com/graphemer/-/graphemer-1.4.0.tgz"
   integrity sha512-EtKwoO6kxCL9WO5xipiHTZlSzBm7WLT627TqC/uVRd0HKmq8NXyebnNYxDoBi7wt8eTWrUrKXCOVaFq9x1kgag==
 
+gsap@^3.13.0:
+  version "3.13.0"
+  resolved "https://registry.npmjs.org/gsap/-/gsap-3.13.0.tgz"
+  integrity sha512-QL7MJ2WMjm1PHWsoFrAQH/J8wUeqZvMtHO58qdekHpCfhvhSL4gSiz6vJf5EeMP0LOn3ZCprL2ki/gjED8ghVw==
+
 has-bigints@^1.0.2:
   version "1.1.0"
   resolved "https://registry.npmmirror.com/has-bigints/-/has-bigints-1.1.0.tgz"
@@ -2904,6 +2919,11 @@ hls.js@^1.5.17:
   version "1.6.14"
   resolved "https://registry.npmmirror.com/hls.js/-/hls.js-1.6.14.tgz"
   integrity sha512-CSpT2aXsv71HST8C5ETeVo+6YybqCpHBiYrCRQSn3U5QUZuLTSsvtq/bj+zuvjLVADeKxoebzo16OkH8m1+65Q==
+
+howler@^2.2.4:
+  version "2.2.4"
+  resolved "https://registry.npmjs.org/howler/-/howler-2.2.4.tgz"
+  integrity sha512-iARIBPgcQrwtEr+tALF+rapJ8qSc+Set2GJQl7xT1MQzWaVkFebdJhR3alVlSiUf5U7nAANKuj3aWpwerocD5w==
 
 html-encoding-sniffer@^4.0.0:
   version "4.0.0"
@@ -5175,7 +5195,7 @@ three-stdlib@^2.35.6:
 
 three@^0.163.0, "three@>= 0.151.0", "three@>= 0.159.0", three@>=0.125.0, three@>=0.126, three@>=0.126.1, three@>=0.128.0, three@>=0.133, three@>=0.134.0, three@>=0.137:
   version "0.163.0"
-  resolved "https://registry.npmmirror.com/three/-/three-0.163.0.tgz"
+  resolved "https://registry.npmjs.org/three/-/three-0.163.0.tgz"
   integrity sha512-HlMgCb2TF/dTLRtknBnjUTsR8FsDqBY43itYop2+Zg822I+Kd0Ua2vs8CvfBVefXkBdNDrLMoRTGCIIpfCuDew==
 
 three@^0.170.0:
