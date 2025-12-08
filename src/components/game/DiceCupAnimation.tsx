@@ -41,6 +41,8 @@ export default function DiceCupAnimation({
   const correctionFrameCountRef = useRef(0); // 引导帧计数，用于减少验证频率
   const lastResultsKeyRef = useRef<string | null>(null); // 记录上一局结果，检测新局重置
   const correctionStartRef = useRef<number>(0); // 柔性矫正开始时间
+  const diceResultsRef = useRef<number[]>([]); // 存储最新的 diceResults，解决闭包问题
+  const initialQuatsRef = useRef<CANNON.Quaternion[]>([]); // 保存引导开始时的初始四元数
 
   // 配置参数
   const DICE_SIZE = 1.3;
@@ -480,123 +482,126 @@ export default function DiceCupAnimation({
     const animate = () => {
       animationFrameRef.current = requestAnimationFrame(animate);
 
-      const deltaTime = 1 / 60;
-      if (worldRef.current) {
-        worldRef.current.step(1 / 60, deltaTime, 3);
-      }
-
-      // 强制边界约束（只处理前3个）
-      const maxRadius = CONTAINER_RADIUS - 0.7;
+      const currentResults = diceResultsRef.current;
+      // 关键修复：只有在摇盅结束后才开始引导
+      // isShakingRef.current 为 true 时，物理引擎继续运行，骰子自然转动
+      const canGuide = currentResults.length === 3 && !hasCorrectedRef.current && !isShakingRef.current;
       const diceCount = Math.min(diceBodiesRef.current.length, 3);
-      for (let i = 0; i < diceCount; i++) {
-        const body = diceBodiesRef.current[i];
-        if (!body) continue;
-        const distSq = body.position.x * body.position.x + body.position.z * body.position.z;
-        if (distSq > maxRadius * maxRadius) {
-          const angle = Math.atan2(body.position.z, body.position.x);
-          body.position.x = Math.cos(angle) * maxRadius;
-          body.position.z = Math.sin(angle) * maxRadius;
-          const normalX = Math.cos(angle);
-          const normalZ = Math.sin(angle);
-          const dot = body.velocity.x * normalX + body.velocity.z * normalZ;
-          if (dot > 0) {
-            body.velocity.x -= 1.5 * dot * normalX;
-            body.velocity.z -= 1.5 * dot * normalZ;
-            body.velocity.x *= 0.5;
-            body.velocity.z *= 0.5;
-          }
+
+      // 只有在不引导时才运行物理引擎
+      // 引导时完全由我们控制骰子的旋转，避免物理引擎干扰
+      if (!canGuide) {
+        const deltaTime = 1 / 60;
+        if (worldRef.current) {
+          worldRef.current.step(1 / 60, deltaTime, 3);
         }
-        if (body.position.y > DOME_HEIGHT - 0.8) {
-          body.position.y = DOME_HEIGHT - 0.8;
-          if (body.velocity.y > 0) {
-            body.velocity.y *= -0.5;
+
+        // 强制边界约束（只处理前3个）
+        const maxRadius = CONTAINER_RADIUS - 0.7;
+        for (let i = 0; i < diceCount; i++) {
+          const body = diceBodiesRef.current[i];
+          if (!body) continue;
+          const distSq = body.position.x * body.position.x + body.position.z * body.position.z;
+          if (distSq > maxRadius * maxRadius) {
+            const angle = Math.atan2(body.position.z, body.position.x);
+            body.position.x = Math.cos(angle) * maxRadius;
+            body.position.z = Math.sin(angle) * maxRadius;
+            const normalX = Math.cos(angle);
+            const normalZ = Math.sin(angle);
+            const dot = body.velocity.x * normalX + body.velocity.z * normalZ;
+            if (dot > 0) {
+              body.velocity.x -= 1.5 * dot * normalX;
+              body.velocity.z -= 1.5 * dot * normalZ;
+              body.velocity.x *= 0.5;
+              body.velocity.z *= 0.5;
+            }
           }
-        }
-        // 确保骰子不会悬浮在半空中（最低位置）
-        if (body.position.y < 0.5) {
-          body.position.y = 0.5;
-          if (body.velocity.y < 0) {
-            body.velocity.y = 0;
+          if (body.position.y > DOME_HEIGHT - 0.8) {
+            body.position.y = DOME_HEIGHT - 0.8;
+            if (body.velocity.y > 0) {
+              body.velocity.y *= -0.5;
+            }
+          }
+          if (body.position.y < 0.5) {
+            body.position.y = 0.5;
+            if (body.velocity.y < 0) {
+              body.velocity.y = 0;
+            }
           }
         }
       }
 
-      // 引导：结果一到就持续柔性对齐（保持滚动感），收尾时再停住
-      const currentKey = lastResultsKeyRef.current;
-      const resultKey = diceResults.length === 3 ? diceResults.join(',') : null;
-      const canGuide = resultKey && currentKey === resultKey;
-
+      // 引导逻辑：当有结果且未校正完成时执行
       if (canGuide) {
-        isCorrectingRef.current = true;
-        hasCorrectedRef.current = false;
-        correctionFrameCountRef.current += 1;
+        // 第一帧初始化
+        if (!isCorrectingRef.current) {
+          isCorrectingRef.current = true;
+          correctionFrameCountRef.current = 0;
+          initialQuatsRef.current = [];
+          
+          // 保存每个骰子的初始四元数
+          for (let i = 0; i < diceCount; i++) {
+            const body = diceBodiesRef.current[i];
+            if (body) {
+              const q = new CANNON.Quaternion();
+              q.copy(body.quaternion);
+              initialQuatsRef.current.push(q);
+            }
+          }
+          console.log('🎯 开始引导，目标点数:', currentResults);
+        }
 
-        for (let i = 0; i < diceCount && i < diceResults.length; i++) {
+        correctionFrameCountRef.current += 1;
+        
+        // 使用基于时间的平滑插值（约2秒完成）
+        const progress = Math.min(correctionFrameCountRef.current / 120, 1);
+        // easeInOutCubic 缓动：开始和结束都平滑
+        const eased = progress < 0.5 
+          ? 4 * progress * progress * progress 
+          : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+
+        for (let i = 0; i < diceCount && i < currentResults.length; i++) {
           const body = diceBodiesRef.current[i];
           const mesh = diceMeshesRef.current[i];
-          if (!body) continue;
-          const targetQuat = correctDiceToNumber(body, diceResults[i]);
+          const startQuat = initialQuatsRef.current[i];
+          if (!body || !startQuat) continue;
+          
+          const targetQuat = correctDiceToNumber(body, currentResults[i]);
+          
+          // 从初始四元数平滑插值到目标四元数
+          const result = startQuat.slerp(targetQuat, eased);
+          body.quaternion.copy(result);
 
-          // slerp 柔性对齐，保持滚动感
-          body.quaternion.slerp(targetQuat, 0.2);
-
-          // 计算当前到目标的差异，施加轻微引导角速度
-          const invCurrent = new CANNON.Quaternion();
-          invCurrent.copy(body.quaternion);
-          invCurrent.inverse();
-          const diffQuat = new CANNON.Quaternion();
-          diffQuat.copy(targetQuat);
-          diffQuat.mult(invCurrent); // target * current^-1
-          const axisAngle = diffQuat.toAxisAngle();
-          const axis = axisAngle[0];
-          const angle = axisAngle[1];
-          if (axis.lengthSquared() > 1e-6 && Math.abs(angle) > 1e-3) {
-            axis.normalize();
-            const guide = angle * 1.5; // 引导强度
-            body.angularVelocity.x = body.angularVelocity.x * 0.6 + axis.x * guide * 0.4;
-            body.angularVelocity.y = body.angularVelocity.y * 0.6 + axis.y * guide * 0.4;
-            body.angularVelocity.z = body.angularVelocity.z * 0.6 + axis.z * guide * 0.4;
-          } else {
-            // 已很接近，逐步收紧角速度
-            body.angularVelocity.scale(0.5);
-          }
-
-          // 线速度轻衰减，保留移动感
-          body.velocity.scale(0.98);
-
+          // 同步 mesh
           if (mesh) {
-            mesh.quaternion.copy(body.quaternion as any);
+            mesh.quaternion.copy(result as any);
             mesh.position.copy(body.position as any);
           }
         }
 
-        // 一旦整体速度足够低，立即收尾：只停速度，不再改姿态
-        const allSlow = (() => {
-          for (let i = 0; i < diceCount && i < diceResults.length; i++) {
-            const b = diceBodiesRef.current[i];
-            if (!b) continue;
-            if (b.velocity.length() >= 0.08 || b.angularVelocity.length() >= 0.1) {
-              return false;
-            }
-          }
-          return true;
-        })();
-
-        if (allSlow) {
-          for (let i = 0; i < diceCount && i < diceResults.length; i++) {
+        // 完成引导
+        if (progress >= 1) {
+          for (let i = 0; i < diceCount && i < currentResults.length; i++) {
             const body = diceBodiesRef.current[i];
             const mesh = diceMeshesRef.current[i];
             if (!body) continue;
+            
+            const targetQuat = correctDiceToNumber(body, currentResults[i]);
+            body.quaternion.copy(targetQuat);
             body.angularVelocity.setZero();
-            body.velocity.scale(0.2);
+            body.velocity.setZero();
             body.sleep();
+            
             if (mesh) {
+              mesh.quaternion.copy(targetQuat as any);
               mesh.position.copy(body.position as any);
             }
           }
+          console.log('✅ 骰子已平滑停止到目标点数:', currentResults);
           hasCorrectedRef.current = true;
           isCorrectingRef.current = false;
           correctionFrameCountRef.current = 0;
+          initialQuatsRef.current = [];
         }
       }
 
@@ -825,84 +830,48 @@ export default function DiceCupAnimation({
     correctionFrameCountRef.current = 0;
   };
 
-  // 校正骰子到指定点数（立即开始引导，不让骰子停下）
+  // 校正骰子到指定点数（启动引导模式，让渲染循环持续引导骰子到目标姿态）
   const correctDiceToResults = () => {
     if (diceResults.length !== 3) {
       console.warn('⚠️ diceResults 长度不正确:', diceResults);
       return;
     }
 
-    if (isCorrectingRef.current) {
-      console.log('⚠️ 正在校正中，跳过重复调用');
+    // 如果已经在校正中或已经校正完成，跳过
+    if (hasCorrectedRef.current) {
+      console.log('⚠️ 已校正完成，跳过');
       return;
     }
 
-    isCorrectingRef.current = true;
-    correctionFrameCountRef.current = 0; // 重置帧计数
+    // 重置状态，准备开始新的引导
+    // 注意：不要在这里设置 isCorrectingRef，让 animate 函数中的逻辑来处理
+    correctionFrameCountRef.current = 0;
+    initialQuatsRef.current = []; // 清空初始四元数，让 animate 函数重新保存
     correctionStartRef.current = performance.now();
-    console.log('🎲 立即开始引导骰子到目标点数:', diceResults);
+    console.log('🎲 准备启动引导模式，目标点数:', diceResults);
     
+    // 确保所有骰子处于唤醒状态
     const diceCount = Math.min(diceBodiesRef.current.length, 3);
-    const targetQuaternions: CANNON.Quaternion[] = [];
-    
-    // 计算目标旋转，并立即给骰子一个初始推动力，确保它们继续滚动
     for (let i = 0; i < diceCount; i++) {
       const body = diceBodiesRef.current[i];
-      if (body && i < diceResults.length) {
-        const targetNumber = diceResults[i];
-        const targetQuat = correctDiceToNumber(body, targetNumber);
-        targetQuaternions.push(targetQuat);
-        
-        // 确保骰子处于唤醒状态
+      if (body) {
         body.wakeUp();
-
-        // 先把初始姿态直接设为目标姿态，避免停下后再闪变
-        body.quaternion.copy(targetQuat);
-        const mesh = diceMeshesRef.current[i];
-        if (mesh) {
-          mesh.quaternion.copy(targetQuat as any);
-          mesh.position.copy(body.position as any);
-        }
-        
-        // 立即给骰子一个推动力，确保它们继续滚动（不管当前速度如何）
-        // 这样骰子不会停下，会持续滚动到目标
-        const currentSpeed = body.velocity.length();
-        const currentAngularSpeed = body.angularVelocity.length();
-        
-        // 如果速度很慢，给一个推动力
-        if (currentSpeed < 2 || currentAngularSpeed < 3) {
-          // 给一个推动力，让骰子继续滚动
-          body.applyImpulse(
-            new CANNON.Vec3(
-              (Math.random() - 0.5) * 8,
-              Math.random() * 5,
-              (Math.random() - 0.5) * 8
-            ),
-            body.position
-          );
-          // 给角速度，确保继续转动
-          const currentAngVel = body.angularVelocity;
-          body.angularVelocity.set(
-            currentAngVel.x + (Math.random() - 0.5) * 8,
-            currentAngVel.y + (Math.random() - 0.5) * 8,
-            currentAngVel.z + (Math.random() - 0.5) * 8
-          );
-        }
       }
     }
 
-    // 引导逻辑现在在主渲染循环中每帧执行
-    // 不需要独立的 setInterval，这样更及时，不会让骰子停下
-    console.log('✅ 引导已启动，将在主渲染循环中持续执行');
+    console.log('✅ 引导准备完成，将在主渲染循环中执行');
   };
 
-  // 监听 diceResults 变化，一旦有结果就准备引导
+  // 监听 diceResults 变化，记录结果 key（引导在摇盅结束后由 shakeDice 触发）
   useEffect(() => {
-    // 当 diceResults 更新且有结果时，立即记录 key 并引导（即便仍在 rolling）
+    // 更新 ref，解决 animate 函数中的闭包问题
+    diceResultsRef.current = diceResults;
+    
+    // 当 diceResults 更新且有结果时，记录 key
     if (diceResults.length === 3) {
       const key = diceResults.join(',');
       if (lastResultsKeyRef.current !== key) {
-        console.log('🆕 检测到新一局结果，重置校正状态:', diceResults);
+        console.log('🆕 检测到新一局结果，记录 key:', diceResults);
         lastResultsKeyRef.current = key;
         hasCorrectedRef.current = false;
         isCorrectingRef.current = false;
@@ -911,11 +880,13 @@ export default function DiceCupAnimation({
       
       console.log('🔍 检测到 diceResults 变化:', { diceResults, gameState, hasCorrected: hasCorrectedRef.current, isShaking: isShakingRef.current });
       
-      if (!hasCorrectedRef.current && !isCorrectingRef.current) {
-        console.log('🎯 立即开始引导（不等待摇盅结束）:', diceResults);
+      // 只有在摇盅结束后才开始引导（由 shakeDice 的结束回调触发）
+      // 如果摇盅已经结束且还没开始引导，则立即开始
+      if (!isShakingRef.current && !hasCorrectedRef.current && !isCorrectingRef.current) {
+        console.log('🎯 摇盅已结束，开始引导:', diceResults);
         correctDiceToResults();
       } else {
-        console.log('⚠️ 已经校正过或正在校正中，跳过');
+        console.log('⚠️ 等待摇盅结束或已在校正中');
       }
     }
   }, [diceResults, gameState]);

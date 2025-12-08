@@ -140,39 +140,85 @@ export function getDiceUpNumber(body: CANNON.Body): number {
 
 /**
  * 校正骰子到指定点数
- * 平滑过渡到目标旋转
+ * 返回使指定点数朝上的目标四元数
+ * 
+ * 面映射（与 DiceCupAnimation.tsx 中的贴图映射一致）：
+ * +X方向 (1,0,0) = 1点
+ * -X方向 (-1,0,0) = 6点
+ * +Y方向 (0,1,0) = 2点
+ * -Y方向 (0,-1,0) = 5点
+ * +Z方向 (0,0,1) = 3点
+ * -Z方向 (0,0,-1) = 4点
  */
 export function correctDiceToNumber(
   body: CANNON.Body,
   targetNumber: number,
   duration: number = 0.1
 ): CANNON.Quaternion {
-  // 目标旋转（使指定点数朝上）
-  // 根据 demo 代码中的面映射：
-  // +X方向 (1,0,0) = 1点
-  // -X方向 (-1,0,0) = 6点
-  // +Y方向 (0,1,0) = 2点（朝上）
-  // -Y方向 (0,-1,0) = 5点（朝下）
-  // +Z方向 (0,0,1) = 3点
-  // -Z方向 (0,0,-1) = 4点
-  // 
-  // 要让某个点数朝上（+Y方向），需要旋转骰子使对应面的法向量指向 +Y
-  // 使用欧拉角 (x, y, z) 表示绕 X、Y、Z 轴的旋转
-  // 注意：Cannon-es 的 setFromEuler 使用 (x, y, z) 顺序，对应绕 X、Y、Z 轴的旋转
-  // 映射与贴图一致（BoxGeometry 顺序：+X, -X, +Y, -Y, +Z, -Z）
-  // +X = 1, -X = 6, +Y = 2, -Y = 5, +Z = 3, -Z = 4
-  const targetRotations: Record<number, [number, number, number]> = {
-    1: [0, 0, Math.PI / 2],        // +X -> +Y
-    2: [0, 0, 0],                  // +Y 已经朝上
-    3: [-Math.PI / 2, 0, 0],       // +Z -> +Y
-    4: [Math.PI / 2, 0, 0],        // -Z -> +Y
-    5: [Math.PI, 0, 0],            // -Y -> +Y
-    6: [0, 0, -Math.PI / 2],       // -X -> +Y
-  };
-
-  const [x, y, z] = targetRotations[targetNumber] || [0, 0, 0];
   const targetQuat = new CANNON.Quaternion();
-  targetQuat.setFromEuler(x, y, z);
+
+  // 根据目标点数，计算需要哪个面朝上
+  // 然后计算使该面法向量指向 +Y 的四元数
+  switch (targetNumber) {
+    case 1:
+      // 1点在 +X 面，需要 +X 朝上
+      // 从初始状态（+Y朝上）绕 Z 轴旋转 -90°，使 +X 转到 +Y 位置
+      // 验证：绕 Z 轴 -90°，+Y → +X，+X → -Y，所以原来的 +X 现在朝 -Y？不对
+      // 重新思考：我们要让 +X 面朝上，即 +X 方向的法向量指向 +Y
+      // 绕 Z 轴旋转 -90°（顺时针看 +Z）：+X → -Y, +Y → +X
+      // 所以旋转后，原来指向 +X 的向量现在指向 -Y，不对
+      // 绕 Z 轴旋转 +90°（逆时针看 +Z）：+X → +Y, +Y → -X
+      // 所以旋转后，原来指向 +X 的向量现在指向 +Y，正确！
+      targetQuat.setFromAxisAngle(new CANNON.Vec3(0, 0, 1), Math.PI / 2);
+      break;
+    case 2:
+      // 2点在 +Y 面，已经朝上，不需要旋转
+      targetQuat.set(0, 0, 0, 1);
+      break;
+    case 3:
+      // 3点在 +Z 面，需要 +Z 朝上
+      // 绕 X 轴旋转 -90°（顺时针看 +X）：+Y → +Z, +Z → -Y
+      // 所以旋转后，原来指向 +Z 的向量现在指向 -Y，不对
+      // 绕 X 轴旋转 +90°（逆时针看 +X）：+Y → -Z, +Z → +Y
+      // 所以旋转后，原来指向 +Z 的向量现在指向 +Y，正确！
+      // 但等等，我们要的是旋转后 +Z 面朝上，即旋转后的 +Z 方向指向世界 +Y
+      // 如果绕 X 轴旋转 -90°，新的 +Z 方向 = 旧的 +Y 方向，不对
+      // 如果绕 X 轴旋转 +90°，新的 +Z 方向 = 旧的 -Y 方向，也不对
+      // 
+      // 换个思路：我们要找一个旋转，使得旋转后骰子的 +Z 面朝上
+      // 即：旋转后，骰子局部坐标系的 +Z 轴指向世界坐标系的 +Y 轴
+      // 这等价于：将世界 +Y 轴旋转到骰子局部 +Z 轴的位置
+      // 绕 X 轴旋转 -90°：世界 +Y → 世界 +Z，所以骰子的 +Z 面会朝向世界 +Y
+      targetQuat.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
+      break;
+    case 4:
+      // 4点在 -Z 面，需要 -Z 朝上
+      // 绕 X 轴旋转 +90°：世界 +Y → 世界 -Z，所以骰子的 -Z 面会朝向世界 +Y
+      targetQuat.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), Math.PI / 2);
+      break;
+    case 5:
+      // 5点在 -Y 面，需要 -Y 朝上
+      // 绕 X 轴旋转 180°：世界 +Y → 世界 -Y，所以骰子的 -Y 面会朝向世界 +Y
+      targetQuat.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), Math.PI);
+      break;
+    case 6:
+      // 6点在 -X 面，需要 -X 朝上
+      // 绕 Z 轴旋转 -90°：世界 +Y → 世界 +X，所以骰子的 +X 面会朝向世界 +Y？不对
+      // 绕 Z 轴旋转 +90°：世界 +Y → 世界 -X，所以骰子的 -X 面会朝向世界 +Y
+      // 等等，这和 case 1 矛盾了
+      // 
+      // 重新理解：setFromAxisAngle 创建的四元数，当应用到物体时，
+      // 物体会绕指定轴旋转指定角度
+      // 如果物体绕 Z 轴旋转 +90°，物体的 +X 轴会转到原来 +Y 轴的位置
+      // 这意味着物体的 +X 面现在朝向世界 +Y，即 1点朝上
+      // 
+      // 所以 6点朝上（-X 面朝上）：绕 Z 轴旋转 -90°
+      // 物体绕 Z 轴旋转 -90°，物体的 -X 轴会转到原来 +Y 轴的位置
+      targetQuat.setFromAxisAngle(new CANNON.Vec3(0, 0, 1), -Math.PI / 2);
+      break;
+    default:
+      targetQuat.set(0, 0, 0, 1);
+  }
 
   return targetQuat;
 }

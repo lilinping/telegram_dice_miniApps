@@ -107,7 +107,7 @@ export function createDiceCup(radius: number = 2.5, height: number = 3, envMap?:
     true // 开口（无顶无底）
   );
   
-  const glassMaterial = createGlassMaterial(envMap);
+  const glassMaterial = createGlassMaterial();
   const cup = new THREE.Mesh(cupGeometry, glassMaterial);
   cup.castShadow = true;
   cup.receiveShadow = true;

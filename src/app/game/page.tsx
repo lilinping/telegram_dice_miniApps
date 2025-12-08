@@ -457,28 +457,33 @@ export default function GamePage() {
         </button>
       </div>
 
-      {/* 开奖动画遮罩 - 完全覆盖整个屏幕，在开奖和结算时都显示 */}
-      {(gameState === 'rolling' || gameState === 'revealing' || gameState === 'settled') && (
-        <div
-          className="fixed inset-0 z-[200] flex items-center justify-center animate-fade-in"
-          style={{
-            background: 'var(--rich-black)',
-            backdropFilter: 'blur(12px)',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            width: '100vw',
-            height: '100vh',
-            overflow: 'auto',
-            padding: '20px',
-          }}
-        >
-          <div className="text-center w-full h-full flex items-center justify-center" style={{ minHeight: '100vh' }}>
-            <DiceCupAnimation fullscreen winAmount={winAmount} hasWon={hasWon} />
-          </div>
+      {/* 开奖动画遮罩 - 预渲染但在 betting 状态时隐藏，避免每次重新初始化 Three.js 场景 */}
+      <div
+        className={`fixed inset-0 z-[200] flex items-center justify-center ${
+          gameState === 'rolling' || gameState === 'revealing' || gameState === 'settled'
+            ? 'animate-fade-in'
+            : 'pointer-events-none'
+        }`}
+        style={{
+          background: 'var(--rich-black)',
+          backdropFilter: 'blur(12px)',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          width: '100vw',
+          height: '100vh',
+          overflow: 'auto',
+          padding: '20px',
+          opacity: gameState === 'rolling' || gameState === 'revealing' || gameState === 'settled' ? 1 : 0,
+          visibility: gameState === 'rolling' || gameState === 'revealing' || gameState === 'settled' ? 'visible' : 'hidden',
+          transition: 'opacity 0.2s ease-in-out',
+        }}
+      >
+        <div className="text-center w-full h-full flex items-center justify-center" style={{ minHeight: '100vh' }}>
+          <DiceCupAnimation fullscreen winAmount={winAmount} hasWon={hasWon} />
         </div>
-      )}
+      </div>
 
       {/* 中奖动画 */}
       <WinAnimation

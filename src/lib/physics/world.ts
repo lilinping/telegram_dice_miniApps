@@ -18,8 +18,9 @@ export class PhysicsWorld {
 
     // 设置碰撞检测
     this.world.broadphase = new CANNON.NaiveBroadphase();
-    this.world.solver.iterations = 10;
-    this.world.solver.tolerance = 0.001;
+    // 设置求解器参数（使用类型断言绕过类型检查）
+    (this.world.solver as any).iterations = 10;
+    (this.world.solver as any).tolerance = 0.001;
 
     // 允许物体休眠（性能优化）
     this.world.allowSleep = true;

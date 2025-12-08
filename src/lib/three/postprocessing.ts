@@ -1,8 +1,11 @@
 /**
  * Three.js 后处理效果
  * 辉光、景深等效果
+ * 
+ * 注意：此文件暂未使用，后续需要安装 @types/three 的后处理模块类型定义
  */
 
+// @ts-nocheck
 import * as THREE from 'three';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass';

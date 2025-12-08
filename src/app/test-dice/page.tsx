@@ -86,7 +86,7 @@ export default function TestDicePage() {
 
               <div style={{ marginTop: '10px', fontSize: '11px', color: '#666' }}>
                 <div>提示：</div>
-                <div>- 点击"随机测试"生成新结果</div>
+                <div>- 点击&quot;随机测试&quot;生成新结果</div>
                 <div>- 查看控制台了解详细日志</div>
                 <div>- 检查FPS显示（右上角）</div>
               </div>
