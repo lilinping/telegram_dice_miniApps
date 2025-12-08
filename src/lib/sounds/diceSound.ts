@@ -182,59 +182,185 @@ export class DiceSoundManager {
 /**
  * 创建简单的音效（如果没有音频文件）
  * 使用Web Audio API生成基础音效
+ * 需求文档：摇盅摩擦声、骰子碰撞声、筛盅落下声
  */
 export class SimpleSoundGenerator {
   private audioContext: AudioContext | null = null;
+  private collisionBuffer: AudioBuffer | null = null;
+  private dropBuffer: AudioBuffer | null = null;
+  private shakeBuffer: AudioBuffer | null = null;
 
   constructor() {
     if (typeof window !== 'undefined') {
       this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      this.initBuffers();
     }
   }
 
   /**
-   * 播放简单的碰撞声
+   * 初始化音频缓冲区
    */
-  public playCollision(intensity: number = 1) {
+  private async initBuffers() {
     if (!this.audioContext) return;
 
-    const oscillator = this.audioContext.createOscillator();
-    const gainNode = this.audioContext.createGain();
-
-    oscillator.connect(gainNode);
-    gainNode.connect(this.audioContext.destination);
-
-    // 白噪声效果
-    oscillator.type = 'square';
-    oscillator.frequency.value = 100 + Math.random() * 200;
-
-    gainNode.gain.setValueAtTime(intensity * 0.3, this.audioContext.currentTime);
-    gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.1);
-
-    oscillator.start(this.audioContext.currentTime);
-    oscillator.stop(this.audioContext.currentTime + 0.1);
+    try {
+      // 创建碰撞声缓冲区（需求文档：骰子碰撞声）
+      this.collisionBuffer = this.createCollisionBuffer();
+      
+      // 创建落地声缓冲区（需求文档：筛盅落下声，重低频"砰"声）
+      this.dropBuffer = this.createDropBuffer();
+      
+      // 创建摇盅声缓冲区（需求文档：摇盅摩擦声）
+      this.shakeBuffer = this.createShakeBuffer();
+    } catch (error) {
+      console.warn('Failed to initialize audio buffers:', error);
+    }
   }
 
   /**
-   * 播放简单的落地声
+   * 创建碰撞声缓冲区（需求文档：骰子碰撞声，物理事件触发）
    */
-  public playDrop() {
-    if (!this.audioContext) return;
+  private createCollisionBuffer(): AudioBuffer {
+    if (!this.audioContext) return null as any;
+    
+    const sampleRate = this.audioContext.sampleRate;
+    const duration = 0.1; // 100ms
+    const buffer = this.audioContext.createBuffer(1, sampleRate * duration, sampleRate);
+    const data = buffer.getChannelData(0);
 
-    const oscillator = this.audioContext.createOscillator();
+    // 生成碰撞声（短促的噪声）
+    for (let i = 0; i < data.length; i++) {
+      const t = i / sampleRate;
+      // 白噪声 + 衰减包络
+      data[i] = (Math.random() * 2 - 1) * Math.exp(-t * 30) * 0.3;
+    }
+
+    return buffer;
+  }
+
+  /**
+   * 创建落地声缓冲区（需求文档：筛盅落下声，重低频"砰"声）
+   */
+  private createDropBuffer(): AudioBuffer {
+    if (!this.audioContext) return null as any;
+    
+    const sampleRate = this.audioContext.sampleRate;
+    const duration = 0.3; // 300ms
+    const buffer = this.audioContext.createBuffer(1, sampleRate * duration, sampleRate);
+    const data = buffer.getChannelData(0);
+
+    // 生成重低频"砰"声
+    for (let i = 0; i < data.length; i++) {
+      const t = i / sampleRate;
+      // 低频正弦波 + 噪声 + 衰减
+      const freq = 50 + t * 20; // 从50Hz到70Hz
+      const noise = (Math.random() * 2 - 1) * 0.1;
+      const envelope = Math.exp(-t * 5);
+      data[i] = (Math.sin(2 * Math.PI * freq * t) + noise) * envelope * 0.5;
+    }
+
+    return buffer;
+  }
+
+  /**
+   * 创建摇盅声缓冲区（需求文档：摇盅摩擦声，摇盅阶段循环）
+   */
+  private createShakeBuffer(): AudioBuffer {
+    if (!this.audioContext) return null as any;
+    
+    const sampleRate = this.audioContext.sampleRate;
+    const duration = 0.5; // 500ms循环
+    const buffer = this.audioContext.createBuffer(1, sampleRate * duration, sampleRate);
+    const data = buffer.getChannelData(0);
+
+    // 生成摩擦声（中频噪声 + 轻微调制）
+    for (let i = 0; i < data.length; i++) {
+      const t = i / sampleRate;
+      // 带调制的噪声
+      const modulation = Math.sin(2 * Math.PI * 5 * t); // 5Hz调制
+      const noise = (Math.random() * 2 - 1) * 0.3;
+      data[i] = noise * (0.5 + 0.5 * modulation);
+    }
+
+    return buffer;
+  }
+
+  /**
+   * 播放碰撞声（需求文档：骰子碰撞声，物理事件触发，设置阈值）
+   */
+  public playCollision(intensity: number = 1) {
+    if (!this.audioContext || !this.collisionBuffer) return;
+
+    // 需求文档：设置阈值，只有强度足够才播放
+    if (intensity < 0.3) return;
+
+    const source = this.audioContext.createBufferSource();
     const gainNode = this.audioContext.createGain();
 
-    oscillator.connect(gainNode);
+    source.buffer = this.collisionBuffer;
+    source.connect(gainNode);
     gainNode.connect(this.audioContext.destination);
 
-    oscillator.type = 'sine';
-    oscillator.frequency.setValueAtTime(200, this.audioContext.currentTime);
-    oscillator.frequency.exponentialRampToValueAtTime(50, this.audioContext.currentTime + 0.2);
+    // 根据强度调整音量
+    gainNode.gain.value = Math.min(intensity * 0.5, 0.8);
+    
+    // 随机音调变化
+    source.playbackRate.value = 0.8 + Math.random() * 0.4;
 
-    gainNode.gain.setValueAtTime(0.5, this.audioContext.currentTime);
-    gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.2);
+    source.start();
+    source.stop(this.audioContext.currentTime + 0.1);
+  }
 
-    oscillator.start(this.audioContext.currentTime);
-    oscillator.stop(this.audioContext.currentTime + 0.2);
+  /**
+   * 播放落地声（需求文档：筛盅落下声，重低频"砰"声）
+   */
+  public playDrop() {
+    if (!this.audioContext || !this.dropBuffer) return;
+
+    const source = this.audioContext.createBufferSource();
+    const gainNode = this.audioContext.createGain();
+
+    source.buffer = this.dropBuffer;
+    source.connect(gainNode);
+    gainNode.connect(this.audioContext.destination);
+
+    gainNode.gain.value = 0.6;
+
+    source.start();
+    source.stop(this.audioContext.currentTime + 0.3);
+  }
+
+  /**
+   * 播放摇盅摩擦声（需求文档：摇盅摩擦声，摇盅阶段循环）
+   */
+  public playShake(loop: boolean = true) {
+    if (!this.audioContext || !this.shakeBuffer) return;
+
+    const source = this.audioContext.createBufferSource();
+    const gainNode = this.audioContext.createGain();
+
+    source.buffer = this.shakeBuffer;
+    source.loop = loop;
+    source.connect(gainNode);
+    gainNode.connect(this.audioContext.destination);
+
+    gainNode.gain.value = 0.4;
+
+    source.start();
+    
+    return { source, gainNode };
+  }
+
+  /**
+   * 停止摇盅摩擦声
+   */
+  public stopShake(source?: AudioBufferSourceNode) {
+    if (source) {
+      try {
+        source.stop();
+      } catch (error) {
+        // 忽略已停止的错误
+      }
+    }
   }
 }

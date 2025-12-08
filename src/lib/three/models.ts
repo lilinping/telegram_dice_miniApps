@@ -91,39 +91,49 @@ export function createDice(size: number = 1): THREE.Group {
 /**
  * 创建玻璃筛盅模型
  * 透明玻璃材质，圆柱形
+ * 需求文档：PBR材质、折射、环境光反射、Fresnel效果
  */
-export function createDiceCup(radius: number = 2.5, height: number = 3): THREE.Group {
+export function createDiceCup(radius: number = 2.5, height: number = 3, envMap?: THREE.CubeTexture): THREE.Group {
   const cupGroup = new THREE.Group();
 
   // 玻璃盅体（圆柱形，无底）
+  // 增加分段数，提升玻璃边缘Fresnel效果质量
   const cupGeometry = new THREE.CylinderGeometry(
     radius, // 顶部半径
-    radius * 0.9, // 底部半径（略小，更真实）
+    radius * 0.92, // 底部半径（略小，更真实）
     height, // 高度
-    32, // 分段数
+    64, // 增加分段数，提升玻璃折射质量
     1,
     true // 开口（无顶无底）
   );
   
-  const glassMaterial = createGlassMaterial();
+  const glassMaterial = createGlassMaterial(envMap);
   const cup = new THREE.Mesh(cupGeometry, glassMaterial);
   cup.castShadow = true;
   cup.receiveShadow = true;
   cupGroup.add(cup);
 
-  // 玻璃盅顶部边缘（加厚效果）
-  const rimGeometry = new THREE.TorusGeometry(radius, 0.1, 16, 32);
+  // 玻璃盅顶部边缘（加厚效果，增强Fresnel边缘）
+  const rimGeometry = new THREE.TorusGeometry(radius, 0.12, 24, 64);
   const rim = new THREE.Mesh(rimGeometry, glassMaterial);
   rim.position.y = height / 2;
   rim.rotation.x = Math.PI / 2;
   cupGroup.add(rim);
 
-  // 金色把手（可选）
-  const handleGeometry = new THREE.TorusGeometry(0.3, 0.1, 8, 16);
+  // 玻璃盅底部边缘（增强真实感）
+  const bottomRimGeometry = new THREE.TorusGeometry(radius * 0.92, 0.1, 24, 64);
+  const bottomRim = new THREE.Mesh(bottomRimGeometry, glassMaterial);
+  bottomRim.position.y = -height / 2;
+  bottomRim.rotation.x = Math.PI / 2;
+  cupGroup.add(bottomRim);
+
+  // 金色把手（需求文档：高级质感）
+  const handleGeometry = new THREE.TorusGeometry(0.3, 0.12, 16, 32);
   const handleMaterial = createCupBaseMaterial();
   const handle = new THREE.Mesh(handleGeometry, handleMaterial);
   handle.position.set(0, height / 2 + 0.3, 0);
   handle.rotation.x = Math.PI / 2;
+  handle.castShadow = true;
   cupGroup.add(handle);
 
   return cupGroup;

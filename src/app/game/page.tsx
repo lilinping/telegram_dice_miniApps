@@ -6,7 +6,8 @@ import { useWallet } from '@/contexts/WalletContext';
 import { useTelegram } from '@/contexts/TelegramContext';
 import { useGameSounds } from '@/hooks/useSound';
 import { useGameHaptics } from '@/hooks/useHaptic';
-import DiceAnimation from '@/components/game/DiceAnimationSwitch'; // 智能切换版本
+import DiceCupDemo from '@/components/game/DiceCupDemo'; // 骰盅展示组件（betting状态）
+import DiceCupAnimation from '@/components/game/DiceCupAnimation'; // 骰盅动画组件（rolling/revealing状态）
 import BetPanel from '@/components/game/BetPanel';
 import ChipSelector from '@/components/game/ChipSelector';
 import MultiplierSelector from '@/components/game/MultiplierSelector';
@@ -252,12 +253,12 @@ export default function GamePage() {
       {/* 3D骰盅展示区 - 优化高度，在开奖时隐藏 */}
       {gameState === 'betting' && (
         <div
-          className="relative h-[100px] pt-2 pb-0"
+          className="relative h-[200px] pt-2 pb-0"
           style={{
             background: 'linear-gradient(180deg, var(--onyx-black) 0%, var(--rich-black) 100%)',
           }}
         >
-          <DiceAnimation />
+          <DiceCupDemo className="w-full h-full" />
 
           {/* 右上角按钮组 */}
           <div className="absolute top-4 right-4 flex flex-col gap-2 items-center">
@@ -474,7 +475,7 @@ export default function GamePage() {
           }}
         >
           <div className="text-center w-full h-full flex items-center justify-center" style={{ minHeight: '100vh' }}>
-            <DiceAnimation fullscreen winAmount={winAmount} hasWon={hasWon} />
+            <DiceCupAnimation fullscreen winAmount={winAmount} hasWon={hasWon} />
           </div>
         </div>
       )}

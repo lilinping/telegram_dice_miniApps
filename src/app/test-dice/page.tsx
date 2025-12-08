@@ -6,7 +6,7 @@
 'use client';
 
 import { useState } from 'react';
-import DiceAnimationThree from '@/components/game/DiceAnimationThree';
+import DiceCupAnimation from '@/components/game/DiceCupAnimation';
 import { GameProvider } from '@/contexts/GameContext';
 import { TelegramProvider } from '@/contexts/TelegramContext';
 import { WalletProvider } from '@/contexts/WalletContext';
@@ -93,7 +93,7 @@ export default function TestDicePage() {
             </div>
 
             {/* 骰子动画 */}
-            <DiceAnimationThree 
+            <DiceCupAnimation 
               fullscreen={isFullscreen}
               winAmount={100}
               hasWon={true}
