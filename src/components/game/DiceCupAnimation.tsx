@@ -539,15 +539,15 @@ export default function DiceCupAnimation({
           initialQuatsRef.current = [];
           initialVelocitiesRef.current = [];
           
-          // 保存每个骰子的初始四元数和初始速度
+          // 保存每个骰子的初始四元数和初始角速度
           for (let i = 0; i < diceCount; i++) {
             const body = diceBodiesRef.current[i];
             if (body) {
               const q = new CANNON.Quaternion();
               q.copy(body.quaternion);
               initialQuatsRef.current.push(q);
-              // 保存初始速度
-              initialVelocitiesRef.current.push(body.velocity.length());
+              // 保存初始角速度大小，用于平滑衰减
+              initialVelocitiesRef.current.push(body.angularVelocity.length());
             }
           }
           console.log('🎯 开始引导，目标点数:', currentResults);
@@ -555,15 +555,14 @@ export default function DiceCupAnimation({
 
         correctionFrameCountRef.current += 1;
         
-        // 使用基于时间的平滑插值（约1.5秒完成，更快更自然）
-        const totalFrames = 90; // 约1.5秒（60fps）
-        const progress = Math.min(correctionFrameCountRef.current / totalFrames, 1);
-        // 使用更线性的缓动函数，避免突然加速或减速
-        // easeInOutQuad: 更平滑的二次缓动，比 cubic 更线性
-        const eased = progress < 0.5
-          ? 2 * progress * progress
-          : 1 - Math.pow(-2 * progress + 2, 2) / 2;
-
+        // 简化为单阶段引导，总时间约1.2秒（72帧）
+        const totalFrames = 72;
+        const frameCount = correctionFrameCountRef.current;
+        const progress = Math.min(frameCount / totalFrames, 1);
+        
+        // 使用线性缓动，保持匀速过渡，避免"开始快后面慢"的问题
+        const eased = progress;
+        
         for (let i = 0; i < diceCount && i < currentResults.length; i++) {
           const body = diceBodiesRef.current[i];
           const mesh = diceMeshesRef.current[i];
@@ -576,35 +575,26 @@ export default function DiceCupAnimation({
           const result = startQuat.slerp(targetQuat, eased);
           body.quaternion.copy(result);
           
-          // 清零角速度，避免物理引擎旋转干扰我们的插值
+          // 立即清零角速度，避免干扰
           body.angularVelocity.setZero();
           
-          // 速度衰减：根据初始速度计算平滑的衰减曲线
-          // 目标是从初始速度线性减小到接近0
-          const initialVel = initialVelocitiesRef.current[i] || 10; // 默认初始速度
-          const targetVel = 0.1; // 目标速度（接近0）
-          const currentTargetVel = initialVel * (1 - progress) + targetVel * progress; // 线性插值
-          const currentVel = body.velocity.length();
+          // 线速度快速衰减，确保骰子不会平移
+          // 每帧衰减15%，约10帧后速度接近0
+          body.velocity.scale(0.85);
           
-          // 如果当前速度大于目标速度，平滑衰减到目标速度
-          if (currentVel > currentTargetVel) {
-            const damping = currentTargetVel / Math.max(currentVel, 0.01); // 计算需要的衰减系数
-            body.velocity.scale(damping);
-          } else {
-            // 如果速度已经低于目标速度，保持当前速度或轻微衰减
-            body.velocity.scale(0.99);
+          // 当进度超过50%时，直接将线速度设为0
+          if (progress > 0.5) {
+            body.velocity.setZero();
           }
-          
-          body.wakeUp(); // 确保物理引擎继续处理位置
 
           // 同步 mesh
           if (mesh) {
-            mesh.quaternion.copy(result as any);
+            mesh.quaternion.copy(body.quaternion as any);
             mesh.position.copy(body.position as any);
           }
         }
 
-        // 完成引导：平滑停止
+        // 完成引导
         if (progress >= 1) {
           for (let i = 0; i < diceCount && i < currentResults.length; i++) {
             const body = diceBodiesRef.current[i];
@@ -612,18 +602,12 @@ export default function DiceCupAnimation({
             if (!body) continue;
             
             const targetQuat = correctDiceToNumber(body, currentResults[i]);
-            body.quaternion.copy(targetQuat);
-            body.angularVelocity.setZero();
             
-            // 平滑停止：如果速度很小就直接停止，否则继续衰减
-            const velLen = body.velocity.length();
-            if (velLen < 0.05) {
-              body.velocity.setZero();
-              body.sleep();
-            } else {
-              // 继续平滑衰减，不要突然停止
-              body.velocity.scale(0.9);
-            }
+            // 完全停止骰子
+            body.velocity.setZero();
+            body.angularVelocity.setZero();
+            body.quaternion.copy(targetQuat);
+            body.sleep();
             
             if (mesh) {
               mesh.quaternion.copy(targetQuat as any);
@@ -631,28 +615,12 @@ export default function DiceCupAnimation({
             }
           }
           
-          // 检查是否所有骰子都已停止
-          const allStopped = diceBodiesRef.current.slice(0, diceCount).every(body => {
-            if (!body) return true;
-            return body.velocity.length() < 0.05;
-          });
-          
-          if (allStopped) {
-            // 所有骰子都已停止，最终设置
-            for (let i = 0; i < diceCount && i < currentResults.length; i++) {
-              const body = diceBodiesRef.current[i];
-              if (body) {
-                body.velocity.setZero();
-                body.sleep();
-              }
-            }
-            console.log('✅ 骰子已平滑停止到目标点数:', currentResults);
-            hasCorrectedRef.current = true;
-            isCorrectingRef.current = false;
-            correctionFrameCountRef.current = 0;
-            initialQuatsRef.current = [];
-            initialVelocitiesRef.current = [];
-          }
+          console.log('✅ 骰子已停止到目标点数:', currentResults);
+          hasCorrectedRef.current = true;
+          isCorrectingRef.current = false;
+          correctionFrameCountRef.current = 0;
+          initialQuatsRef.current = [];
+          initialVelocitiesRef.current = [];
         }
       }
 
@@ -753,8 +721,9 @@ export default function DiceCupAnimation({
     }
 
     let shakeFrames = 0;
-    const maxFrames = isMobile ? 50 : 60;
-    const force = isMobile ? 100 : 120;
+    // 摇盅时间约1.5秒，让骰子充分转动
+    const maxFrames = isMobile ? 75 : 90;
+    const force = isMobile ? 90 : 110;
     
     // 为每个骰子生成平滑的随机种子，避免每帧都完全随机
     const smoothRandomSeeds: Array<{x: number, y: number, z: number, ax: number, ay: number, az: number}> = [];
