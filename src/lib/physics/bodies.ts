@@ -105,22 +105,17 @@ export function areAllDiceStopped(
  * 根据骰子的旋转姿态判断
  */
 export function getDiceUpNumber(body: CANNON.Body): number {
-  // 获取骰子的上方向向量
+  // 映射与贴图一致：+X=1, -X=6, +Y=2, -Y=5, +Z=3, -Z=4
   const upVector = new CANNON.Vec3(0, 1, 0);
-  const worldUp = new CANNON.Vec3();
-  body.quaternion.vmult(upVector, worldUp);
-
-  // 六个面的法向量
   const faces = [
-    { normal: new CANNON.Vec3(0, 0, 1), number: 1 },  // 前面
-    { normal: new CANNON.Vec3(0, 0, -1), number: 2 }, // 后面
-    { normal: new CANNON.Vec3(1, 0, 0), number: 3 },  // 右面
-    { normal: new CANNON.Vec3(-1, 0, 0), number: 4 }, // 左面
-    { normal: new CANNON.Vec3(0, 1, 0), number: 5 },  // 上面
-    { normal: new CANNON.Vec3(0, -1, 0), number: 6 }, // 下面
+    { normal: new CANNON.Vec3(1, 0, 0), number: 1 },   // +X -> 1
+    { normal: new CANNON.Vec3(-1, 0, 0), number: 6 },  // -X -> 6
+    { normal: new CANNON.Vec3(0, 1, 0), number: 2 },   // +Y -> 2
+    { normal: new CANNON.Vec3(0, -1, 0), number: 5 },  // -Y -> 5
+    { normal: new CANNON.Vec3(0, 0, 1), number: 3 },   // +Z -> 3
+    { normal: new CANNON.Vec3(0, 0, -1), number: 4 },  // -Z -> 4
   ];
 
-  // 找到与上方向最接近的面
   let maxDot = -1;
   let upNumber = 1;
 
@@ -128,7 +123,6 @@ export function getDiceUpNumber(body: CANNON.Body): number {
     const worldNormal = new CANNON.Vec3();
     body.quaternion.vmult(normal, worldNormal);
     const dot = worldNormal.dot(upVector);
-    
     if (dot > maxDot) {
       maxDot = dot;
       upNumber = number;
@@ -142,7 +136,7 @@ export function getDiceUpNumber(body: CANNON.Body): number {
  * 校正骰子到指定点数
  * 返回使指定点数朝上的目标四元数
  * 
- * 面映射（与 DiceCupAnimation.tsx 中的贴图映射一致）：
+ * 面映射（与贴图一致）：
  * +X方向 (1,0,0) = 1点
  * -X方向 (-1,0,0) = 6点
  * +Y方向 (0,1,0) = 2点
@@ -157,67 +151,38 @@ export function correctDiceToNumber(
 ): CANNON.Quaternion {
   const targetQuat = new CANNON.Quaternion();
 
-  // 根据目标点数，计算需要哪个面朝上
-  // 然后计算使该面法向量指向 +Y 的四元数
-  switch (targetNumber) {
-    case 1:
-      // 1点在 +X 面，需要 +X 朝上
-      // 从初始状态（+Y朝上）绕 Z 轴旋转 -90°，使 +X 转到 +Y 位置
-      // 验证：绕 Z 轴 -90°，+Y → +X，+X → -Y，所以原来的 +X 现在朝 -Y？不对
-      // 重新思考：我们要让 +X 面朝上，即 +X 方向的法向量指向 +Y
-      // 绕 Z 轴旋转 -90°（顺时针看 +Z）：+X → -Y, +Y → +X
-      // 所以旋转后，原来指向 +X 的向量现在指向 -Y，不对
-      // 绕 Z 轴旋转 +90°（逆时针看 +Z）：+X → +Y, +Y → -X
-      // 所以旋转后，原来指向 +X 的向量现在指向 +Y，正确！
-      targetQuat.setFromAxisAngle(new CANNON.Vec3(0, 0, 1), Math.PI / 2);
-      break;
-    case 2:
-      // 2点在 +Y 面，已经朝上，不需要旋转
-      targetQuat.set(0, 0, 0, 1);
-      break;
-    case 3:
-      // 3点在 +Z 面，需要 +Z 朝上
-      // 绕 X 轴旋转 -90°（顺时针看 +X）：+Y → +Z, +Z → -Y
-      // 所以旋转后，原来指向 +Z 的向量现在指向 -Y，不对
-      // 绕 X 轴旋转 +90°（逆时针看 +X）：+Y → -Z, +Z → +Y
-      // 所以旋转后，原来指向 +Z 的向量现在指向 +Y，正确！
-      // 但等等，我们要的是旋转后 +Z 面朝上，即旋转后的 +Z 方向指向世界 +Y
-      // 如果绕 X 轴旋转 -90°，新的 +Z 方向 = 旧的 +Y 方向，不对
-      // 如果绕 X 轴旋转 +90°，新的 +Z 方向 = 旧的 -Y 方向，也不对
-      // 
-      // 换个思路：我们要找一个旋转，使得旋转后骰子的 +Z 面朝上
-      // 即：旋转后，骰子局部坐标系的 +Z 轴指向世界坐标系的 +Y 轴
-      // 这等价于：将世界 +Y 轴旋转到骰子局部 +Z 轴的位置
-      // 绕 X 轴旋转 -90°：世界 +Y → 世界 +Z，所以骰子的 +Z 面会朝向世界 +Y
-      targetQuat.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
-      break;
-    case 4:
-      // 4点在 -Z 面，需要 -Z 朝上
-      // 绕 X 轴旋转 +90°：世界 +Y → 世界 -Z，所以骰子的 -Z 面会朝向世界 +Y
-      targetQuat.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), Math.PI / 2);
-      break;
-    case 5:
-      // 5点在 -Y 面，需要 -Y 朝上
-      // 绕 X 轴旋转 180°：世界 +Y → 世界 -Y，所以骰子的 -Y 面会朝向世界 +Y
-      targetQuat.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), Math.PI);
-      break;
-    case 6:
-      // 6点在 -X 面，需要 -X 朝上
-      // 绕 Z 轴旋转 -90°：世界 +Y → 世界 +X，所以骰子的 +X 面会朝向世界 +Y？不对
-      // 绕 Z 轴旋转 +90°：世界 +Y → 世界 -X，所以骰子的 -X 面会朝向世界 +Y
-      // 等等，这和 case 1 矛盾了
-      // 
-      // 重新理解：setFromAxisAngle 创建的四元数，当应用到物体时，
-      // 物体会绕指定轴旋转指定角度
-      // 如果物体绕 Z 轴旋转 +90°，物体的 +X 轴会转到原来 +Y 轴的位置
-      // 这意味着物体的 +X 面现在朝向世界 +Y，即 1点朝上
-      // 
-      // 所以 6点朝上（-X 面朝上）：绕 Z 轴旋转 -90°
-      // 物体绕 Z 轴旋转 -90°，物体的 -X 轴会转到原来 +Y 轴的位置
-      targetQuat.setFromAxisAngle(new CANNON.Vec3(0, 0, 1), -Math.PI / 2);
-      break;
-    default:
-      targetQuat.set(0, 0, 0, 1);
+  // 目标面的法向量（局部坐标系）
+  const faceNormals: Record<number, CANNON.Vec3> = {
+    1: new CANNON.Vec3(1, 0, 0),   // +X -> 1
+    2: new CANNON.Vec3(0, 1, 0),   // +Y -> 2
+    3: new CANNON.Vec3(0, 0, 1),   // +Z -> 3
+    4: new CANNON.Vec3(0, 0, -1),  // -Z -> 4
+    5: new CANNON.Vec3(0, -1, 0),  // -Y -> 5
+    6: new CANNON.Vec3(-1, 0, 0),  // -X -> 6
+  };
+
+  const from = faceNormals[targetNumber] || new CANNON.Vec3(0, 1, 0);
+  const to = new CANNON.Vec3(0, 1, 0); // 世界 +Y 朝上
+
+  // 计算将 from 向量旋转到 to 向量的四元数
+  const cross = from.cross(to, new CANNON.Vec3());
+  const dot = Math.min(1, Math.max(-1, from.dot(to)));
+
+  if (cross.lengthSquared() < 1e-8) {
+    // 平行或反向
+    if (dot > 0.9999) {
+      targetQuat.set(0, 0, 0, 1); // already aligned
+    } else {
+      // 反向，绕任意垂直轴旋转180°
+      const axis = Math.abs(from.x) < 0.9 ? new CANNON.Vec3(1, 0, 0) : new CANNON.Vec3(0, 0, 1);
+      const ortho = from.cross(axis, new CANNON.Vec3());
+      ortho.normalize();
+      targetQuat.setFromAxisAngle(ortho, Math.PI);
+    }
+  } else {
+    cross.normalize();
+    const angle = Math.acos(dot);
+    targetQuat.setFromAxisAngle(cross, angle);
   }
 
   return targetQuat;

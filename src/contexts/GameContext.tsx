@@ -364,7 +364,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
         // 自动开始下一局
         await startNewGame();
-      }, 6300); // settled阶段1秒
+      }, 8300); // settled阶段延长至4秒（展示时间+2秒）
 
       return true;
     } catch (error) {

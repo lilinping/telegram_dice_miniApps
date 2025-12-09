@@ -5,7 +5,9 @@
 
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useGame } from '@/contexts/GameContext';
+import { correctDiceToNumber } from '@/lib/physics/bodies';
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 // 使用 BoxGeometry 替代 RoundedBoxGeometry（如果导入失败）
@@ -16,6 +18,7 @@ interface DiceCupDemoProps {
 }
 
 export default function DiceCupDemo({ className = '' }: DiceCupDemoProps) {
+  const { diceResults } = useGame();
   const containerRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -25,6 +28,23 @@ export default function DiceCupDemo({ className = '' }: DiceCupDemoProps) {
   const diceBodiesRef = useRef<CANNON.Body[]>([]);
   const glassCoverRef = useRef<THREE.Mesh | null>(null);
   const animationFrameRef = useRef<number>(0);
+  const [diceReady, setDiceReady] = useState(false);
+  const diceResultsRef = useRef<number[]>([]);
+  const texturesRef = useRef<THREE.Texture[]>([]);
+
+  // 将整颗骰子的六个面材质都替换为指定点数的贴图，保证视觉一致
+  const applyFaceTexture = (mesh: THREE.Mesh, targetNumber: number) => {
+    if (!texturesRef.current.length) return;
+    const targetTex = texturesRef.current[targetNumber - 1];
+    const mat = new THREE.MeshStandardMaterial({
+      map: targetTex,
+      roughness: 0.2,
+      metalness: 0.0,
+      envMapIntensity: 0.5,
+    });
+    (mat as any).needsUpdate = true;
+    mesh.material = mat;
+  };
 
   // 配置参数
   const DICE_SIZE = 1.3;
@@ -277,6 +297,7 @@ export default function DiceCupDemo({ className = '' }: DiceCupDemoProps) {
     for (let i = 1; i <= 6; i++) {
       textures.push(createDiceTexture(i));
     }
+    texturesRef.current = textures;
 
     // 使用 BoxGeometry 替代 RoundedBoxGeometry（更兼容）
     const diceGeometry = new THREE.BoxGeometry(DICE_SIZE, DICE_SIZE, DICE_SIZE);
@@ -448,19 +469,47 @@ export default function DiceCupDemo({ className = '' }: DiceCupDemoProps) {
     const animate = () => {
       animationFrameRef.current = requestAnimationFrame(animate);
 
+      // 静态展示：有结果时跳过物理步进，避免位置被重力微移
       const deltaTime = 1 / 60;
-      if (worldRef.current) {
+      if (worldRef.current && diceResultsRef.current.length !== 3) {
         worldRef.current.step(1 / 60, deltaTime, 3);
       }
 
       // 同步物理和视觉
-      diceMeshesRef.current.forEach((mesh, i) => {
-        if (diceBodiesRef.current[i]) {
+      // 持续保持展示姿态与结果一致（防止偶发未同步）
+      if (diceReady && diceResultsRef.current.length === 3) {
+        for (let i = 0; i < 3; i++) {
           const body = diceBodiesRef.current[i];
-          mesh.position.copy(body.position as any);
-          mesh.quaternion.copy(body.quaternion as any);
+          const mesh = diceMeshesRef.current[i];
+          if (!body) continue;
+          const targetQuat = correctDiceToNumber(body, diceResultsRef.current[i]);
+          // 固定展示位置：左右分散，保持高度
+          body.type = CANNON.Body.STATIC;
+          body.updateMassProperties();
+          // 更大左右间距 + 轻微Z错位，避免重叠
+          const xPos = (i - 1) * 2.5;
+          const zPos = (i - 1) * 0.6;
+          body.position.set(xPos, 1.55, zPos);
+          body.quaternion.copy(targetQuat);
+          body.angularVelocity.setZero();
+          body.velocity.setZero();
+          body.sleep();
+          if (mesh) {
+            applyFaceTexture(mesh, diceResultsRef.current[i]);
+            mesh.quaternion.copy(targetQuat as any);
+            mesh.position.copy(body.position as any);
+          }
         }
-      });
+      } else {
+        // 常规同步
+        diceMeshesRef.current.forEach((mesh, i) => {
+          if (diceBodiesRef.current[i]) {
+            const body = diceBodiesRef.current[i];
+            mesh.position.copy(body.position as any);
+            mesh.quaternion.copy(body.quaternion as any);
+          }
+        });
+      }
 
       if (rendererRef.current && sceneRef.current && cameraRef.current) {
         rendererRef.current.render(sceneRef.current, cameraRef.current);
@@ -505,7 +554,38 @@ export default function DiceCupDemo({ className = '' }: DiceCupDemoProps) {
       pmremGenerator.dispose();
       textures.forEach(t => t.dispose());
     };
+    // 初始化完毕
+    setDiceReady(true);
   }, []);
+
+  // 当有结果时，同步展示骰子的点数（betting 页面顶部小骰盅）
+  useEffect(() => {
+    diceResultsRef.current = diceResults;
+    if (!diceReady) return;
+    if (diceResults.length === 3 && diceBodiesRef.current.length >= 3) {
+      for (let i = 0; i < 3; i++) {
+        const body = diceBodiesRef.current[i];
+        const mesh = diceMeshesRef.current[i];
+        if (!body) continue;
+        const targetQuat = correctDiceToNumber(body, diceResults[i]);
+        body.type = CANNON.Body.STATIC;
+        body.updateMassProperties();
+        // 与上方保持一致的固定分布
+        const xPos = (i - 1) * 2.5;
+        const zPos = (i - 1) * 0.6;
+        body.position.set(xPos, 1.55, zPos);
+        body.quaternion.copy(targetQuat);
+        body.angularVelocity.setZero();
+        body.velocity.setZero();
+        body.sleep();
+        if (mesh) {
+          applyFaceTexture(mesh, diceResults[i]);
+          mesh.quaternion.copy(targetQuat as any);
+          mesh.position.copy(body.position as any);
+        }
+      }
+    }
+  }, [diceResults, diceReady]);
 
   return (
     <div
