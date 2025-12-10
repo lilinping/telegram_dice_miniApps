@@ -84,11 +84,19 @@ const chips = [
   },
 ];
 
-export default function ChipSelector() {
-  const { selectedChip, setSelectedChip } = useGame();
+interface ChipSelectorProps {
+  value?: number;
+  onChange?: (value: number) => void;
+}
 
-  const handleChipClick = (value: number) => {
-    setSelectedChip(value);
+export default function ChipSelector({ value, onChange }: ChipSelectorProps) {
+  const gameContext = useGame();
+  
+  const selectedChip = value !== undefined ? value : gameContext.selectedChip;
+  const setSelectedChip = onChange || gameContext.setSelectedChip;
+
+  const handleChipClick = (val: number) => {
+    setSelectedChip(val);
 
     // 触觉反馈
     if (navigator.vibrate) {

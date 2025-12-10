@@ -262,7 +262,21 @@ export default function GamePage() {
 
           {/* 右上角按钮组 */}
           <div className="absolute top-4 right-4 flex flex-col gap-2 items-center">
-          {/* 规则按钮 */}
+            {/* 全局模式入口 */}
+            <button
+              onClick={() => router.push('/global-game')}
+              className="w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-95"
+              style={{
+                background: 'rgba(42, 42, 42, 0.8)',
+                backdropFilter: 'blur(8px)',
+                border: '1px solid rgba(212, 175, 55, 0.3)',
+                color: 'var(--gold-primary)',
+              }}
+            >
+              <span className="text-xl">🌐</span>
+            </button>
+
+            {/* 规则按钮 */}
           <button
             onClick={() => router.push('/rules')}
             className="w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-95"

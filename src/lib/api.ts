@@ -11,7 +11,11 @@ import {
   WithdrawalOrderResponse,
   PageModel,
   PaymentOrder,
-  PaymentOrderStatus
+  PaymentOrderStatus,
+  GlobalDiceResult,
+  GlobalDiceQuery,
+  GlobalHistoryResponse,
+  GlobalUserHistoryResponse
 } from '@/lib/types'
 
 // 使用Next.js代理避免跨域问题
@@ -329,6 +333,57 @@ class ApiService {
    */
   async getDepositHistory(userId: string, pageIndex: number = 1, pageSize: number = 20): Promise<BackendResponse<PageModel<PaymentOrder>>> {
     return this.request<PageModel<PaymentOrder>>(`/order/history/${userId}/${pageIndex}/${pageSize}`)
+  }
+
+  // ==================== 全局骰宝游戏接口 ====================
+
+  /**
+   * 查看当前还未开奖的若干期结果（或最近结果用于初始化）
+   */
+  async getGlobalLatestResults(): Promise<BackendResponse<GlobalDiceResult[]>> {
+    return this.request<GlobalDiceResult[]>('/dice/global/latest/results')
+  }
+
+  /**
+   * 查看某一局全局骰宝的信息
+   */
+  async getGlobalGameInfo(userId: string, number: string): Promise<BackendResponse<GlobalDiceQuery>> {
+    return this.request<GlobalDiceQuery>(`/dice/global/query/${userId}/${number}`)
+  }
+
+  /**
+   * 选择全局骰宝的选项（下注）
+   */
+  async placeGlobalBet(userId: string, number: string, chooseId: number, bet: number): Promise<BackendResponse<boolean>> {
+    return this.request<boolean>(`/dice/global/bet/${userId}/${number}/${chooseId}/${bet}`)
+  }
+
+  /**
+   * 撤回全局骰宝的选项
+   */
+  async revertGlobalBet(userId: string, number: string, chooseId: number): Promise<BackendResponse<boolean>> {
+    return this.request<boolean>(`/dice/global/revert/${userId}/${number}/${chooseId}`)
+  }
+
+  /**
+   * 清空骰宝所有选项
+   */
+  async revertAllGlobalBets(userId: string, number: string): Promise<BackendResponse<boolean>> {
+    return this.request<boolean>(`/dice/global/revertAll/${userId}/${number}`)
+  }
+
+  /**
+   * 查看玩家全局骰宝的历史信息
+   */
+  async getGlobalUserHistory(userId: string, pageIndex: number = 1, pageSize: number = 20): Promise<BackendResponse<GlobalUserHistoryResponse>> {
+    return this.request<GlobalUserHistoryResponse>(`/dice/global/history/${userId}/${pageIndex}/${pageSize}`)
+  }
+
+  /**
+   * 查看全局历史开奖结果分页列表
+   */
+  async getGlobalResults(pageIndex: number = 1, pageSize: number = 20): Promise<BackendResponse<GlobalHistoryResponse>> {
+    return this.request<GlobalHistoryResponse>(`/dice/global/result/${pageIndex}/${pageSize}`)
   }
 
 }

@@ -17,14 +17,17 @@ interface DiceCupAnimationProps {
   fullscreen?: boolean;
   winAmount?: number;
   hasWon?: boolean;
+  diceResults?: number[];
 }
 
 export default function DiceCupAnimation({
   fullscreen = false,
   winAmount = 0,
   hasWon = false,
+  diceResults: propDiceResults,
 }: DiceCupAnimationProps) {
-  const { gameState, diceResults } = useGame();
+  const { gameState, diceResults: contextDiceResults } = useGame();
+  const diceResults = propDiceResults || contextDiceResults;
   const containerRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);

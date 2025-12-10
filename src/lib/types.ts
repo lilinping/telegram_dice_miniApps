@@ -98,10 +98,47 @@ export interface DiceEntity {
   outCome: number[]      // 骰子结果数组
   matchBetId: number[]   // 匹配的下注ID数组
   status: 'RUNNING' | 'FINISHED'
-  createTime: number
-  modifyTime: number
-  finished: boolean
-  totalBet: string       // 总下注金额（字符串格式）
+  createTime: string
+}
+
+// ==================== 全局骰宝相关类型 ====================
+
+// 全局开奖结果
+export interface GlobalDiceResult {
+  number: string | number // 期数
+  outCome: number[]       // 开奖结果 [1, 2, 3]
+  createTime: string      // 开奖时间
+  status: 'RUNNING' | 'FINISHED' | 'SEALED' // 状态
+}
+
+// 全局下注记录
+export interface GlobalDiceBet {
+  chooseId: number
+  amount: number
+  winAmount?: number
+  createTime?: string
+}
+
+// 全局游戏详情（查询某一局）
+export interface GlobalDiceQuery {
+  number: string | number
+  status: string
+  outCome: number[] | null
+  myBets: GlobalDiceBet[] // 我的下注情况
+  totalBets?: Record<string, number> // 全局总下注（如果有）
+  winAmount?: number
+}
+
+// 全局游戏历史（分页）- 开奖结果
+export interface GlobalHistoryResponse {
+  list: GlobalDiceResult[]
+  total: number
+}
+
+// 全局游戏历史（分页）- 用户投注
+export interface GlobalUserHistoryResponse {
+  list: GlobalDiceQuery[]
+  total: number
 }
 
 export interface DiceStatisticEntity {

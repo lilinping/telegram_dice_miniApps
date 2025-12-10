@@ -19,8 +19,13 @@ import DiceIcon, { DoubleDiceIcon } from './DiceIcon';
  * 赔率从接口动态获取
  */
 
+import { DiceChooseVO } from '@/lib/types';
+
 interface BetPanelProps {
   disabled?: boolean;
+  bets?: Record<string, number>;
+  onPlaceBet?: (betId: string) => void;
+  diceOptions?: Map<number, DiceChooseVO>;
 }
 
 // 投注类型定义（不含赔率，赔率从接口获取）
@@ -77,8 +82,13 @@ const betTypes = {
   ],
 };
 
-export default function BetPanel({ disabled = false }: BetPanelProps) {
-  const { bets, placeBet, diceOptions } = useGame();
+export default function BetPanel({ disabled = false, bets: propBets, onPlaceBet, diceOptions: propDiceOptions }: BetPanelProps) {
+  const gameContext = useGame();
+  
+  // 优先使用 props，否则使用 Context
+  const bets = propBets || gameContext.bets;
+  const placeBet = onPlaceBet || gameContext.placeBet;
+  const diceOptions = propDiceOptions || gameContext.diceOptions;
 
   // 获取赔率的辅助函数
   const getOdds = (betId: string): string => {
