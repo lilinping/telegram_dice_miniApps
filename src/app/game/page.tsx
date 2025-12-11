@@ -6,8 +6,7 @@ import { useWallet } from '@/contexts/WalletContext';
 import { useTelegram } from '@/contexts/TelegramContext';
 import { useGameSounds } from '@/hooks/useSound';
 import { useGameHaptics } from '@/hooks/useHaptic';
-import DiceCupDemo from '@/components/game/DiceCupDemo'; // 骰盅展示组件（betting状态）
-import DiceCupAnimation from '@/components/game/DiceCupAnimation'; // 骰盅动画组件（rolling/revealing状态）
+import DiceAnimation from '@/components/game/DiceAnimationSwitch'; // 智能切换版本
 import BetPanel from '@/components/game/BetPanel';
 import ChipSelector from '@/components/game/ChipSelector';
 import MultiplierSelector from '@/components/game/MultiplierSelector';
@@ -253,12 +252,12 @@ export default function GamePage() {
       {/* 3D骰盅展示区 - 优化高度，在开奖时隐藏 */}
       {gameState === 'betting' && (
         <div
-          className="relative h-[200px] pt-2 pb-0"
+          className="relative h-[100px] pt-2 pb-0"
           style={{
             background: 'linear-gradient(180deg, var(--onyx-black) 0%, var(--rich-black) 100%)',
           }}
         >
-          <DiceCupDemo className="w-full h-full" />
+          <DiceAnimation />
 
           {/* 右上角按钮组 */}
           <div className="absolute top-4 right-4 flex flex-col gap-2 items-center">
@@ -471,33 +470,28 @@ export default function GamePage() {
         </button>
       </div>
 
-      {/* 开奖动画遮罩 - 预渲染但在 betting 状态时隐藏，避免每次重新初始化 Three.js 场景 */}
-      <div
-        className={`fixed inset-0 z-[200] flex items-center justify-center ${
-          gameState === 'rolling' || gameState === 'revealing' || gameState === 'settled'
-            ? 'animate-fade-in'
-            : 'pointer-events-none'
-        }`}
-        style={{
-          background: 'var(--rich-black)',
-          backdropFilter: 'blur(12px)',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          width: '100vw',
-          height: '100vh',
-          overflow: 'auto',
-          padding: '20px',
-          opacity: gameState === 'rolling' || gameState === 'revealing' || gameState === 'settled' ? 1 : 0,
-          visibility: gameState === 'rolling' || gameState === 'revealing' || gameState === 'settled' ? 'visible' : 'hidden',
-          transition: 'opacity 0.2s ease-in-out',
-        }}
-      >
-        <div className="text-center w-full h-full flex items-center justify-center" style={{ minHeight: '100vh' }}>
-          <DiceCupAnimation fullscreen winAmount={winAmount} hasWon={hasWon} />
+      {/* 开奖动画遮罩 - 完全覆盖整个屏幕，在开奖和结算时都显示 */}
+      {(gameState === 'rolling' || gameState === 'revealing' || gameState === 'settled') && (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center animate-fade-in"
+          style={{
+            background: 'var(--rich-black)',
+            backdropFilter: 'blur(12px)',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: '100vw',
+            height: '100vh',
+            overflow: 'auto',
+            padding: '20px',
+          }}
+        >
+          <div className="text-center w-full h-full flex items-center justify-center" style={{ minHeight: '100vh' }}>
+            <DiceAnimation fullscreen winAmount={winAmount} hasWon={hasWon} />
+          </div>
         </div>
-      </div>
+      )}
 
       {/* 中奖动画 */}
       <WinAnimation
