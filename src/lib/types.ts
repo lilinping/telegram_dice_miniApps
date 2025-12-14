@@ -112,8 +112,9 @@ export interface GlobalDiceResult {
   dualRet?: string        // 双面结果，如 "大双"、"小单" 等
   format?: string         // 形态，如 "杂六"、"对子"、"顺子"
   limitValue?: string    // 极值，如 "无"、"极大"、"极小"
-  createTime: string      // 开奖时间
-  status: 'RUNNING' | 'FINISHED' | 'SEALED' // 状态
+  createTime: string      // 创建时间
+  openTime?: number | string // 开奖时间（时间戳）
+  status: 'RUNNING' | 'FINISHED' | 'SEALED' | 'TO_BE_OPEN' // 状态
 }
 
 // 全局下注记录

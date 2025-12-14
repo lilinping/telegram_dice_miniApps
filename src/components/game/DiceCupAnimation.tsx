@@ -10,6 +10,8 @@ import { useGame } from '@/contexts/GameContext';
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import { correctDiceToNumber } from '@/lib/physics/bodies';
+import { getChooseBetId } from '@/lib/betMapping';
+import { GlobalDiceBet } from '@/lib/types';
 // 使用 BoxGeometry 替代 RoundedBoxGeometry（更兼容）
 // import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 
@@ -18,6 +20,9 @@ interface DiceCupAnimationProps {
   winAmount?: number;
   hasWon?: boolean;
   diceResults?: number[];
+  gameState?: 'betting' | 'sealed' | 'rolling' | 'settled' | 'revealing'; // 支持从外部传入 gameState
+  myBets?: GlobalDiceBet[]; // 我的下注记录
+  globalOutcome?: number[] | null; // 全局开奖结果
 }
 
 export default function DiceCupAnimation({
@@ -25,8 +30,13 @@ export default function DiceCupAnimation({
   winAmount = 0,
   hasWon = false,
   diceResults: propDiceResults,
+  gameState: propGameState,
+  myBets = [],
+  globalOutcome = null,
 }: DiceCupAnimationProps) {
-  const { gameState, diceResults: contextDiceResults } = useGame();
+  const { gameState: contextGameState, diceResults: contextDiceResults } = useGame();
+  // 优先使用传入的 gameState，否则使用 context 中的
+  const gameState = propGameState || contextGameState;
   const diceResults = propDiceResults || contextDiceResults;
   const containerRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
@@ -710,8 +720,16 @@ export default function DiceCupAnimation({
 
   // 摇盅动画
   const shakeDice = () => {
-    if (isShakingRef.current || !glassCoverRef.current || !worldRef.current) return;
+    if (isShakingRef.current || !glassCoverRef.current || !worldRef.current) {
+      // 如果已经在摇盅中，检查是否需要继续（结果未出现时继续）
+      if (isShakingRef.current && diceResultsRef.current.length !== 3) {
+        console.log('🔄 继续摇盅，等待结果...');
+        return; // 已经在摇盅中，继续执行
+      }
+      return;
+    }
     isShakingRef.current = true;
+    console.log('🎲 开始摇盅动画');
 
     // 唤醒所有骰子（只处理前3个）
     const diceCount = Math.min(diceBodiesRef.current.length, 3);
@@ -719,14 +737,26 @@ export default function DiceCupAnimation({
       const b = diceBodiesRef.current[i];
       if (b) {
         b.wakeUp();
-        b.velocity.set(0, 0, 0);
+        // 给骰子一个初始速度，让它们立即开始转动（降低速度，更平滑）
+        b.velocity.set(
+          (Math.random() - 0.5) * 2,
+          (Math.random() - 0.5) * 2,
+          (Math.random() - 0.5) * 2
+        );
+        // 给骰子一个初始角速度，让它们立即开始旋转（进一步降低角速度，避免疯狂自转）
+        b.angularVelocity.set(
+          (Math.random() - 0.5) * 1.5,
+          (Math.random() - 0.5) * 1.5,
+          (Math.random() - 0.5) * 1.5
+        );
       }
     }
 
     let shakeFrames = 0;
     // 摇盅时间约1.5秒，让骰子充分转动
     const maxFrames = isMobile ? 75 : 90;
-    const force = isMobile ? 90 : 110;
+    // 降低力的大小，让骰子转得更慢、更平滑
+    const force = isMobile ? 50 : 60;
     
     // 为每个骰子生成平滑的随机种子，避免每帧都完全随机
     const smoothRandomSeeds: Array<{x: number, y: number, z: number, ax: number, ay: number, az: number}> = [];
@@ -759,12 +789,12 @@ export default function DiceCupAnimation({
         
         // 使用平滑的正弦波生成力，而不是完全随机
         const seed = smoothRandomSeeds[i];
-        const t = shakeFrames * 0.08; // 稍微减慢频率，使变化更平滑
+        const t = shakeFrames * 0.05; // 进一步减慢频率，使变化更平滑、更线性
         // 使用完全线性的衰减曲线：从1.0线性减小到0.3
         const forceScale = 1 - progress * 0.7; // 线性衰减：1.0 -> 0.3
         
-        // 限制最大速度，避免速度过快
-        const maxVel = 15; // 最大线速度
+        // 限制最大速度，避免速度过快（降低最大速度，让转动更慢更平滑）
+        const maxVel = 8; // 最大线速度（从15降低到8）
         const currentVel = body.velocity.length();
         const velLimitScale = currentVel > maxVel ? maxVel / currentVel : 1;
         if (velLimitScale < 1) {
@@ -792,14 +822,14 @@ export default function DiceCupAnimation({
         );
         body.applyImpulse(impulse, body.position);
         
-        // 在摇盅时也应用轻微的速度衰减，确保速度逐步减小
-        // 衰减系数随进度线性增加，从0.99到0.95
-        const linearDamping = 0.99 - progress * 0.04; // 线性衰减：0.99 -> 0.95
+        // 在摇盅时也应用轻微的速度衰减，确保速度逐步减小（降低衰减，让速度更平滑）
+        // 衰减系数随进度线性增加，从0.995到0.98，让速度衰减更慢更平滑
+        const linearDamping = 0.995 - progress * 0.015; // 线性衰减：0.995 -> 0.98
         body.velocity.scale(linearDamping);
         
         // 角速度使用增量方式，而不是直接设置，保持连续性
-        // 使用完全线性的衰减曲线，与力衰减同步
-        const angScale = (1 - progress * 0.7) * 20; // 线性衰减：20 -> 6
+        // 进一步降低角速度，让骰子转得更慢、更平滑（从 4 衰减到 1.2）
+        const angScale = (1 - progress * 0.7) * 4; // 线性衰减：4 -> 1.2
         
         const targetAngX = Math.sin(t * 1.2 + seed.ax) * angScale;
         const targetAngY = Math.sin(t * 1.3 + seed.ay) * angScale;
@@ -811,9 +841,23 @@ export default function DiceCupAnimation({
         body.angularVelocity.x = body.angularVelocity.x * (1 - blendFactor) + targetAngX * blendFactor;
         body.angularVelocity.y = body.angularVelocity.y * (1 - blendFactor) + targetAngY * blendFactor;
         body.angularVelocity.z = body.angularVelocity.z * (1 - blendFactor) + targetAngZ * blendFactor;
+        
+        // 限制最大角速度，避免骰子转得太快（降低最大角速度）
+        const maxAngVel = 4; // 最大角速度（从8降低到4）
+        const currentAngVel = body.angularVelocity.length();
+        if (currentAngVel > maxAngVel) {
+          const scale = maxAngVel / currentAngVel;
+          body.angularVelocity.scale(scale);
+        }
       }
 
-      if (shakeFrames >= maxFrames) {
+      // 检查是否有结果，如果没有结果，继续摇盅
+      const currentResults = diceResultsRef.current;
+      const hasResults = currentResults.length === 3;
+      
+      // 如果已经有结果且摇盅时间到了，停止摇盅
+      if (shakeFrames >= maxFrames && hasResults) {
+        // 有结果了，停止摇盅
         if (shakeIntervalRef.current) {
           clearInterval(shakeIntervalRef.current);
           shakeIntervalRef.current = null;
@@ -830,10 +874,70 @@ export default function DiceCupAnimation({
         
         // 摇盅结束的瞬间，立即检查是否需要引导
         // 如果已经有 diceResults，立即开始引导，不给骰子停下的机会
-        if (diceResults.length === 3 && !isCorrectingRef.current && !hasCorrectedRef.current) {
-          console.log('🎯 摇盅结束，立即开始引导（不等待检查）:', diceResults);
+        if (!isCorrectingRef.current && !hasCorrectedRef.current) {
+          console.log('🎯 摇盅结束，立即开始引导（不等待检查）:', currentResults);
           // 注意：不要在这里设置 hasCorrectedRef，只有在引导完成且点数正确时才设置
           correctDiceToResults();
+        }
+        return; // 停止执行
+      }
+      
+      // 如果没有结果，继续摇盅（即使超过了 maxFrames 也继续）
+      if (!hasResults) {
+        // 当超过 maxFrames 后，使用循环的方式继续摇盅
+        // 使用模运算让进度在 0-1 之间循环，保持摇盅效果
+        const cycleProgress = (shakeFrames % maxFrames) / maxFrames;
+        // 调整力的大小，保持在较低强度，让骰子持续缓慢转动
+        const continuousForceScale = 0.3; // 持续摇盅时的力强度（从0.5降低到0.3）
+        
+        // 重新计算力，使用循环进度
+        for (let i = 0; i < diceCount; i++) {
+          const body = diceBodiesRef.current[i];
+          if (!body) continue;
+          
+          const seed = smoothRandomSeeds[i];
+          const t = (shakeFrames % maxFrames) * 0.05; // 使用循环的帧数，减慢频率使转动更平滑
+          
+          // 持续施加力，保持骰子转动
+          const smoothX = Math.sin(t + seed.x) * force * continuousForceScale;
+          const smoothZ = Math.sin(t + seed.z) * force * continuousForceScale;
+          const smoothY = (Math.sin(t + seed.y) * 0.5 + 0.5) * force * 0.6 * continuousForceScale;
+          
+          const toCenterX = -body.position.x * 2;
+          const toCenterZ = -body.position.z * 2;
+          
+          const impulse = new CANNON.Vec3(
+            smoothX + toCenterX * 0.5,
+            smoothY,
+            smoothZ + toCenterZ * 0.5
+          );
+          body.applyImpulse(impulse, body.position);
+          
+          // 持续施加角速度（进一步降低角速度，让骰子缓慢平滑转动）
+          const angScale = 2; // 保持很低的角速度，让骰子缓慢自然转动（从4降低到2）
+          const targetAngX = Math.sin(t * 1.2 + seed.ax) * angScale;
+          const targetAngY = Math.sin(t * 1.3 + seed.ay) * angScale;
+          const targetAngZ = Math.sin(t * 1.1 + seed.az) * angScale;
+          
+          const blendFactor = 0.2;
+          body.angularVelocity.x = body.angularVelocity.x * (1 - blendFactor) + targetAngX * blendFactor;
+          body.angularVelocity.y = body.angularVelocity.y * (1 - blendFactor) + targetAngY * blendFactor;
+          body.angularVelocity.z = body.angularVelocity.z * (1 - blendFactor) + targetAngZ * blendFactor;
+          
+          // 限制最大角速度（降低最大角速度）
+          const maxAngVel = 3; // 持续摇盅时的最大角速度（从6降低到3）
+          const currentAngVel = body.angularVelocity.length();
+          if (currentAngVel > maxAngVel) {
+            const scale = maxAngVel / currentAngVel;
+            body.angularVelocity.scale(scale);
+          }
+        }
+        
+        // 继续震动玻璃罩
+        if (glassCoverRef.current) {
+          const offset = 0.15; // 保持较小的震动幅度
+          glassCoverRef.current.position.x = (Math.random() - 0.5) * offset;
+          glassCoverRef.current.position.z = (Math.random() - 0.5) * offset;
         }
       }
     }, 16);
@@ -970,6 +1074,8 @@ export default function DiceCupAnimation({
 
   // 根据游戏状态触发动画
   useEffect(() => {
+    console.log('🔄 DiceCupAnimation gameState 变化:', gameState, 'isShaking:', isShakingRef.current);
+    
     if (gameState === 'rolling') {
       // 重置校正标志，不管摇盅状态
       hasCorrectedRef.current = false;
@@ -977,12 +1083,22 @@ export default function DiceCupAnimation({
       correctionFrameCountRef.current = 0;
       // 清空旧结果 key，等待新结果
       lastResultsKeyRef.current = null;
+      
+      // 确保骰子被唤醒（如果它们处于 sleep 状态）
+      const diceCount = Math.min(diceBodiesRef.current.length, 3);
+      for (let i = 0; i < diceCount; i++) {
+        const body = diceBodiesRef.current[i];
+        if (body) {
+          body.wakeUp();
+        }
+      }
 
-      // 延迟一点开始摇盅，让用户看到初始状态
-      const timer = setTimeout(() => {
+      // 立即开始摇盅，让骰子立即转动
+      console.log('🎲 gameState 变为 rolling，立即开始摇盅，骰子数量:', diceCount);
+      // 使用 setTimeout 确保在下一帧执行，避免可能的时序问题
+      setTimeout(() => {
         shakeDice();
-      }, 300);
-      return () => clearTimeout(timer);
+      }, 0);
     } else if (gameState === 'betting') {
       // 重置状态
       isShakingRef.current = false;
@@ -1015,13 +1131,59 @@ export default function DiceCupAnimation({
     }
   }, [gameState, diceResults]);
 
+  // 将 chooseId 转换为可读文本
+  const getBetLabel = (chooseId: number): string => {
+    const betId = getChooseBetId(chooseId);
+    if (!betId) return `选项${chooseId}`;
+    
+    // 点数 4-17
+    if (betId.startsWith('num-')) {
+      const num = betId.replace('num-', '');
+      return `${num}点`;
+    }
+    // 大小单双
+    if (betId === 'big') return '大';
+    if (betId === 'small') return '小';
+    if (betId === 'odd') return '单';
+    if (betId === 'even') return '双';
+    // 任意三同号
+    if (betId === 'any-triple') return '任意三同';
+    // 对子
+    if (betId.startsWith('double-')) {
+      const num = betId.replace('double-', '');
+      return `${num}-${num}`;
+    }
+    if (betId.startsWith('pair-')) {
+      const parts = betId.replace('pair-', '').split('-');
+      return `${parts[0]}-${parts[1]}`;
+    }
+    // 豹子
+    if (betId.startsWith('triple-')) {
+      const num = betId.replace('triple-', '');
+      return `${num}-${num}-${num}`;
+    }
+    // 单骰号
+    if (betId.startsWith('single-')) {
+      const num = betId.replace('single-', '');
+      return `单骰${num}`;
+    }
+    return betId;
+  };
+
   // 计算结果显示（参考 2D 版本）
   const total = diceResults.length === 3 ? diceResults.reduce((sum, val) => sum + val, 0) : 0;
   const isBig = total >= 11 && total <= 17;
   const isSmall = total >= 4 && total <= 10;
   const isOdd = total % 2 === 1;
+  
+  // 计算全局结果
+  const globalTotal = globalOutcome && globalOutcome.length === 3 
+    ? globalOutcome.reduce((sum, val) => sum + val, 0) 
+    : null;
 
-  const showOverlay = (gameState === 'revealing' || gameState === 'settled') && diceResults.length === 3;
+  // 在全局模式下，当有结果且状态为 settled 或 rolling（结果已出现）时显示结果
+  const showOverlay = (gameState === 'revealing' || gameState === 'settled' || 
+                       (gameState === 'rolling' && diceResults.length === 3)) && diceResults.length === 3;
   // 为结果面板预留更高的底部空间，避免遮挡骰盅
   const overlayPadding = showOverlay ? (fullscreen ? 460 : 340) : 0;
 
@@ -1067,6 +1229,40 @@ export default function DiceCupAnimation({
           >
             {total}
           </div>
+
+          {/* 我的下注和全局结果 */}
+          {fullscreen && myBets.length > 0 && (
+            <div style={{ marginBottom: '15px', fontSize: '14px' }}>
+              <div style={{ marginBottom: '8px', color: 'rgba(255, 255, 255, 0.8)' }}>
+                <div style={{ fontWeight: '600', marginBottom: '4px' }}>我的下注：</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', justifyContent: 'center' }}>
+                  {myBets.map((bet, idx) => (
+                    <span
+                      key={idx}
+                      style={{
+                        padding: '4px 10px',
+                        borderRadius: '12px',
+                        background: 'rgba(255, 215, 0, 0.2)',
+                        border: '1px solid rgba(255, 215, 0, 0.4)',
+                        color: '#ffd700',
+                        fontSize: '12px',
+                      }}
+                    >
+                      {getBetLabel(bet.chooseId)} × {bet.amount}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              {globalOutcome && globalOutcome.length === 3 && globalTotal !== null && (
+                <div style={{ marginTop: '8px', color: 'rgba(255, 255, 255, 0.8)' }}>
+                  <div style={{ fontWeight: '600', marginBottom: '4px' }}>全局开奖：</div>
+                  <div style={{ fontSize: '18px', color: '#ffd700', fontWeight: 'bold' }}>
+                    {globalOutcome.join(' + ')} = {globalTotal}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* 输赢提示 */}
           {fullscreen && (
