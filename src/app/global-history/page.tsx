@@ -354,16 +354,16 @@ export default function GlobalHistoryPage() {
                                 const pattern = format || (diceResult.length > 0 ? getPattern(diceResult) : '');
                                 const isEvenRow = index % 2 === 1;
                                 
-                                return (
+                    return (
                                     <tr
-                                        key={record.number}
+                        key={record.number}
                                         style={{ backgroundColor: isEvenRow ? '#f5f5f5' : '#fff' }}
-                                    >
+                        >
                                         {/* 期号 */}
                                         <td className="px-3 py-2.5 text-xs border border-gray-300" style={{ color: '#000' }}>
                                             {record.number}
                                         </td>
-                                        
+
                                         {/* 结果 */}
                                         <td className="px-3 py-2.5 text-xs border border-gray-300" style={{ color: '#000' }}>
                                             {resultDisplay ? (
@@ -395,7 +395,7 @@ export default function GlobalHistoryPage() {
                                                             ))}
                                                             <span className="mx-1" style={{ color: '#000' }}>=</span>
                                                             <span className="font-bold" style={{ color: '#000' }}>{rightPart}</span>
-                                                        </div>
+                        </div>
                                                     );
                                                 })()
                                             ) : diceResult.length === 3 ? (
@@ -449,8 +449,8 @@ export default function GlobalHistoryPage() {
                                             {pattern || '-'}
                                         </td>
                                     </tr>
-                                );
-                            })}
+                    );
+                    })}
                         </tbody>
                     </table>
                     
@@ -519,12 +519,12 @@ export default function GlobalHistoryPage() {
                             <div className="flex flex-wrap gap-2">
                             {record.myBets && Array.isArray(record.myBets) && record.myBets.length > 0 ? (
                                 record.myBets.map((bet, idx) => (
-                                    <span
-                                    key={idx}
-                                    className="px-2 py-1 bg-bg-medium rounded text-xs"
-                                    >
-                                    {getBetName(bet.chooseId)} {bet.amount} USDT
-                                    </span>
+                                <span
+                                key={idx}
+                                className="px-2 py-1 bg-bg-medium rounded text-xs"
+                                >
+                                {getBetName(bet.chooseId)} {bet.amount} USDT
+                                </span>
                                 ))
                             ) : (
                                 <span className="text-xs text-text-disabled">暂无投注</span>

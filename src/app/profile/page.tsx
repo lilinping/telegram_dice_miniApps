@@ -80,20 +80,6 @@ export default function ProfilePage() {
   // 功能菜单
   const menuItems = [
     {
-      icon: '👥',
-      title: '邀请好友',
-      subtitle: `已邀请${userData.inviteCount}人`,
-      route: '/invite',
-      color: '#10B981',
-    },
-    {
-      icon: '👑',
-      title: 'VIP中心',
-      subtitle: currentVip.name,
-      route: '/vip',
-      color: '#FFD700',
-    },
-    {
       icon: '⚙️',
       title: '设置',
       subtitle: '语言、音效、隐私',
@@ -121,9 +107,9 @@ export default function ProfilePage() {
     if (item.route) {
       router.push(item.route);
     } else if (item.action === 'settings') {
-      alert('设置功能开发中...');
+      router.push('/settings/password');
     } else if (item.action === 'support') {
-      alert('正在连接客服...');
+      window.open('https://t.me/jqrkfnnbot', '_blank');
     } else if (item.action === 'about') {
       alert('骰宝夺宝 V1.0\n© 2025 DiceTreasure\nPowered by Telegram WebApp');
     }
@@ -252,37 +238,6 @@ export default function ProfilePage() {
         </motion.div>
       </div>
 
-      {/* VIP升级提示 - 仅对非VIP用户显示 */}
-      {!isPremiumUser && (
-        <div className="px-5 pb-4">
-          <motion.button
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            onClick={() => window.open(vipUpgradeUrl, '_blank')}
-            className="w-full bg-gradient-to-r from-[#FFD700] to-[#FFA500] rounded-xl p-4 shadow-lg hover:shadow-xl transition-all active:scale-98"
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center text-2xl">
-                  ⭐
-                </div>
-                <div className="text-left">
-                  <div className="text-white font-bold text-base">升级VIP会员</div>
-                  <div className="text-white/80 text-sm">享受专属特权和优惠</div>
-                </div>
-              </div>
-              <svg
-                className="w-6 h-6 text-white"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </div>
-          </motion.button>
-        </div>
-      )}
 
       {/* 用户信息补充 */}
       <div className="px-5">

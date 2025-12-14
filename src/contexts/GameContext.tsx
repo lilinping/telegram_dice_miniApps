@@ -90,6 +90,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
   // 上一局下注记录
   const [lastBets, setLastBets] = useState<Record<string, number>>({});
 
+  // 记住用户的选择（筹码、倍数和下注区域）
+  const [rememberedChip, setRememberedChip] = useState<number | null>(null);
+  const [rememberedMultiplier, setRememberedMultiplier] = useState<number | null>(null);
+  const [rememberedBets, setRememberedBets] = useState<Record<string, number>>({});
+
   // 防止Strict Mode重复调用
   const diceOptionsLoadedRef = useRef(false);
   const startingGameRef = useRef(false);
@@ -139,7 +144,26 @@ export function GameProvider({ children }: { children: ReactNode }) {
         setCurrentGameId(response.data);
         setGameState('betting');
         setCountdown(30);
-        console.log('游戏开始，gameId:', response.data);
+        
+        // 恢复用户上次选择的筹码、倍数和下注区域（如果用户之前下过注）
+        if (rememberedChip !== null) {
+          setSelectedChip(rememberedChip);
+        }
+        if (rememberedMultiplier !== null) {
+          setMultiplier(rememberedMultiplier);
+        }
+        // 恢复下注区域
+        if (Object.keys(rememberedBets).length > 0) {
+          setBets({ ...rememberedBets });
+          // 重建历史栈
+          const history: BetHistoryItem[] = [];
+          Object.entries(rememberedBets).forEach(([betId, amount]) => {
+            history.push({ betId, amount });
+          });
+          setBetHistory(history);
+        }
+        
+        console.log('游戏开始，gameId:', response.data, '恢复筹码:', rememberedChip, '恢复倍数:', rememberedMultiplier, '恢复下注区域:', rememberedBets);
       } else {
         console.error('开始游戏失败:', response.message);
       }
@@ -148,7 +172,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     } finally {
       startingGameRef.current = false;
     }
-  }, [user]);
+  }, [user, rememberedChip, rememberedMultiplier, rememberedBets]);
 
   // 结束当前游戏
   const endCurrentGame = useCallback(async () => {
@@ -295,6 +319,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
       // 保存为上一局下注
       setLastBets(bets);
 
+      // 记住用户选择的筹码、倍数和下注区域
+      setRememberedChip(selectedChip);
+      setRememberedMultiplier(multiplier);
+      setRememberedBets({ ...bets }); // 深拷贝保存下注区域
+
       // 立即进入rolling状态，提供即时反馈
       setGameState('rolling');
       const rollStartTime = Date.now();
@@ -353,16 +382,17 @@ export function GameProvider({ children }: { children: ReactNode }) {
         setGameState('betting');
         // 注意：不清空diceResults，保留上一局结果显示
         // setDiceResults([]);  // 注释掉，让骰子保持显示上一局结果
-        setBets({});
-        setBetHistory([]);
-        setMultiplier(1);
+        // 不在这里清空bets，让startNewGame根据记住的值来恢复
+        // setBets({});
+        // setBetHistory([]);
+        // 不在这里重置multiplier，让startNewGame根据记住的值来恢复
         setCurrentRound((prev) => prev + 1);
         
         // 重置中奖信息
         setWinAmount(0);
         setHasWon(false);
 
-        // 自动开始下一局
+        // 自动开始下一局（会自动恢复记住的筹码、倍数和下注区域）
         await startNewGame();
       }, 8300); // settled阶段延长至4秒（展示时间+2秒）
 

@@ -41,6 +41,9 @@ export default function GlobalGamePage() {
   const [lastRoundResult, setLastRoundResult] = useState<GlobalDiceResult | null>(null);
   const [showMultiplierSelector, setShowMultiplierSelector] = useState(false);
   const [multiplier, setMultiplier] = useState(1); // 倍投倍数，默认1倍
+  const [rememberedChip, setRememberedChip] = useState<number | null>(null); // 记住的筹码
+  const [rememberedMultiplier, setRememberedMultiplier] = useState<number | null>(null); // 记住的倍数
+  const [rememberedBets, setRememberedBets] = useState<Record<string, number>>({}); // 记住的下注区域
   const betsLoadedRef = useRef(false); // 标记是否已加载下注信息
 
   // 引用
@@ -180,6 +183,23 @@ export default function GlobalGamePage() {
              if (isNewRound && gameState !== 'rolling' && gameState !== 'settled') {
                  setCurrentRound(currentRoundNumber);
                  betsLoadedRef.current = false; // 重置加载标记
+                 
+                 // 恢复用户上次选择的筹码、倍数和下注区域（如果用户之前下过注）
+                 if (rememberedChip !== null) {
+                     setSelectedChip(rememberedChip);
+                 }
+                 if (rememberedMultiplier !== null) {
+                     setMultiplier(rememberedMultiplier);
+                 } else {
+                     // 如果没有记住的值，重置为默认值
+                     setMultiplier(1);
+                 }
+                 // 恢复下注区域
+                 if (Object.keys(rememberedBets).length > 0) {
+                     setBets({ ...rememberedBets });
+                 }
+                 
+                 console.log('✅ 新一期开始，恢复筹码:', rememberedChip, '恢复倍数:', rememberedMultiplier, '恢复下注区域:', rememberedBets);
              }
              
              // 加载当前期数的用户下注信息（首次加载或新的一期）
@@ -192,7 +212,7 @@ export default function GlobalGamePage() {
              if (shouldLoadBets) {
                  console.log('🔄 Loading user bets for round:', currentRoundNumber, 'currentRound:', currentRound, 'isNewRound:', isNewRound);
                  betsLoadedRef.current = true; // 先标记为已加载，避免重复请求
-                 try {
+                        try {
                      const myGameInfo = await apiService.getGlobalGameInfo(String(user.id), currentRoundNumber);
                      console.log('📥 API response:', myGameInfo);
                      if (myGameInfo.success && myGameInfo.data) {
@@ -239,7 +259,7 @@ export default function GlobalGamePage() {
     } catch (error) {
       console.error('Failed to sync global game state', error);
     }
-  }, [gameState, lastProcessedRound, user, playWinSmall, hapticWin, refreshBalance, currentRound, bets]);
+  }, [gameState, lastProcessedRound, user, playWinSmall, hapticWin, refreshBalance, currentRound, bets, rememberedChip, rememberedMultiplier, rememberedBets]);
 
   // 倒计时结束后的处理函数
   const handleCountdownEnd = useCallback(async () => {
@@ -453,6 +473,12 @@ export default function GlobalGamePage() {
           toast.success('全部下注成功');
           setLastBets(bets);
           setBets({});
+          
+          // 记住用户选择的筹码、倍数和下注区域
+          setRememberedChip(selectedChip);
+          setRememberedMultiplier(multiplier);
+          setRememberedBets({ ...bets }); // 深拷贝保存下注区域
+          
           refreshBalance();
           return true;
       } else {

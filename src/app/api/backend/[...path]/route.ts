@@ -38,7 +38,8 @@ async function handleRequest(
 ) {
   try {
     // 构建完整路径
-    const path = params.path.join('/');
+    // Next.js会自动解码路径参数，我们需要重新编码以确保特殊字符正确传递
+    const path = params.path.map(segment => encodeURIComponent(segment)).join('/');
     const url = `${BACKEND_URL}/${path}`;
     
     // 添加查询参数（如果有）

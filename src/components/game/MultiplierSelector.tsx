@@ -19,7 +19,7 @@ interface MultiplierSelectorProps {
 
 const multipliers = [1, 2, 5, 10, 20];
 
-export default function MultiplierSelector({ 
+export default function MultiplierSelector({
   // 悬浮模式参数
   isOpen, 
   onClose, 
@@ -125,7 +125,7 @@ export default function MultiplierSelector({
         background: 'linear-gradient(180deg, rgba(26, 26, 26, 0.95) 0%, rgba(13, 13, 13, 0.95) 100%)',
         border: '1px solid rgba(212, 175, 55, 0.2)',
       }}
-    >
+        >
       {/* 标题 - 仅悬浮模式显示 */}
       {isPopupMode && (
         <div className="mb-3">
@@ -138,44 +138,44 @@ export default function MultiplierSelector({
           >
             倍投设置
           </h3>
-        </div>
+      </div>
       )}
 
       {/* 倍数按钮组 */}
       <div className={cn('flex', isPopupMode ? 'gap-1.5 mb-3' : 'gap-1')}>
             {multipliers.map((multiplier) => {
               const isSelected = selectedMultiplier === multiplier;
-              return (
-                <button
-                  key={multiplier}
+          return (
+            <button
+              key={multiplier}
                   onClick={() => handleSelect(multiplier)}
-                  disabled={disabled}
+              disabled={disabled}
                   className={cn(
                     'relative flex-1 px-2 py-2 rounded-lg font-bold text-xs sm:text-sm transition-all duration-200',
                     'active:scale-95',
                     disabled && 'opacity-50 cursor-not-allowed'
                   )}
-                  style={{
-                    background: isSelected
+              style={{
+                background: isSelected
                       ? 'linear-gradient(180deg, #ffd75e 0%, #ffc107 100%)'
                       : 'linear-gradient(180deg, rgba(212, 175, 55, 0.15) 0%, rgba(212, 175, 55, 0.08) 100%)',
-                    border: isSelected
+                border: isSelected
                       ? '1px solid rgba(255, 215, 94, 0.5)'
                       : '1px solid rgba(212, 175, 55, 0.2)',
                     color: isSelected ? '#000' : '#ffd75e',
-                    boxShadow: isSelected
+                boxShadow: isSelected
                       ? '0 4px 12px rgba(255, 215, 94, 0.4), inset 0 1px 2px rgba(255, 255, 255, 0.3)'
-                      : 'inset 0 1px 2px rgba(0, 0, 0, 0.2)',
-                  }}
-                >
-                  {isSelected && (
-                    <div
+                  : 'inset 0 1px 2px rgba(0, 0, 0, 0.2)',
+                }}
+              >
+              {isSelected && (
+                <div
                       className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center"
-                      style={{
+                  style={{
                         background: '#ffd75e',
                         boxShadow: '0 2px 4px rgba(0, 0, 0, 0.3)',
-                      }}
-                    >
+                  }}
+                >
                       <svg
                         width="12"
                         height="12"
@@ -191,26 +191,26 @@ export default function MultiplierSelector({
                           strokeLinejoin="round"
                         />
                       </svg>
-                    </div>
-                  )}
+                </div>
+              )}
                   {multiplier}x
-                </button>
-              );
-            })}
-          </div>
+            </button>
+          );
+        })}
+      </div>
 
       {/* 提示文字 - 仅悬浮模式显示 */}
       {isPopupMode && (
         <div className="text-center">
-          <p
+        <p
             className="text-xs"
             style={{
               color: 'rgba(255, 215, 94, 0.7)',
             }}
-          >
+        >
             选择倍投倍数以放大收益
-          </p>
-        </div>
+        </p>
+      </div>
       )}
     </div>
   );

@@ -7,6 +7,7 @@ import { useTelegram } from '@/contexts/TelegramContext';
 import { cn, validateTRC20Address, calculateWithdrawalFee } from '@/lib/utils';
 import { apiService } from '@/lib/api';
 import { AddressEntity } from '@/lib/types';
+import ToastContainer, { toast } from '@/components/ui/Toast';
 
 /**
  * 提现页面
@@ -374,9 +375,15 @@ export default function WithdrawPage() {
                   )}
                 >
                   <div className="flex items-start gap-3">
-                    {/* 单选按钮 */}
+                    {/* 单选按钮 - 点击时直接切换为默认地址 */}
                     <button
-                      onClick={() => setSelectedAddressId(addr.id)}
+                      onClick={() => {
+                        setSelectedAddressId(addr.id);
+                        // 如果点击的不是默认地址，直接设置为默认
+                        if (!addr.defaultAddress) {
+                          handleSetDefault(addr.id);
+                        }
+                      }}
                       className={cn(
                         'w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all flex-shrink-0 mt-0.5',
                         selectedAddressId === addr.id
@@ -393,27 +400,41 @@ export default function WithdrawPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <p className="text-base font-semibold text-text-primary">
-                          钱包地址 {addr.defaultAddress && '(默认)'}
+                          钱包地址
                         </p>
+                        {addr.defaultAddress && (
+                          <span className="px-2 py-0.5 bg-primary-gold text-bg-darkest text-xs font-bold rounded">
+                            (默认)
+                          </span>
+                        )}
                       </div>
-                      <p className="text-xs font-mono text-text-secondary break-all">
-                        {addr.address}
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs font-mono text-text-secondary break-all flex-1">
+                          {addr.address}
+                        </p>
+                        {/* 复制地址按钮 */}
+                        <button
+                          onClick={async () => {
+                            try {
+                              await navigator.clipboard.writeText(addr.address);
+                              toast.success('地址已复制');
+                            } catch (err) {
+                              console.error('复制失败:', err);
+                              toast.error('复制失败');
+                            }
+                          }}
+                          className="px-2 py-1 bg-bg-medium hover:bg-bg-dark text-text-secondary hover:text-primary-gold rounded text-xs transition-colors flex-shrink-0"
+                          title="复制地址"
+                        >
+                          📋
+                        </button>
+                      </div>
                       <p className="text-xs text-text-disabled mt-1">
                         网络: TRC20
                       </p>
                       
                       {/* 操作按钮 */}
                       <div className="flex gap-2 mt-2">
-                        {!addr.defaultAddress && (
-                          <button
-                            onClick={() => handleSetDefault(addr.id)}
-                            className="text-xs text-primary-gold hover:text-primary-light-gold"
-                            disabled={loading}
-                          >
-                            设为默认
-                          </button>
-                        )}
                         <button
                           onClick={() => handleDeleteAddress(addr.id)}
                           className="text-xs text-error hover:text-error/80"
@@ -631,6 +652,8 @@ export default function WithdrawPage() {
           </div>
         </div>
       )}
+
+      <ToastContainer />
     </div>
   );
 }

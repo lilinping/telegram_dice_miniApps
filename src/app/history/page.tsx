@@ -72,8 +72,8 @@ export default function HistoryPage() {
   }, [user?.id, pageIndex]);
 
   // 格式化时间
-  const formatTime = (timestamp: number): string => {
-    const date = new Date(timestamp);
+  const formatTime = (timestamp: number | string): string => {
+    const date = typeof timestamp === 'string' ? new Date(timestamp) : new Date(timestamp);
     return date.toLocaleString('zh-CN', {
       year: 'numeric',
       month: '2-digit',
@@ -263,7 +263,7 @@ export default function HistoryPage() {
           <div className="space-y-3">
             {historyData.map((record) => {
               const analysis = analyzeDice(record.outCome);
-              const totalBet = parseFloat(record.totalBet);
+              const totalBet = record.betInfo.reduce((sum, bet) => sum + parseFloat(bet.bet), 0);
               const winAmount = parseFloat(record.win);
               const profit = winAmount - totalBet;
               const isWin = winAmount > 0;
@@ -273,11 +273,8 @@ export default function HistoryPage() {
                   key={record.id}
                   className="bg-bg-dark border border-border rounded-xl p-4"
                 >
-                  {/* 局号和时间 */}
-                  <div className="flex justify-between items-center mb-3">
-                    <span className="text-sm font-mono text-text-secondary">
-                      #{record.id}
-                    </span>
+                  {/* 时间 */}
+                  <div className="flex justify-end items-center mb-3">
                     <span className="text-xs text-text-disabled">
                       {formatTime(record.createTime)}
                     </span>
@@ -369,11 +366,8 @@ export default function HistoryPage() {
                   key={record.id}
                   className="bg-bg-dark border border-border rounded-xl p-4 flex items-center gap-4"
                 >
-                  {/* 局号和时间 */}
+                  {/* 时间 */}
                   <div className="flex-1">
-                    <p className="text-sm font-mono text-text-secondary mb-1">
-                      #{record.id}
-                    </p>
                     <p className="text-xs text-text-disabled">
                       {formatTime(record.createTime)}
                     </p>
@@ -463,7 +457,7 @@ export default function HistoryPage() {
               </h3>
               <div className="bg-bg-dark rounded-xl p-4 border border-border">
                 {/* 图表区域 */}
-                <div className="relative h-48 mb-8">
+                <div className="relative h-64 mb-8">
                   {/* Y轴刻度线 */}
                   <div className="absolute inset-0 flex flex-col justify-between">
                     {[18, 15, 12, 9, 6, 3].map((value) => (
@@ -474,57 +468,125 @@ export default function HistoryPage() {
                     ))}
                   </div>
 
-                  {/* 柱状图 */}
-                  <div className="absolute inset-0 pl-8 flex items-end justify-start gap-1 overflow-x-auto pb-1">
-                    {historyData.slice(0, 20).reverse().map((record, idx) => {
-                      const analysis = analyzeDice(record.outCome);
-                      const heightPercent = ((analysis.total - 3) / 15) * 100; // 3-18 映射到 0-100%
+                  {/* 折线图 */}
+                  <div className="absolute inset-0 pl-8 pr-2 pb-8">
+                    {(() => {
+                      const data = historyData.slice(0, 20).reverse();
+                      const points: string[] = [];
+                      const pointData: Array<{ 
+                        x: number; 
+                        y: number; 
+                        total: number; 
+                        isBig: boolean; 
+                        isTriple: boolean;
+                        idx: number;
+                      }> = [];
                       
+                      data.forEach((record, idx) => {
+                        const analysis = analyzeDice(record.outCome);
+                        const x = (idx / (data.length - 1 || 1)) * 100;
+                        const y = 100 - ((analysis.total - 3) / 15) * 100; // 3-18 映射到 0-100%，反转Y轴
+                        points.push(`${x},${y}`);
+                        pointData.push({
+                          x,
+                          y,
+                          total: analysis.total,
+                          isBig: analysis.isBig,
+                          isTriple: analysis.isTriple,
+                          idx
+                        });
+                      });
+
                       return (
-                        <div
-                          key={record.id}
-                          className="flex-shrink-0 flex flex-col items-center"
-                          style={{ width: '32px' }}
-                        >
-                          {/* 柱子 */}
-                          <div
-                            className={cn(
-                              'w-full rounded-t transition-all relative',
-                              analysis.isTriple
-                                ? 'bg-gradient-to-t from-purple-600 to-purple-400'
-                                : analysis.isBig
-                                ? 'bg-gradient-to-t from-error to-red-400'
-                                : 'bg-gradient-to-t from-info to-blue-400'
-                            )}
-                            style={{ 
-                              height: `${Math.max(heightPercent, 5)}%`,
-                              minHeight: '24px'
-                            }}
-                          >
-                            {/* 大小标签 - 在柱子顶部外侧 */}
-                            <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-xs font-semibold whitespace-nowrap">
-                              {analysis.isTriple ? (
-                                <span className="text-purple-400">豹</span>
-                              ) : analysis.isBig ? (
-                                <span className="text-error">大</span>
-                              ) : (
-                                <span className="text-info">小</span>
-                              )}
-                            </div>
-                            
-                            {/* 点数标签 - 在柱子内部顶部 */}
-                            <div className="absolute top-1 left-1/2 -translate-x-1/2 text-xs font-bold text-white drop-shadow-md">
-                              {analysis.total}
-                            </div>
+                        <>
+                          {/* SVG折线 */}
+                          <svg className="w-full h-full absolute inset-0" viewBox="0 0 100 100" preserveAspectRatio="none">
+                            {/* 折线路径 */}
+                            <polyline
+                              points={points.join(' ')}
+                              fill="none"
+                              stroke="#3B82F6"
+                              strokeWidth="1.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                            {/* 数据点 */}
+                            {pointData.map((point) => (
+                              <circle
+                                key={point.idx}
+                                cx={point.x}
+                                cy={point.y}
+                                r="2.5"
+                                fill={
+                                  point.isTriple
+                                    ? '#9333EA'
+                                    : point.isBig
+                                    ? '#EF4444'
+                                    : '#3B82F6'
+                                }
+                                stroke="#fff"
+                                strokeWidth="1"
+                              />
+                            ))}
+                          </svg>
+                          
+                          {/* HTML标签层 */}
+                          <div className="absolute inset-0">
+                            {pointData.map((point) => {
+                              const leftPercent = point.x;
+                              const topPercent = point.y;
+                              
+                              return (
+                                <div
+                                  key={point.idx}
+                                  className="absolute flex flex-col items-center"
+                                  style={{
+                                    left: `${leftPercent}%`,
+                                    top: `${topPercent}%`,
+                                    transform: 'translate(-50%, -100%)',
+                                    marginTop: '-8px'
+                                  }}
+                                >
+                                  {/* 大小标签 */}
+                                  <span
+                                    className={cn(
+                                      'text-xs font-semibold mb-0.5',
+                                      point.isTriple
+                                        ? 'text-purple-400'
+                                        : point.isBig
+                                        ? 'text-error'
+                                        : 'text-info'
+                                    )}
+                                  >
+                                    {point.isTriple ? '豹' : point.isBig ? '大' : '小'}
+                                  </span>
+                                  {/* 点数标签 */}
+                                  <span className="text-xs font-bold text-white drop-shadow-md">
+                                    {point.total}
+                                  </span>
+                                </div>
+                              );
+                            })}
                           </div>
                           
-                          {/* 序号 */}
-                          <span className="text-xs text-text-disabled mt-1">
-                            {20 - idx}
-                          </span>
-                        </div>
+                          {/* X轴序号 */}
+                          <div className="absolute bottom-0 left-0 right-0 flex justify-between">
+                            {data.map((_, idx) => (
+                              <span
+                                key={idx}
+                                className="text-xs text-text-disabled"
+                                style={{ 
+                                  width: `${100 / (data.length || 1)}%`, 
+                                  textAlign: 'center' 
+                                }}
+                              >
+                                {20 - idx}
+                              </span>
+                            ))}
+                          </div>
+                        </>
                       );
-                    })}
+                    })()}
                   </div>
                 </div>
 

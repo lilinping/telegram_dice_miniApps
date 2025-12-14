@@ -11,7 +11,6 @@ import DiceCupAnimation from '@/components/game/DiceCupAnimation';
 import BetPanel from '@/components/game/BetPanel';
 import ChipSelector from '@/components/game/ChipSelector';
 import MultiplierSelector from '@/components/game/MultiplierSelector';
-import CountdownTimer from '@/components/game/CountdownTimer';
 import WinAnimation from '@/components/game/WinAnimation';
 import ToastContainer, { toast } from '@/components/ui/Toast';
 import { useRouter, usePathname } from 'next/navigation';
@@ -46,7 +45,7 @@ export default function GamePage() {
   const {
     gameState,
     currentRound,
-    countdown,
+    currentGameId,
     selectedChip,
     setSelectedChip,
     bets,
@@ -187,7 +186,7 @@ export default function GamePage() {
   };
 
   // 判断是否可以下注
-  const canBet = gameState === 'betting' && countdown > 0;
+  const canBet = gameState === 'betting';
 
   return (
     <div className="flex flex-col h-screen overflow-hidden" style={{ background: 'var(--rich-black)' }}>
@@ -211,13 +210,8 @@ export default function GamePage() {
               textShadow: '0 0 8px rgba(255, 215, 0, 0.5)'
             }}
           >
-            #{currentRound.toString().padStart(6, '0')}
+            #{currentGameId ? currentGameId.substring(0, 6) : currentRound.toString().padStart(6, '0')}
           </span>
-        </div>
-
-        {/* 中间：倒计时 */}
-        <div className="flex-1 flex justify-center items-center" style={{ overflow: 'visible' }}>
-          <CountdownTimer />
         </div>
 
         {/* 右侧：余额 + 充值 */}

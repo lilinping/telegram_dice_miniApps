@@ -193,9 +193,6 @@ export default function WithdrawalHistory({ userId }: WithdrawalHistoryProps) {
               <div className="flex items-start justify-between mb-3">
                 <div>
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="text-sm font-semibold text-text-primary">
-                      订单 #{order.id}
-                    </span>
                     <span
                       className={cn(
                         'px-2 py-0.5 text-xs rounded-full border',

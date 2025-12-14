@@ -291,6 +291,134 @@ class ApiService {
     return this.request<PageModel<WithdrawalOrder>>(`/account/take/history/usdt/${userId}/${pageIndex}/${pageSize}`)
   }
 
+  // ==================== 账户密码相关接口 ====================
+
+  /**
+   * 检测是否设置了密码
+   * @param userId 用户ID
+   * @returns BackendResponse<boolean>
+   */
+  async hasSetPassword(userId: string): Promise<BackendResponse<boolean>> {
+    return this.request<boolean>(`/account/hasSetPassword/${userId}`)
+  }
+
+  /**
+   * 检测是否设置了邮箱
+   * @param userId 用户ID
+   * @returns BackendResponse<boolean>
+   */
+  async hasSetEmail(userId: string): Promise<BackendResponse<boolean>> {
+    return this.request<boolean>(`/account/hasSetEmail/${userId}`)
+  }
+
+  /**
+   * 发送验证码(用于创建邮箱地址)
+   * @param userId 用户ID
+   * @param email 邮箱地址
+   * @returns BackendResponse<boolean>
+   */
+  async sendCodeForCreateEmail(userId: string, email: string): Promise<BackendResponse<boolean>> {
+    return this.request<boolean>(`/account/sendCode/createEmail/${userId}/${email}`)
+  }
+
+  /**
+   * 发送验证码(用于修改邮箱地址)
+   * @param userId 用户ID
+   * @returns BackendResponse<boolean>
+   */
+  async sendCodeForUpdateEmail(userId: string): Promise<BackendResponse<boolean>> {
+    return this.request<boolean>(`/account/sendCode/updateEmail/${userId}`)
+  }
+
+  /**
+   * 创建邮箱地址
+   * @param userId 用户ID
+   * @param email 邮箱地址
+   * @param code 验证码
+   * @returns BackendResponse<boolean>
+   */
+  async createEmail(userId: string, email: string, code: string): Promise<BackendResponse<boolean>> {
+    return this.request<boolean>(`/account/mail/createEmail/${userId}/${email}/${code}`)
+  }
+
+  /**
+   * 更新邮箱地址
+   * @param userId 用户ID
+   * @param newEmail 新邮箱地址
+   * @param code 验证码
+   * @returns BackendResponse<boolean>
+   */
+  async updateEmail(userId: string, newEmail: string, code: string): Promise<BackendResponse<boolean>> {
+    return this.request<boolean>(`/account/mail/updateEmail/${userId}/${newEmail}/${code}`)
+  }
+
+  /**
+   * 设置初始密码
+   * @param userId 用户ID
+   * @param password 密码（原样传递，不进行编码）
+   * @returns BackendResponse<boolean>
+   */
+  async setPassword(userId: string, password: string): Promise<BackendResponse<boolean>> {
+    return this.request<boolean>(`/account/setpassword/${userId}/${password}`)
+  }
+
+  /**
+   * 发送验证码(用于修改用户密码)
+   * @param userId 用户ID
+   * @param email 邮箱地址
+   * @returns BackendResponse<boolean>
+   */
+  async sendCodeForUpdatePassword(userId: string, email: string): Promise<BackendResponse<boolean>> {
+    return this.request<boolean>(`/account/sendCode/updatePassword/${userId}/${email}`)
+  }
+
+  /**
+   * 重置用户密码（使用旧密码）
+   * @param userId 用户ID
+   * @param newPassword 新密码（原样传递，不进行编码）
+   * @param oldPassword 旧密码（原样传递，不进行编码）
+   * @returns BackendResponse<boolean>
+   */
+  async resetPassword(userId: string, newPassword: string, oldPassword: string): Promise<BackendResponse<boolean>> {
+    return this.request<boolean>(`/account/resetPassword/${userId}/${newPassword}/${oldPassword}`)
+  }
+
+  /**
+   * 更新账号密码（使用验证码）
+   * @param userId 用户ID
+   * @param newPassword 新密码（原样传递，不进行编码）
+   * @param code 验证码
+   * @returns BackendResponse<boolean>
+   */
+  async updatePasswordWithCode(userId: string, newPassword: string, code: string): Promise<BackendResponse<boolean>> {
+    if (!userId || !newPassword || !code) {
+      throw new Error('缺少必要参数');
+    }
+    // 根据Swagger文档，这是GET请求，参数在URL路径中
+    // 但密码中的特殊字符（如 # / ?）必须编码，否则会被浏览器解释为URL片段或路径分隔符
+    // 只编码必要的特殊字符，确保验证码能正确传递
+    const encodedPassword = encodeURIComponent(newPassword);
+    const endpoint = `/account/mail/updatePassword/${userId}/${encodedPassword}/${code}`;
+    return this.request<boolean>(endpoint)
+  }
+
+  /**
+   * 恢复账号信息（通过原始的用户ID和密码）
+   * @param userId 当前用户ID
+   * @param lastUserId 原始用户ID
+   * @param password 原始密码
+   * @returns BackendResponse<boolean>
+   */
+  async recoverAccount(userId: string, lastUserId: string, password: string): Promise<BackendResponse<boolean>> {
+    if (!userId || !lastUserId || !password) {
+      throw new Error('缺少必要参数');
+    }
+    // 根据Swagger文档，这是GET请求，参数在URL路径中
+    // 密码需要编码以确保特殊字符正确传递
+    const encodedPassword = encodeURIComponent(password);
+    return this.request<boolean>(`/account/recoverAccount/${userId}/${lastUserId}/${encodedPassword}`)
+  }
+
   /**
    * 获取提币订单详情
    * @param orderId 订单ID
