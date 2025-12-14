@@ -401,7 +401,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       console.error('确认下注失败:', error);
       return false;
     }
-  }, [bets, currentGameId, user, endCurrentGame, startNewGame, refreshBalance]);
+  }, [bets, currentGameId, user, endCurrentGame, startNewGame, refreshBalance, selectedChip, multiplier]);
 
   // 自动开始第一局游戏
   useEffect(() => {

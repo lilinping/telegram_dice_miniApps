@@ -259,7 +259,7 @@ export default function GlobalGamePage() {
     } catch (error) {
       console.error('Failed to sync global game state', error);
     }
-  }, [gameState, lastProcessedRound, user, playWinSmall, hapticWin, refreshBalance, currentRound, bets, rememberedChip, rememberedMultiplier, rememberedBets]);
+  }, [gameState, currentRound, user, rememberedChip, rememberedMultiplier, rememberedBets]);
 
   // 倒计时结束后的处理函数
   const handleCountdownEnd = useCallback(async () => {

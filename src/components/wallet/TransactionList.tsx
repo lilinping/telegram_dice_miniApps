@@ -81,7 +81,8 @@ export default function TransactionList() {
           const gameHistory = await apiService.getGameHistory(String(user.id), 1, 20);
           if (gameHistory.success && gameHistory.data) {
             gameHistory.data.list.forEach((game) => {
-              const totalBet = parseFloat(game.totalBet);
+              // 计算总下注金额（从 betInfo 数组中累加）
+              const totalBet = game.betInfo?.reduce((sum, bet) => sum + parseFloat(bet.bet || '0'), 0) || 0;
               const winAmount = parseFloat(game.win);
 
               // 添加下注记录
@@ -93,7 +94,7 @@ export default function TransactionList() {
                   status: 'success',
                   description: `下注-局号#${game.id}`,
                   gameId: game.gameId,
-                  timestamp: game.createTime,
+                  timestamp: new Date(game.createTime).getTime(),
                 });
               }
 
@@ -106,7 +107,7 @@ export default function TransactionList() {
                   status: 'success',
                   description: `中奖-局号#${game.id}`,
                   gameId: game.gameId,
-                  timestamp: game.modifyTime || game.createTime,
+                  timestamp: new Date(game.createTime).getTime(),
                 });
               }
             });
@@ -129,7 +130,7 @@ export default function TransactionList() {
                 status: order.txCode === 0 ? 'success' : order.txCode === -1 ? 'pending' : 'failed',
                 description: '提现',
                 orderId: `WTH${order.id}`,
-                timestamp: order.createTime,
+                timestamp: typeof order.createTime === 'string' ? new Date(order.createTime).getTime() : order.createTime,
               });
             });
           }
@@ -177,7 +178,7 @@ export default function TransactionList() {
                 status: status,
                 description: description,
                 orderId: order.orderId,
-                timestamp: order.createTime,
+                timestamp: typeof order.createTime === 'string' ? new Date(order.createTime).getTime() : order.createTime,
                 originalStatus: order.state, // 保存原始状态
               };
               console.log('添加充值交易:', transaction, '原始状态:', order.state, '映射状态:', status);

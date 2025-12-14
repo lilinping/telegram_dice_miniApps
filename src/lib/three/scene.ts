@@ -15,9 +15,9 @@ export class DiceScene {
   public scene: THREE.Scene;
   public camera: THREE.PerspectiveCamera;
   public renderer: THREE.WebGLRenderer;
-  private ambientLight: THREE.AmbientLight;
-  private directionalLight: THREE.DirectionalLight;
-  private spotLight: THREE.SpotLight;
+  private ambientLight!: THREE.AmbientLight;
+  private directionalLight!: THREE.DirectionalLight;
+  private spotLight!: THREE.SpotLight;
 
   constructor(config: SceneConfig) {
     // 创建场景
