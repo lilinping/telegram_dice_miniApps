@@ -82,7 +82,7 @@ export default function ProfilePage() {
     {
       icon: '⚙️',
       title: '设置',
-      subtitle: '语言、音效、隐私',
+      subtitle: '密码 邮箱，账号重置设置',
       action: 'settings',
       color: '#3B82F6',
     },
