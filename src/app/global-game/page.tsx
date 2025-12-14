@@ -202,14 +202,16 @@ export default function GlobalGamePage() {
                  console.log('✅ 新一期开始，恢复筹码:', rememberedChip, '恢复倍数:', rememberedMultiplier, '恢复下注区域:', rememberedBets);
              }
              
-             // 加载当前期数的用户下注信息（首次加载或新的一期）
+             // 加载当前期数的用户下注信息（只在首次加载或新的一期时加载，避免重复请求）
              // 条件：用户存在、状态为运行中或封盘中、未加载过、期号匹配（包括刚设置的新期号）
              const shouldLoadBets = user && 
                                    (latest.status === 'RUNNING' || latest.status === 'SEALED') && 
                                    !betsLoadedRef.current && 
                                    (currentRoundNumber === currentRound || isNewRound || currentRound === 'Loading...');
              
-             if (shouldLoadBets) {
+             // 只在倒计时结束时才请求用户下注信息，而不是每10秒轮询
+             // 这里只在新一期开始时加载一次
+             if (shouldLoadBets && isNewRound) {
                  console.log('🔄 Loading user bets for round:', currentRoundNumber, 'currentRound:', currentRound, 'isNewRound:', isNewRound);
                  betsLoadedRef.current = true; // 先标记为已加载，避免重复请求
                         try {
@@ -239,6 +241,32 @@ export default function GlobalGamePage() {
                         } catch (e) {
                      console.error('❌ Failed to load user bets', e);
                      setLastBets({}); // 出错也设置为空对象
+                 }
+             } else if (shouldLoadBets && !isNewRound) {
+                 // 首次加载时也加载一次（但不是新的一期）
+                 console.log('🔄 Loading user bets for first time:', currentRoundNumber);
+                 betsLoadedRef.current = true;
+                 try {
+                     const myGameInfo = await apiService.getGlobalGameInfo(String(user.id), currentRoundNumber);
+                     if (myGameInfo.success && myGameInfo.data) {
+                         if (myGameInfo.data.myBets && Array.isArray(myGameInfo.data.myBets) && myGameInfo.data.myBets.length > 0) {
+                             const loadedBets: Record<string, number> = {};
+                             myGameInfo.data.myBets.forEach((bet) => {
+                                 const betId = getChooseBetId(bet.chooseId);
+                                 if (betId) {
+                                     loadedBets[betId] = (loadedBets[betId] || 0) + bet.amount;
+                                 }
+                             });
+                             setLastBets(loadedBets);
+                         } else {
+                             setLastBets({});
+                         }
+                     } else {
+                         setLastBets({});
+                     }
+                 } catch (e) {
+                     console.error('❌ Failed to load user bets', e);
+                     setLastBets({});
                  }
              }
              
@@ -327,6 +355,9 @@ export default function GlobalGamePage() {
 
   // 倒计时逻辑
   useEffect(() => {
+    // 初始同步一次（只同步状态，不获取开奖结果）
+    syncState();
+    
     timerRef.current = setInterval(() => {
       setCountdown((prev) => {
         const next = prev - 1;
@@ -335,21 +366,15 @@ export default function GlobalGamePage() {
         } else if (next <= 0) {
             // 倒计时结束，切换到开奖状态
             setGameState('rolling');
-            // 倒计时结束后，获取开奖结果
+            // 倒计时结束后，获取开奖结果（只请求一次，不再轮询）
             handleCountdownEnd();
         }
         return next;
       });
     }, 1000);
 
-    // 初始同步（只同步状态，不获取开奖结果）
-    syncState();
-    // 每10秒同步一次（只同步状态，不获取开奖结果）
-    const syncTimer = setInterval(syncState, 10000);
-
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
-      clearInterval(syncTimer);
     };
   }, [syncState, handleCountdownEnd]);
 
