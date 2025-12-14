@@ -26,6 +26,7 @@ interface BetPanelProps {
   bets?: Record<string, number>;
   onPlaceBet?: (betId: string) => void;
   diceOptions?: Map<number, DiceChooseVO>;
+  theme?: 'classic' | 'green';
 }
 
 // 投注类型定义（不含赔率，赔率从接口获取）
@@ -82,7 +83,7 @@ const betTypes = {
   ],
 };
 
-export default function BetPanel({ disabled = false, bets: propBets, onPlaceBet, diceOptions: propDiceOptions }: BetPanelProps) {
+export default function BetPanel({ disabled = false, bets: propBets, onPlaceBet, diceOptions: propDiceOptions, theme = 'classic' }: BetPanelProps) {
   const gameContext = useGame();
   
   // 优先使用 props，否则使用 Context
@@ -251,7 +252,12 @@ export default function BetPanel({ disabled = false, bets: propBets, onPlaceBet,
 
       {/* 第四排：点数4-10 */}
       <div>
-        <div className="grid grid-cols-7 gap-1" style={{ justifyItems: 'stretch' }}>
+        <div className="grid" style={{ 
+          gridTemplateColumns: 'repeat(7, 1fr)',
+          gap: '4px',
+          justifyItems: 'stretch', 
+          alignItems: 'stretch',
+        }}>
           {betTypes.numbersLow.map((bet) => (
             <BetCell
               key={bet.id}
@@ -263,6 +269,7 @@ export default function BetPanel({ disabled = false, bets: propBets, onPlaceBet,
               disabled={disabled}
               type="points"
               size="small"
+              theme={theme}
             />
           ))}
         </div>
@@ -270,7 +277,12 @@ export default function BetPanel({ disabled = false, bets: propBets, onPlaceBet,
 
       {/* 第五排：点数11-17 */}
       <div>
-        <div className="grid grid-cols-7 gap-1" style={{ justifyItems: 'stretch' }}>
+        <div className="grid" style={{ 
+          gridTemplateColumns: 'repeat(7, 1fr)',
+          gap: '4px',
+          justifyItems: 'stretch', 
+          alignItems: 'stretch',
+        }}>
           {betTypes.numbersHigh.map((bet) => (
             <BetCell
               key={bet.id}
@@ -282,6 +294,7 @@ export default function BetPanel({ disabled = false, bets: propBets, onPlaceBet,
               disabled={disabled}
               type="points"
               size="small"
+              theme={theme}
             />
           ))}
         </div>
@@ -414,3 +427,6 @@ export default function BetPanel({ disabled = false, bets: propBets, onPlaceBet,
     </div>
   );
 }
+
+
+

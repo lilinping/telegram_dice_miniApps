@@ -145,6 +145,47 @@ export default function GlobalHistoryPage() {
     return { total, isBig, isSmall, isOdd, isEven, isTriple };
   };
 
+  // 获取双面分类（大双、小双、大单、小单）
+  const getDoubleSide = (dice: number[]): string => {
+    if (!dice || dice.length === 0) return '';
+    const total = calculateTotal(dice);
+    const isEven = total % 2 === 0;
+    const isBig = total >= 11;
+    
+    if (isBig && isEven) return '大双';
+    if (!isBig && isEven) return '小双';
+    if (isBig && !isEven) return '大单';
+    return '小单';
+  };
+
+  // 获取极值分类（极大、极小、无）
+  const getExtremeValue = (dice: number[]): string => {
+    if (!dice || dice.length === 0) return '无';
+    const total = calculateTotal(dice);
+    if (total >= 16) return '极大';
+    if (total <= 5) return '极小';
+    return '无';
+  };
+
+  // 获取形态分类（对子、顺子、杂六）
+  const getPattern = (dice: number[]): string => {
+    if (!dice || dice.length !== 3) return '杂六';
+    
+    const sorted = [...dice].sort((a, b) => a - b);
+    
+    // 检查是否是对子（有两个相同）
+    if (sorted[0] === sorted[1] || sorted[1] === sorted[2]) {
+      return '对子';
+    }
+    
+    // 检查是否是顺子（三个连续数字）
+    if (sorted[1] === sorted[0] + 1 && sorted[2] === sorted[1] + 1) {
+      return '顺子';
+    }
+    
+    return '杂六';
+  };
+
   // 获取下注选项名称
   const getBetName = (chooseId: number): string => {
     const option = diceOptions.get(chooseId);
@@ -190,15 +231,16 @@ export default function GlobalHistoryPage() {
     const diceFrequency = [0, 0, 0, 0, 0, 0];
 
     resultsData.forEach((record) => {
-      const analysis = analyzeDice(record.outCome);
+      const diceResult = record.result || record.outCome || [];
+      const analysis = analyzeDice(diceResult);
       if (analysis.isBig) bigCount++;
       if (analysis.isSmall) smallCount++;
       if (analysis.isOdd) oddCount++;
       if (analysis.isEven) evenCount++;
 
       // 统计每个点数出现次数
-      if (record.outCome) {
-        record.outCome.forEach((dice) => {
+      if (diceResult.length > 0) {
+        diceResult.forEach((dice) => {
             if (dice >= 1 && dice <= 6) {
                 diceFrequency[dice - 1]++;
             }
@@ -282,50 +324,137 @@ export default function GlobalHistoryPage() {
             {resultsData.length === 0 ? (
                  <div className="text-center py-8"><p className="text-text-secondary">暂无记录</p></div>
             ) : (
-                <div className="space-y-2">
-                    {resultsData.map((record) => {
-                    const analysis = analyzeDice(record.outCome);
-                    return (
-                        <div
-                        key={record.number}
-                        className="bg-bg-dark border border-border rounded-xl p-4 flex items-center gap-4"
-                        >
-                        {/* 局号和时间 */}
-                        <div className="flex-1">
-                            <p className="text-sm font-mono text-text-secondary mb-1">
-                            #{record.number}
-                            </p>
-                            <p className="text-xs text-text-disabled">
-                            {formatTime(record.createTime)}
-                            </p>
-                        </div>
-
-                        {/* 骰子结果 */}
-                        <div className="flex items-center gap-3">
-                            <DiceDisplay values={record.outCome} />
-                            {record.outCome && record.outCome.length > 0 && (
-                                <div>
-                                <p className="text-2xl font-bold font-mono text-primary-gold">
-                                    {analysis.total}
-                                </p>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* 标签 */}
-                        {record.outCome && record.outCome.length > 0 && (
-                            <div className="flex flex-col gap-1">
-                                {analysis.isBig && <span className="px-2 py-0.5 bg-error text-white text-xs rounded">大</span>}
-                                {analysis.isSmall && <span className="px-2 py-0.5 bg-info text-white text-xs rounded">小</span>}
-                                {analysis.isOdd && <span className="px-2 py-0.5 bg-warning text-white text-xs rounded">单</span>}
-                                {analysis.isEven && <span className="px-2 py-0.5 bg-success text-white text-xs rounded">双</span>}
-                                {analysis.isTriple && <span className="px-2 py-0.5 bg-purple-600 text-white text-xs rounded">豹子</span>}
-                            </div>
-                        )}
-                        </div>
-                    );
-                    })}
-                     {/* 分页 (简单版) */}
+                <div className="overflow-x-auto bg-white rounded-lg">
+                    <table className="w-full border-collapse" style={{ backgroundColor: '#fff' }}>
+                        {/* 表头 */}
+                        <thead>
+                            <tr style={{ backgroundColor: '#fff' }}>
+                                <th className="px-3 py-2.5 text-left text-xs font-semibold border border-gray-300" style={{ color: '#000', backgroundColor: '#fff' }}>期号</th>
+                                <th className="px-3 py-2.5 text-left text-xs font-semibold border border-gray-300" style={{ color: '#000', backgroundColor: '#fff' }}>结果</th>
+                                <th className="px-3 py-2.5 text-left text-xs font-semibold border border-gray-300" style={{ color: '#000', backgroundColor: '#fff' }}>特码</th>
+                                <th className="px-3 py-2.5 text-left text-xs font-semibold border border-gray-300" style={{ color: '#000', backgroundColor: '#fff' }}>双面</th>
+                                <th className="px-3 py-2.5 text-left text-xs font-semibold border border-gray-300" style={{ color: '#000', backgroundColor: '#fff' }}>极值</th>
+                                <th className="px-3 py-2.5 text-left text-xs font-semibold border border-gray-300" style={{ color: '#000', backgroundColor: '#fff' }}>形态</th>
+                            </tr>
+                        </thead>
+                        {/* 表体 */}
+                        <tbody>
+                            {resultsData.map((record, index) => {
+                                // 使用API返回的数据，如果没有则使用计算值作为后备
+                                const diceResult = record.result || record.outCome || [];
+                                const resultDisplay = record.resultDisplay;
+                                const dualRet = record.dualRet;
+                                const format = record.format;
+                                const limitValue = record.limitValue;
+                                
+                                // 如果没有API返回的数据，则计算（需要确保diceResult不为空）
+                                const analysis = diceResult.length > 0 ? analyzeDice(diceResult) : { total: 0 };
+                                const doubleSide = dualRet || (diceResult.length > 0 ? getDoubleSide(diceResult) : '');
+                                const extremeValue = limitValue || (diceResult.length > 0 ? getExtremeValue(diceResult) : '');
+                                const pattern = format || (diceResult.length > 0 ? getPattern(diceResult) : '');
+                                const isEvenRow = index % 2 === 1;
+                                
+                                return (
+                                    <tr
+                                        key={record.number}
+                                        style={{ backgroundColor: isEvenRow ? '#f5f5f5' : '#fff' }}
+                                    >
+                                        {/* 期号 */}
+                                        <td className="px-3 py-2.5 text-xs border border-gray-300" style={{ color: '#000' }}>
+                                            {record.number}
+                                        </td>
+                                        
+                                        {/* 结果 */}
+                                        <td className="px-3 py-2.5 text-xs border border-gray-300" style={{ color: '#000' }}>
+                                            {resultDisplay ? (
+                                                // 使用API返回的格式化结果，如 "5 + 4 + 3 = 12"
+                                                (() => {
+                                                    const parts = resultDisplay.split('=');
+                                                    const leftPart = parts[0]?.trim() || '';
+                                                    const rightPart = parts[1]?.trim() || '';
+                                                    const numbers = leftPart.split('+').map(s => s.trim()).filter(s => s);
+                                                    
+                                                    return (
+                                                        <div className="flex items-center gap-1 flex-wrap">
+                                                            {numbers.map((num, idx) => (
+                                                                <span key={idx} className="flex items-center">
+                                                                    <span
+                                                                        className="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-semibold"
+                                                                        style={{
+                                                                            backgroundColor: '#e3f2fd',
+                                                                            color: '#1976d2',
+                                                                            border: '1px solid #90caf9',
+                                                                            minWidth: '24px',
+                                                                            height: '24px',
+                                                                        }}
+                                                                    >
+                                                                        {num}
+                                                                    </span>
+                                                                    {idx < numbers.length - 1 && <span className="mx-1" style={{ color: '#000' }}>+</span>}
+                                                                </span>
+                                                            ))}
+                                                            <span className="mx-1" style={{ color: '#000' }}>=</span>
+                                                            <span className="font-bold" style={{ color: '#000' }}>{rightPart}</span>
+                                                        </div>
+                                                    );
+                                                })()
+                                            ) : diceResult.length === 3 ? (
+                                                // 如果没有格式化结果，使用数组计算
+                                                <div className="flex items-center gap-1 flex-wrap">
+                                                    {diceResult.map((num, idx) => (
+                                                        <span key={idx} className="flex items-center">
+                                                            <span
+                                                                className="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-semibold"
+                                                                style={{
+                                                                    backgroundColor: '#e3f2fd',
+                                                                    color: '#1976d2',
+                                                                    border: '1px solid #90caf9',
+                                                                    minWidth: '24px',
+                                                                    height: '24px',
+                                                                }}
+                                                            >
+                                                                {num}
+                                                            </span>
+                                                            {idx < 2 && <span className="mx-1" style={{ color: '#000' }}>+</span>}
+                                                        </span>
+                                                    ))}
+                                                    <span className="mx-1" style={{ color: '#000' }}>=</span>
+                                                    <span className="font-bold" style={{ color: '#000' }}>{analysis.total}</span>
+                                                </div>
+                                            ) : (
+                                                <span>-</span>
+                                            )}
+                                        </td>
+                                        
+                                        {/* 特码 */}
+                                        <td className="px-3 py-2.5 text-xs border border-gray-300" style={{ color: '#000' }}>
+                                            {/* 特码列留空 */}
+                                        </td>
+                                        
+                                        {/* 双面 */}
+                                        <td className="px-3 py-2.5 text-xs border border-gray-300" style={{ color: '#d32f2f', fontWeight: 500 }}>
+                                            {doubleSide || '-'}
+                                        </td>
+                                        
+                                        {/* 极值 */}
+                                        <td className="px-3 py-2.5 text-xs border border-gray-300" style={{ color: '#000' }}>
+                                            {extremeValue || '-'}
+                                        </td>
+                                        
+                                        {/* 形态 */}
+                                        <td className="px-3 py-2.5 text-xs border border-gray-300" style={{ 
+                                            color: pattern === '对子' || pattern === '顺子' ? '#2e7d32' : '#000',
+                                            fontWeight: pattern === '对子' || pattern === '顺子' ? 500 : 400,
+                                        }}>
+                                            {pattern || '-'}
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                    
+                    {/* 分页 */}
                     <div className="flex justify-center gap-2 mt-4">
                         <button
                             onClick={() => setPageIndex((p) => Math.max(1, p - 1))}
@@ -339,7 +468,7 @@ export default function GlobalHistoryPage() {
                         </span>
                         <button
                             onClick={() => setPageIndex((p) => p + 1)}
-                            disabled={resultsData.length < pageSize} // Simple check
+                            disabled={resultsData.length < pageSize}
                             className="px-4 py-2 bg-bg-dark border border-border rounded-lg text-sm disabled:opacity-50"
                         >
                             下一页
@@ -359,8 +488,10 @@ export default function GlobalHistoryPage() {
                 <div className="space-y-3">
                     {myBetsData.map((record) => {
                     const analysis = analyzeDice(record.outCome || []);
-                    // Calculate totals from myBets
-                    const totalBet = record.myBets.reduce((sum, bet) => sum + bet.amount, 0);
+                    // Calculate totals from myBets (确保 myBets 存在)
+                    const totalBet = record.myBets && Array.isArray(record.myBets) 
+                        ? record.myBets.reduce((sum, bet) => sum + (bet.amount || 0), 0)
+                        : 0;
                     const totalWin = record.winAmount || 0; // The API should ideally return winAmount for the round, or we sum up
                     // Actually, GlobalDiceQuery has winAmount
                     
@@ -386,14 +517,18 @@ export default function GlobalHistoryPage() {
                         <div className="mb-3">
                             <p className="text-xs text-text-secondary mb-2">投注内容</p>
                             <div className="flex flex-wrap gap-2">
-                            {record.myBets.map((bet, idx) => (
-                                <span
-                                key={idx}
-                                className="px-2 py-1 bg-bg-medium rounded text-xs"
-                                >
-                                {getBetName(bet.chooseId)} {bet.amount} USDT
-                                </span>
-                            ))}
+                            {record.myBets && Array.isArray(record.myBets) && record.myBets.length > 0 ? (
+                                record.myBets.map((bet, idx) => (
+                                    <span
+                                    key={idx}
+                                    className="px-2 py-1 bg-bg-medium rounded text-xs"
+                                    >
+                                    {getBetName(bet.chooseId)} {bet.amount} USDT
+                                    </span>
+                                ))
+                            ) : (
+                                <span className="text-xs text-text-disabled">暂无投注</span>
+                            )}
                             </div>
                         </div>
 

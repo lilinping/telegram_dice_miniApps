@@ -111,17 +111,22 @@ export default function ChipSelector({ value, onChange }: ChipSelectorProps) {
         background: 'linear-gradient(180deg, rgba(26, 26, 26, 0.95) 0%, rgba(13, 13, 13, 0.95) 100%)',
         backdropFilter: 'blur(10px)',
         borderTop: '1px solid rgba(212, 175, 55, 0.1)',
-        height: '90px', // 固定高度，防止重叠
+        height: '90px',
         minHeight: '90px',
         maxHeight: '90px',
-        padding: '8px 12px',
-        overflow: 'hidden',
+        padding: '6px 0px',
+        overflow: 'visible',
+        width: '100%',
+        maxWidth: '100%',
+        boxSizing: 'border-box',
       }}
     >
       <div
-        className="flex justify-between items-center w-full h-full"
+        className="flex items-center justify-center w-full h-full"
         style={{
-          gap: '6px', // 减少间距，让筹码更紧凑
+          gap: '2px', // 极小间距，紧凑排列
+          paddingLeft: '2px',
+          paddingRight: '2px',
         }}
       >
         {chips.map((chip) => {
@@ -130,10 +135,10 @@ export default function ChipSelector({ value, onChange }: ChipSelectorProps) {
           return (
             <div
               key={chip.value}
-              className="flex flex-col items-center gap-1 flex-1"
+              className="flex flex-col items-center"
               style={{ 
                 position: 'relative',
-                minWidth: '0', // 允许flex收缩
+                flexShrink: 0,
               }}
             >
               {/* 筹码 */}
@@ -159,15 +164,15 @@ export default function ChipSelector({ value, onChange }: ChipSelectorProps) {
                 <button
                   onClick={() => handleChipClick(chip.value)}
                   className={cn(
-                    'relative z-10 w-12 h-12 rounded-full transition-all duration-200 active:scale-95'
+                    'relative z-10 w-11 h-11 rounded-full transition-all duration-200 active:scale-95'
                   )}
                   style={{
                     background: chip.gradient,
                     border: isSelected ? '2px solid var(--gold-bright)' : '2px solid transparent',
                     boxShadow: isSelected
-                      ? `0 0 16px rgba(255, 215, 0, 0.3), 0 6px 12px rgba(0, 0, 0, 0.4), inset 0 2px 4px rgba(255, 255, 255, 0.3), inset 0 -2px 4px rgba(0, 0, 0, 0.3)`
-                      : `inset 0 2px 4px rgba(255, 255, 255, 0.25), inset 0 -2px 4px rgba(0, 0, 0, 0.25), 0 4px 8px rgba(0, 0, 0, 0.3)`,
-                    filter: isSelected ? 'drop-shadow(0 0 6px rgba(255, 215, 0, 0.3))' : undefined,
+                      ? `0 0 12px rgba(255, 215, 0, 0.3), 0 4px 8px rgba(0, 0, 0, 0.4), inset 0 2px 4px rgba(255, 255, 255, 0.3), inset 0 -2px 4px rgba(0, 0, 0, 0.3)`
+                      : `inset 0 2px 4px rgba(255, 255, 255, 0.25), inset 0 -2px 4px rgba(0, 0, 0, 0.25), 0 3px 6px rgba(0, 0, 0, 0.3)`,
+                    filter: isSelected ? 'drop-shadow(0 0 4px rgba(255, 215, 0, 0.3))' : undefined,
                   }}
                 >
                   {/* 中心内容 */}
@@ -191,7 +196,9 @@ export default function ChipSelector({ value, onChange }: ChipSelectorProps) {
                 style={{
                   color: isSelected ? 'var(--gold-bright)' : 'rgba(255, 255, 255, 0.6)',
                   transition: 'color 0.3s',
-                  fontSize: '10px',
+                  fontSize: '9px',
+                  marginTop: '1px',
+                  lineHeight: '1',
                 }}
               >
                 {chip.shortLabel}

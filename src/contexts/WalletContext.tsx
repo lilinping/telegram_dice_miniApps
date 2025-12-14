@@ -90,8 +90,12 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       refreshBalance();
     } else if (user && !isInitialized) {
       console.log('⏳ WalletContext: 用户已登录但后端未初始化，等待中...', user.id);
+    } else if (user) {
+      // 即使 isInitialized 为 false，也尝试刷新余额（可能后端初始化很快）
+      console.log('🔄 WalletContext: 用户已登录，尝试刷新余额...', user.id);
+      refreshBalance();
     }
-  }, [user, isInitialized]); // 移除 refreshBalance 依赖
+  }, [user, isInitialized, refreshBalance]);
   
   // 添加调试日志：监控余额变化
   useEffect(() => {

@@ -31,6 +31,7 @@ interface BetCellProps {
   className?: string;
   size?: 'small' | 'medium' | 'large';
   type?: 'primary' | 'points' | 'combination' | 'triple';
+  theme?: 'classic' | 'green';
 }
 
 export default function BetCell({
@@ -49,6 +50,7 @@ export default function BetCell({
   className,
   size = 'medium',
   type = 'primary',
+  theme = 'classic',
 }: BetCellProps) {
   const hasAmount = amount > 0;
 
@@ -143,6 +145,35 @@ export default function BetCell({
       };
     }
 
+    if (theme === 'green') {
+      const greenBase = {
+        background: 'linear-gradient(180deg, #0f6b45 0%, #0b4d34 100%)',
+        border: '2px solid #d6e8c2',
+        boxShadow: 'inset 0 2px 4px rgba(0, 0, 0, 0.28)',
+      };
+
+      const greenActive = {
+        background: 'linear-gradient(180deg, #1d8150 0%, #0f6b45 100%)',
+        border: '2px solid #f4f2d6',
+        boxShadow: 'inset 0 2px 4px rgba(0, 0, 0, 0.35), 0 0 12px rgba(244, 242, 214, 0.5)',
+      };
+
+      if (hasAmount) {
+        return type === 'points'
+          ? { ...greenActive }
+          : { ...greenActive };
+      }
+
+      if (type === 'points') {
+        return {
+          background: 'linear-gradient(180deg, #0e613f 0%, #0a4b32 100%)',
+          border: '2px solid #d6e8c2',
+          boxShadow: 'inset 0 2px 4px rgba(0, 0, 0, 0.25)',
+        };
+      }
+
+      return greenBase;
+    } else {
     if (hasAmount) {
       if (type === 'points') {
         return {
@@ -173,6 +204,7 @@ export default function BetCell({
       border: '3px solid var(--gold-primary)',
       boxShadow: 'inset 0 2px 4px rgba(0, 0, 0, 0.3), var(--shadow-sm)',
     };
+    }
   };
 
   const baseStyles = getBaseStyles();
@@ -193,6 +225,11 @@ export default function BetCell({
       )}
       style={{
         ...baseStyles,
+        ...(theme === 'green'
+          ? {
+              borderRadius: 10,
+            }
+          : {}),
       }}
     >
       {/* 主要内容区 */}
@@ -203,8 +240,9 @@ export default function BetCell({
             <h3
               className="font-display text-h3 font-black text-center leading-none"
               style={{
-                color: '#FFFFFF',
-                textShadow: '0 2px 4px rgba(0, 0, 0, 0.5)',
+                color: theme === 'green' ? '#FFFFFF' : '#FFFFFF',
+                textShadow: theme === 'green' ? '0 2px 3px rgba(0,0,0,0.4)' : '0 2px 4px rgba(0, 0, 0, 0.5)',
+                letterSpacing: theme === 'green' ? '1px' : undefined,
               }}
             >
               {name}
@@ -222,7 +260,11 @@ export default function BetCell({
             {odds && (
               <span
                 className="text-small font-bold"
-                style={getOddsColor(odds)}
+                style={
+                  theme === 'green'
+                    ? { color: '#f2d04f', textShadow: '0 1px 2px rgba(0,0,0,0.35)' }
+                    : getOddsColor(odds)
+                }
               >
                 {odds}
               </span>
@@ -236,8 +278,8 @@ export default function BetCell({
             <span
               className="font-mono font-black leading-none"
               style={{
-                color: '#1E1203',
-                textShadow: '0 1px 2px rgba(255, 255, 255, 0.5)',
+                color: theme === 'green' ? '#f7f7f7' : '#1E1203',
+                textShadow: theme === 'green' ? '0 1px 2px rgba(0,0,0,0.35)' : '0 1px 2px rgba(255, 255, 255, 0.5)',
                 fontSize: '22px',
                 lineHeight: 1,
               }}
@@ -248,8 +290,8 @@ export default function BetCell({
               <span
                 className="font-bold font-mono"
                 style={{
-                  color: ['4', '17'].includes(name) ? '#C08222' : '#4A2A0A',
-                  textShadow: 'none',
+                  color: theme === 'green' ? '#f2d04f' : ['4', '17'].includes(name) ? '#C08222' : '#4A2A0A',
+                  textShadow: theme === 'green' ? '0 1px 2px rgba(0,0,0,0.35)' : 'none',
                   fontSize: '10px',
                   lineHeight: 1,
                 }}

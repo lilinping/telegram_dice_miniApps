@@ -106,7 +106,12 @@ export interface DiceEntity {
 // 全局开奖结果
 export interface GlobalDiceResult {
   number: string | number // 期数
-  outCome: number[]       // 开奖结果 [1, 2, 3]
+  outCome?: number[]      // 开奖结果 [1, 2, 3] (兼容旧字段)
+  result?: number[]       // 开奖结果 [1, 2, 3] (新字段)
+  resultDisplay?: string  // 格式化的结果显示，如 "5 + 4 + 3 = 12"
+  dualRet?: string        // 双面结果，如 "大双"、"小单" 等
+  format?: string         // 形态，如 "杂六"、"对子"、"顺子"
+  limitValue?: string    // 极值，如 "无"、"极大"、"极小"
   createTime: string      // 开奖时间
   status: 'RUNNING' | 'FINISHED' | 'SEALED' // 状态
 }

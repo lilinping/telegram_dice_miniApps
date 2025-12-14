@@ -30,6 +30,20 @@ const navItems: NavItem[] = [
     ),
   },
   {
+    label: '全局',
+    path: '/global-game',
+    icon: (
+      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    ),
+    activeIcon: (
+      <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.94-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" />
+      </svg>
+    ),
+  },
+  {
     label: '记录',
     path: '/history',
     icon: (
@@ -94,7 +108,9 @@ const BottomNav: React.FC = () => {
     <nav className="fixed bottom-0 left-0 right-0 z-40 bg-bg-dark border-t border-primary-gold/30 safe-bottom">
       <div className="flex items-center justify-around h-16 max-w-md mx-auto">
         {navItems.map((item) => {
-          const isActive = pathname === item.path
+          // 支持路径前缀匹配（如 /global-game 和 /global-history 都匹配 /global-game）
+          const isActive = pathname === item.path || 
+            (item.path === '/global-game' && pathname?.startsWith('/global'))
 
           return (
             <Link
