@@ -76,7 +76,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   // 中奖信息状态
   const [winAmount, setWinAmount] = useState(0);
   const [hasWon, setHasWon] = useState(false);
-  const [selectedChip, setSelectedChip] = useState(100);
+  const [selectedChip, setSelectedChip] = useState(1);
   const [bets, setBets] = useState<Record<string, number>>({});
   const [diceResults, setDiceResults] = useState<number[]>([]);
   const [diceOptions, setDiceOptions] = useState<Map<number, DiceChooseVO>>(new Map());

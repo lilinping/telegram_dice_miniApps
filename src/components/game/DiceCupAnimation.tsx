@@ -57,6 +57,7 @@ export default function DiceCupAnimation({
   const diceResultsRef = useRef<number[]>([]); // 存储最新的 diceResults，解决闭包问题
   const initialQuatsRef = useRef<CANNON.Quaternion[]>([]); // 保存引导开始时的初始四元数
   const initialVelocitiesRef = useRef<number[]>([]); // 保存引导开始时的初始速度
+  const [diceStopped, setDiceStopped] = useState(false); // 跟踪骰子是否已完全停止
 
   // 配置参数
   const DICE_SIZE = 1.3;
@@ -634,6 +635,7 @@ export default function DiceCupAnimation({
           correctionFrameCountRef.current = 0;
           initialQuatsRef.current = [];
           initialVelocitiesRef.current = [];
+          setDiceStopped(true); // 标记骰子已停止
         }
       }
 
@@ -1056,6 +1058,7 @@ export default function DiceCupAnimation({
         lastResultsKeyRef.current = key;
         hasCorrectedRef.current = false;
         isCorrectingRef.current = false;
+        setDiceStopped(false); // 重置骰子停止状态
         correctionFrameCountRef.current = 0;
       }
       
@@ -1181,9 +1184,10 @@ export default function DiceCupAnimation({
     ? globalOutcome.reduce((sum, val) => sum + val, 0) 
     : null;
 
-  // 在全局模式下，当有结果且状态为 settled 或 rolling（结果已出现）时显示结果
+  // 在全局模式下，当有结果且骰子完全停止后才显示结果卡片
   const showOverlay = (gameState === 'revealing' || gameState === 'settled' || 
-                       (gameState === 'rolling' && diceResults.length === 3)) && diceResults.length === 3;
+                       (gameState === 'rolling' && diceResults.length === 3)) && 
+                       diceResults.length === 3 && diceStopped;
   // 为结果面板预留更高的底部空间，避免遮挡骰盅
   const overlayPadding = showOverlay ? (fullscreen ? 460 : 340) : 0;
 

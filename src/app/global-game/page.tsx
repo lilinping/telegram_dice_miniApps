@@ -30,7 +30,7 @@ export default function GlobalGamePage() {
   const currentRoundRef = useRef<string>('Loading...'); // 使用 ref 存储当前期号，避免闭包问题
   const [countdown, setCountdown] = useState(300); // 5分钟
   const [bets, setBets] = useState<Record<string, number>>({});
-  const [selectedChip, setSelectedChip] = useState(100);
+  const [selectedChip, setSelectedChip] = useState(1);
   const [winAmount, setWinAmount] = useState(0);
   const [hasWon, setHasWon] = useState(false);
   const [showWinAnimation, setShowWinAnimation] = useState(false);
@@ -217,7 +217,7 @@ export default function GlobalGamePage() {
                                    (latest.status === 'RUNNING' || latest.status === 'SEALED') && 
                                    !betsLoadedRef.current && 
                                    (currentRoundNumber === currentRound || isNewRound || currentRound === 'Loading...');
-             
+                    
              // 只在倒计时结束时才请求用户下注信息，而不是每10秒轮询
              // 这里只在新一期开始时加载一次
              if (shouldLoadBets && isNewRound) {
@@ -392,6 +392,10 @@ export default function GlobalGamePage() {
               setDiceResults([]);
               setMyBets([]); // 清空我的下注记录
               setGlobalOutcome(null); // 清空全局结果
+              // 重置触发标记，并主动同步下一期，避免长时间停留页面不刷新
+              countdownEndTriggeredRef.current = false;
+              setCountdown(300); // 临时重置本地倒计时，等待 syncState 拉取最新 openTime
+              syncState();
               // 不重置 isQueryingResultRef，因为已经处理过了
             }, 2000);
           }, 5000);
@@ -421,6 +425,22 @@ export default function GlobalGamePage() {
     }
   }, [user, bets, playWinSmall, hapticWin, refreshBalance, lastProcessedRound]);
 
+  // 轻量定时同步：避免长时间停留页面后倒计时不刷新新一期
+  useEffect(() => {
+    const interval = setInterval(() => {
+      // 开奖和结算阶段不拉取，避免干扰动画和结果流程
+      if (gameState === 'rolling' || gameState === 'settled') return;
+      // 避免与结果查询并发
+      if (isQueryingResultRef.current) return;
+      // 倒计时已到或已触发过结束流程时，主动同步
+      if (countdown <= 0 || countdownEndTriggeredRef.current || currentRoundRef.current === 'Loading...') {
+        syncState();
+      }
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [gameState, countdown, syncState]);
+
   // 倒计时逻辑
   useEffect(() => {
     // 只在组件首次挂载时调用一次 syncState，避免重复请求
@@ -440,7 +460,7 @@ export default function GlobalGamePage() {
             // 倒计时结束，切换到开奖状态
             // 防止重复触发（倒计时可能多次检查 next <= 0）
             if (countdownEndTriggeredRef.current) {
-              return next; // 已经触发过，直接返回
+              return 0; // 已经触发过，保持为0
             }
             
             // 检查是否已经处理过这一期，避免重复查询（使用 ref 避免闭包问题）
@@ -465,6 +485,7 @@ export default function GlobalGamePage() {
             } else {
               console.log('⏸️ 该期结果已处理或期号未加载，跳过倒计时结束处理，期号:', currentRoundValue);
             }
+            return 0; // 倒计时结束后固定为0，等待下一期刷新
         }
         return next;
       });
@@ -579,6 +600,14 @@ export default function GlobalGamePage() {
 
   const confirmBets = async () => {
       if (!user) return;
+      
+      // 验证最小下注（1U）
+      const MIN_BET = 1;
+      const hasBelowMin = Object.values(bets).some(amount => amount < MIN_BET);
+      if (hasBelowMin) {
+          toast.error(`单注金额不得少于 ${MIN_BET}U`);
+          return false;
+      }
       
       let successCount = 0;
       const betEntries = Object.entries(bets);
@@ -966,8 +995,38 @@ export default function GlobalGamePage() {
 
       {/* 状态提示 */}
       {gameState === 'sealed' && (
-          <div className="w-full bg-red-900/50 text-red-200 text-center py-1 text-xs animate-pulse">
-              ⚠️ 已封盘，停止下注
+          <div className="w-full bg-red-900/50 text-red-200 text-center py-2 text-xs">
+            <div className="flex items-center justify-center gap-2 flex-wrap">
+              <span className="animate-pulse">⚠️ 已封盘，停止下注</span>
+              {totalBetAmount > 0 && (
+                <>
+                  <span className="text-yellow-300 font-semibold">
+                    投注总额: ${totalBetAmount.toLocaleString()}
+                  </span>
+                  {multiplier > 1 && (
+                    <span className="text-orange-400 font-semibold">
+                      倍数: {multiplier}x
+                    </span>
+                  )}
+                </>
+              )}
+              </div>
+            </div>
+          )}
+
+      {/* 投注信息提示 - 只要用户有投注就显示 */}
+      {totalBetAmount > 0 && gameState !== 'sealed' && gameState !== 'rolling' && gameState !== 'settled' && (
+          <div className="w-full bg-blue-900/50 text-blue-200 text-center py-2 text-xs">
+            <div className="flex items-center justify-center gap-2 flex-wrap">
+              <span className="text-yellow-300 font-semibold">
+                当前投注: ${totalBetAmount.toLocaleString()}
+              </span>
+              {multiplier > 1 && (
+                <span className="text-orange-400 font-semibold">
+                  倍数: {multiplier}x
+                </span>
+              )}
+              </div>
             </div>
           )}
 

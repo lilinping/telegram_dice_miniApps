@@ -410,8 +410,8 @@ export default function WithdrawPage() {
                       </div>
                       <div className="flex items-center gap-2">
                         <p className="text-xs font-mono text-text-secondary break-all flex-1">
-                          {addr.address}
-                        </p>
+                        {addr.address}
+                      </p>
                         {/* 复制地址按钮 */}
                         <button
                           onClick={async () => {
