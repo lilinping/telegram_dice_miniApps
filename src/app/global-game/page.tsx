@@ -313,15 +313,16 @@ export default function GlobalGamePage() {
     const SHAKE_ANIMATION_DELAY = 2000; // 摇盅动画时间
     
     try {
-      // 获取当前期号的开奖结果
-      const response = await apiService.getGlobalLatestResults();
-      if (response.success && response.data && response.data.length > 0) {
-        const latest = response.data[0];
+      // 使用新接口获取特定期号的开奖结果
+      const response = await apiService.getGlobalSingleResult(currentRound);
+      
+      if (response.success && response.data) {
+        const result = response.data;
         
-        // 检查是否是我们当前期号的结果
-        if (latest.number.toString() === currentRound && latest.status === 'FINISHED') {
-          console.log('✅ 获取到开奖结果:', latest);
-          setLastProcessedRound(latest.number.toString());
+        // 检查是否已开奖
+        if (result.status === 'FINISHED') {
+          console.log('✅ 获取到开奖结果:', result);
+          setLastProcessedRound(result.number.toString());
           
           // 获取我的中奖信息（可以提前获取，但不影响动画）
           let winValue = 0;
@@ -336,8 +337,8 @@ export default function GlobalGamePage() {
           
           // 延迟设置 diceResults，确保摇盅动画完成后再开始引导
           setTimeout(() => {
-            console.log('🎲 摇盅动画完成，设置开奖结果:', latest.outCome || latest.result);
-            setDiceResults(latest.outCome || latest.result || []);
+            console.log('🎲 摇盅动画完成，设置开奖结果:', result.outCome || result.result);
+            setDiceResults(result.outCome || result.result || []);
             
             // 设置中奖信息
             setWinAmount(winValue);
@@ -363,11 +364,17 @@ export default function GlobalGamePage() {
           }, 6500); // 增加总时间，确保动画完整播放
         } else {
           // 如果还没有开奖结果，等待一下再重试
-          console.log('⏳ 开奖结果尚未生成，等待中...');
+          console.log('⏳ 开奖结果尚未生成，状态:', result.status, '等待中...');
           setTimeout(() => {
             handleCountdownEnd();
           }, 2000);
         }
+      } else {
+        // API 调用失败，重试
+        console.log('⏳ 获取开奖结果失败，等待重试...');
+        setTimeout(() => {
+          handleCountdownEnd();
+        }, 2000);
       }
     } catch (error) {
       console.error('❌ 获取开奖结果失败:', error);

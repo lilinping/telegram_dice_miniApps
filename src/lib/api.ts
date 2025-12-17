@@ -473,6 +473,13 @@ class ApiService {
   }
 
   /**
+   * 查看某一期的开奖结果
+   */
+  async getGlobalSingleResult(number: string): Promise<BackendResponse<GlobalDiceResult>> {
+    return this.request<GlobalDiceResult>(`/dice/global/single/result/${number}`)
+  }
+
+  /**
    * 查看某一局全局骰宝的信息
    */
   async getGlobalGameInfo(userId: string, number: string): Promise<BackendResponse<GlobalDiceQuery>> {
