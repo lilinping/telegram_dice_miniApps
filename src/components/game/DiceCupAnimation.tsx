@@ -718,8 +718,13 @@ export default function DiceCupAnimation({
 
   // 摇盅动画 - 使用物理引擎但严格控制速度
   const shakeDice = () => {
-    if (isShakingRef.current || !glassCoverRef.current || !worldRef.current) return;
+    console.log('🎲 shakeDice 被调用, isShaking:', isShakingRef.current, 'glassCover:', !!glassCoverRef.current, 'world:', !!worldRef.current);
+    if (isShakingRef.current || !glassCoverRef.current || !worldRef.current) {
+      console.log('⚠️ shakeDice 提前返回');
+      return;
+    }
     isShakingRef.current = true;
+    console.log('✅ shakeDice 开始执行');
 
     // 唤醒所有骰子（只处理前3个）
     const diceCount = Math.min(diceBodiesRef.current.length, 3);
@@ -984,7 +989,10 @@ export default function DiceCupAnimation({
 
   // 根据游戏状态触发动画
   useEffect(() => {
+    console.log('🎮 DiceCupAnimation gameState 变化:', gameState);
+    
     if (gameState === 'rolling') {
+      console.log('🎲 开始 rolling 状态，准备摇盅动画');
       // 重置校正标志，不管摇盅状态
       hasCorrectedRef.current = false;
       isCorrectingRef.current = false;
@@ -992,11 +1000,10 @@ export default function DiceCupAnimation({
       // 清空旧结果 key，等待新结果
       lastResultsKeyRef.current = null;
 
-      // 延迟一点开始摇盅，让用户看到初始状态
-      const timer = setTimeout(() => {
-        shakeDice();
-      }, 300);
-      return () => clearTimeout(timer);
+      // 立即开始摇盅，不要延迟
+      console.log('🎲 调用 shakeDice()');
+      shakeDice();
+      return;
     } else if (gameState === 'betting') {
       // 重置状态
       isShakingRef.current = false;
