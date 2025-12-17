@@ -48,6 +48,8 @@ export default function DiceCupAnimation({
   const correctionFrameCountRef = useRef(0); // 引导帧计数，用于减少验证频率
   const lastResultsKeyRef = useRef<string | null>(null); // 记录上一局结果，检测新局重置
   const correctionStartRef = useRef<number>(0); // 柔性矫正开始时间
+  const sceneInitializedRef = useRef(false); // 标记场景是否已初始化
+  const pendingShakeRef = useRef(false); // 标记是否有待执行的摇盅
   const diceResultsRef = useRef<number[]>([]); // 存储最新的 diceResults，解决闭包问题
   const initialQuatsRef = useRef<CANNON.Quaternion[]>([]); // 保存引导开始时的初始四元数
   const initialVelocitiesRef = useRef<number[]>([]); // 保存引导开始时的初始速度
@@ -653,6 +655,17 @@ export default function DiceCupAnimation({
 
     };
     animate();
+    
+    // 标记场景初始化完成
+    sceneInitializedRef.current = true;
+    console.log('✅ 场景初始化完成');
+    
+    // 如果有待执行的摇盅，立即执行
+    if (pendingShakeRef.current) {
+      console.log('🎲 执行待处理的摇盅');
+      pendingShakeRef.current = false;
+      shakeDice();
+    }
 
     // 窗口大小调整
     const handleResize = () => {
@@ -678,6 +691,13 @@ export default function DiceCupAnimation({
 
     // 清理
     return () => {
+      // 重置所有标志
+      sceneInitializedRef.current = false;
+      pendingShakeRef.current = false;
+      isShakingRef.current = false;
+      hasCorrectedRef.current = false;
+      isCorrectingRef.current = false;
+      
       window.removeEventListener('resize', handleResize);
       cancelAnimationFrame(animationFrameRef.current);
       if (shakeIntervalRef.current) {
@@ -727,92 +747,81 @@ export default function DiceCupAnimation({
     isShakingRef.current = true;
     console.log('✅ shakeDice 开始执行');
 
-    // 唤醒所有骰子
+    // 唤醒所有骰子并给予初始速度
     const diceCount = Math.min(diceBodiesRef.current.length, 3);
+    console.log('🎲 骰子数量:', diceCount);
+    
+    // 给予初始速度
     for (let i = 0; i < diceCount; i++) {
       const b = diceBodiesRef.current[i];
       if (b) {
         b.wakeUp();
-        b.velocity.set(0, 0, 0);
-        b.angularVelocity.set(0, 0, 0);
+        b.velocity.set(
+          (Math.random() - 0.5) * 10,
+          Math.random() * 6 + 4,
+          (Math.random() - 0.5) * 10
+        );
+        b.angularVelocity.set(
+          (Math.random() - 0.5) * 15,
+          (Math.random() - 0.5) * 15,
+          (Math.random() - 0.5) * 15
+        );
       }
     }
 
     let shakeFrames = 0;
-    const maxFrames = isMobile ? 75 : 90;
-    const baseForce = isMobile ? 80 : 100;
+    const maxFrames = isMobile ? 90 : 110;
     
-    // 为每个骰子生成固定的随机种子
-    const seeds: Array<{x: number, y: number, z: number}> = [];
-    for (let i = 0; i < diceCount; i++) {
-      seeds.push({
-        x: Math.random() * Math.PI * 2,
-        y: Math.random() * Math.PI * 2,
-        z: Math.random() * Math.PI * 2,
-      });
-    }
-    
-    // 记录上一帧的角速度，用于平滑过渡
-    const lastAngularSpeeds: number[] = [0, 0, 0];
-
     shakeIntervalRef.current = setInterval(() => {
       shakeFrames++;
       const progress = shakeFrames / maxFrames;
       
-      // 玻璃罩震动
+      // 玻璃罩震动（逐渐减弱）
       if (glassCoverRef.current) {
-        const offset = 0.2 * (1 - progress * 0.7);
-        glassCoverRef.current.position.x = Math.sin(shakeFrames * 0.3) * offset;
-        glassCoverRef.current.position.z = Math.cos(shakeFrames * 0.4) * offset;
+        const intensity = 0.15 * (1 - progress);
+        glassCoverRef.current.position.x = Math.sin(shakeFrames * 0.25) * intensity;
+        glassCoverRef.current.position.z = Math.cos(shakeFrames * 0.3) * intensity;
       }
 
-      // 给骰子施加力
       for (let i = 0; i < diceCount; i++) {
         const body = diceBodiesRef.current[i];
         if (!body) continue;
         
-        const seed = seeds[i];
-        const t = shakeFrames * 0.1;
+        body.wakeUp();
         
-        // 力的大小线性衰减：100% -> 20%
-        const forceScale = 1 - progress * 0.8;
+        // 简单的力衰减：从1.0线性减小到0
+        const forceScale = Math.max(0, 1 - progress * 1.2); // 在83%时力变为0
         
-        // 使用正弦波生成平滑的力
-        const fx = Math.sin(t + seed.x) * baseForce * forceScale;
-        const fy = (Math.sin(t * 0.7 + seed.y) * 0.5 + 0.5) * baseForce * 0.5 * forceScale;
-        const fz = Math.sin(t * 1.1 + seed.z) * baseForce * forceScale;
-        
-        // 向中心的回弹力
-        const toCenterX = -body.position.x * 3;
-        const toCenterZ = -body.position.z * 3;
-        
-        // 施加力
-        body.applyForce(
-          new CANNON.Vec3(fx + toCenterX, fy, fz + toCenterZ),
-          body.position
-        );
-        
-        // 关键：平滑限制速度，避免突变
-        const currentAngSpeed = body.angularVelocity.length();
-        const maxAngSpeed = 20 * (1 - progress * 0.5); // 最大角速度随时间减小
-        const minAngSpeed = 5 * (1 - progress * 0.8);  // 最小角速度
-        
-        // 平滑过渡：当前速度与上一帧速度的加权平均
-        const smoothedSpeed = lastAngularSpeeds[i] * 0.7 + currentAngSpeed * 0.3;
-        lastAngularSpeeds[i] = smoothedSpeed;
-        
-        // 如果速度超出范围，平滑调整
-        if (currentAngSpeed > maxAngSpeed) {
-          body.angularVelocity.scale(0.95); // 缓慢减速，不要突然停止
-        } else if (currentAngSpeed < minAngSpeed && progress < 0.8) {
-          // 速度太慢时，轻微加速
-          body.angularVelocity.scale(1.05);
+        if (forceScale > 0) {
+          // 向中心的回弹力
+          const toCenterX = -body.position.x * 3;
+          const toCenterZ = -body.position.z * 3;
+          
+          // 施加力（使用 applyForce，更平滑）
+          body.applyForce(
+            new CANNON.Vec3(
+              (toCenterX + (Math.random() - 0.5) * 40) * forceScale,
+              (Math.random() * 30 + 20) * forceScale,
+              (toCenterZ + (Math.random() - 0.5) * 40) * forceScale
+            ),
+            body.position
+          );
         }
         
-        // 限制线速度
-        const currentLinSpeed = body.velocity.length();
-        if (currentLinSpeed > 10) {
-          body.velocity.scale(10 / currentLinSpeed);
+        // 全程应用阻尼，让速度逐渐减小
+        // 阻尼系数从0.995逐渐减小到0.97
+        const damping = 0.995 - progress * 0.025;
+        body.velocity.scale(damping);
+        body.angularVelocity.scale(damping);
+        
+        // 限制最大速度
+        const linSpeed = body.velocity.length();
+        if (linSpeed > 12) {
+          body.velocity.scale(12 / linSpeed);
+        }
+        const angSpeed = body.angularVelocity.length();
+        if (angSpeed > 18) {
+          body.angularVelocity.scale(18 / angSpeed);
         }
       }
 
@@ -826,28 +835,16 @@ export default function DiceCupAnimation({
           glassCoverRef.current.position.z = 0;
         }
         
-        // 摇盅结束，让骰子自然减速
-        for (let i = 0; i < diceCount; i++) {
-          const body = diceBodiesRef.current[i];
-          if (body) {
-            body.angularVelocity.scale(0.5);
-            body.velocity.scale(0.3);
-          }
-        }
+        isShakingRef.current = false;
+        console.log('🎲 摇盅动画完成');
         
-        // 延迟设置 isShakingRef 为 false，确保状态转换平滑
-        setTimeout(() => {
-          isShakingRef.current = false;
-          console.log('🎲 摇盅动画完成，isShaking 设为 false');
-          
-          // 摇盅结束后，检查是否需要引导
-          // 使用 ref 获取最新的 diceResults
-          const currentResults = diceResultsRef.current;
-          if (currentResults.length === 3 && !isCorrectingRef.current && !hasCorrectedRef.current) {
-            console.log('🎯 摇盅结束，开始引导:', currentResults);
-            correctDiceToResults();
-          }
-        }, 100); // 短暂延迟，确保状态同步
+        // 摇盅结束后，检查是否需要引导
+        // 使用 ref 获取最新的 diceResults
+        const currentResults = diceResultsRef.current;
+        if (currentResults.length === 3 && !isCorrectingRef.current && !hasCorrectedRef.current) {
+          console.log('🎯 摇盅结束，开始引导:', currentResults);
+          correctDiceToResults();
+        }
       }
     }, 16);
   };
@@ -994,7 +991,14 @@ export default function DiceCupAnimation({
       // 清空旧结果 key，等待新结果
       lastResultsKeyRef.current = null;
 
-      // 立即开始摇盅，不要延迟
+      // 检查场景是否已初始化
+      if (!sceneInitializedRef.current) {
+        console.log('⏳ 场景尚未初始化，设置待执行摇盅标志');
+        pendingShakeRef.current = true;
+        return;
+      }
+
+      // 立即开始摇盅
       console.log('🎲 调用 shakeDice()');
       shakeDice();
       return;

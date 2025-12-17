@@ -29,7 +29,7 @@ export default function GlobalGamePage() {
   const [currentRound, setCurrentRound] = useState<string>('Loading...');
   const [countdown, setCountdown] = useState(300); // 5分钟
   const [bets, setBets] = useState<Record<string, number>>({});
-  const [selectedChip, setSelectedChip] = useState(100);
+  const [selectedChip, setSelectedChip] = useState(1);
   const [winAmount, setWinAmount] = useState(0);
   const [hasWon, setHasWon] = useState(false);
   const [showWinAnimation, setShowWinAnimation] = useState(false);
