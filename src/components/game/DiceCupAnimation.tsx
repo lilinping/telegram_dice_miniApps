@@ -489,7 +489,11 @@ export default function DiceCupAnimation({
       const currentResults = diceResultsRef.current;
       // 关键修复：只有在摇盅结束后才开始引导
       // isShakingRef.current 为 true 时，物理引擎继续运行，骰子自然转动
-      const canGuide = currentResults.length === 3 && !hasCorrectedRef.current && !isShakingRef.current;
+      // 增加额外检查：确保摇盅定时器已清理
+      const canGuide = currentResults.length === 3 && 
+                       !hasCorrectedRef.current && 
+                       !isShakingRef.current && 
+                       shakeIntervalRef.current === null;
       const diceCount = Math.min(diceBodiesRef.current.length, 3);
 
       // 始终运行物理引擎处理位置和碰撞（包括引导时）
@@ -763,12 +767,19 @@ export default function DiceCupAnimation({
         // 使用完全线性的衰减曲线：从1.0线性减小到0.3
         const forceScale = 1 - progress * 0.7; // 线性衰减：1.0 -> 0.3
         
-        // 限制最大速度，避免速度过快
-        const maxVel = 15; // 最大线速度
+        // 限制最大速度，避免速度过快（关键修复：更严格的速度限制）
+        const maxVel = 12; // 降低最大线速度，避免越来越快
+        const maxAngVel = 25; // 最大角速度限制
         const currentVel = body.velocity.length();
-        const velLimitScale = currentVel > maxVel ? maxVel / currentVel : 1;
-        if (velLimitScale < 1) {
-          body.velocity.scale(velLimitScale);
+        const currentAngVel = body.angularVelocity.length();
+        
+        // 线速度限制
+        if (currentVel > maxVel) {
+          body.velocity.scale(maxVel / currentVel);
+        }
+        // 角速度限制
+        if (currentAngVel > maxAngVel) {
+          body.angularVelocity.scale(maxAngVel / currentAngVel);
         }
         
         const toCenterX = -body.position.x * 2;
@@ -823,18 +834,31 @@ export default function DiceCupAnimation({
           glassCoverRef.current.position.x = 0;
           glassCoverRef.current.position.z = 0;
         }
-        isShakingRef.current = false;
         
-        // 摇盅结束时不要突然衰减速度，让引导阶段自然接管
-        // 引导阶段会平滑处理速度衰减，避免速度变化不连续
-        
-        // 摇盅结束的瞬间，立即检查是否需要引导
-        // 如果已经有 diceResults，立即开始引导，不给骰子停下的机会
-        if (diceResults.length === 3 && !isCorrectingRef.current && !hasCorrectedRef.current) {
-          console.log('🎯 摇盅结束，立即开始引导（不等待检查）:', diceResults);
-          // 注意：不要在这里设置 hasCorrectedRef，只有在引导完成且点数正确时才设置
-          correctDiceToResults();
+        // 关键修复：摇盅结束时，先平滑减速骰子，避免突然停止
+        // 给骰子一个短暂的自然减速时间
+        for (let i = 0; i < diceCount; i++) {
+          const body = diceBodiesRef.current[i];
+          if (body) {
+            // 减速但不完全停止，让引导阶段接管
+            body.velocity.scale(0.5);
+            body.angularVelocity.scale(0.5);
+          }
         }
+        
+        // 延迟设置 isShakingRef 为 false，确保状态转换平滑
+        setTimeout(() => {
+          isShakingRef.current = false;
+          console.log('🎲 摇盅动画完成，isShaking 设为 false');
+          
+          // 摇盅结束后，检查是否需要引导
+          // 使用 ref 获取最新的 diceResults
+          const currentResults = diceResultsRef.current;
+          if (currentResults.length === 3 && !isCorrectingRef.current && !hasCorrectedRef.current) {
+            console.log('🎯 摇盅结束，开始引导:', currentResults);
+            correctDiceToResults();
+          }
+        }, 100); // 短暂延迟，确保状态同步
       }
     }, 16);
   };

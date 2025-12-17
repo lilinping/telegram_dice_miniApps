@@ -41,9 +41,22 @@ export default function GlobalGamePage() {
   const [lastRoundResult, setLastRoundResult] = useState<GlobalDiceResult | null>(null);
   const [showMultiplierSelector, setShowMultiplierSelector] = useState(false);
   const [multiplier, setMultiplier] = useState(1); // 倍投倍数，默认1倍
-  const [rememberedChip, setRememberedChip] = useState<number | null>(null); // 记住的筹码
-  const [rememberedMultiplier, setRememberedMultiplier] = useState<number | null>(null); // 记住的倍数
-  const [rememberedBets, setRememberedBets] = useState<Record<string, number>>({}); // 记住的下注区域
+  // 记住的筹码、倍数和下注区域 - 从 localStorage 恢复
+  const [rememberedChip, setRememberedChip] = useState<number | null>(() => {
+    if (typeof window === 'undefined') return null;
+    const saved = localStorage.getItem('global_dice_remembered_chip');
+    return saved ? Number(saved) : null;
+  });
+  const [rememberedMultiplier, setRememberedMultiplier] = useState<number | null>(() => {
+    if (typeof window === 'undefined') return null;
+    const saved = localStorage.getItem('global_dice_remembered_multiplier');
+    return saved ? Number(saved) : null;
+  });
+  const [rememberedBets, setRememberedBets] = useState<Record<string, number>>(() => {
+    if (typeof window === 'undefined') return {};
+    const saved = localStorage.getItem('global_dice_remembered_bets');
+    return saved ? JSON.parse(saved) : {};
+  });
   const betsLoadedRef = useRef(false); // 标记是否已加载下注信息
 
   // 引用
@@ -295,6 +308,10 @@ export default function GlobalGamePage() {
     
     console.log('⏰ 倒计时结束，开始获取开奖结果，期号:', currentRound);
     
+    // 关键修复：延迟获取结果，确保摇盅动画有足够时间完成
+    // 摇盅动画需要约1.5-2秒，我们延迟2秒后再设置 diceResults
+    const SHAKE_ANIMATION_DELAY = 2000; // 摇盅动画时间
+    
     try {
       // 获取当前期号的开奖结果
       const response = await apiService.getGlobalLatestResults();
@@ -305,26 +322,34 @@ export default function GlobalGamePage() {
         if (latest.number.toString() === currentRound && latest.status === 'FINISHED') {
           console.log('✅ 获取到开奖结果:', latest);
           setLastProcessedRound(latest.number.toString());
-          setDiceResults(latest.outCome || latest.result || []);
           
-          // 获取我的中奖信息
+          // 获取我的中奖信息（可以提前获取，但不影响动画）
+          let winValue = 0;
           try {
             const myResult = await apiService.getGlobalGameInfo(String(user.id), currentRound);
             if (myResult.success && myResult.data) {
-              const win = myResult.data.winAmount || 0;
-              setWinAmount(win);
-              setHasWon(win > 0);
-              if (win > 0) {
-                playWinSmall();
-                hapticWin();
-              }
-              refreshBalance();
+              winValue = myResult.data.winAmount || 0;
             }
           } catch (e) {
             console.error('Failed to get my result', e);
           }
           
-          // 动画结束后重置
+          // 延迟设置 diceResults，确保摇盅动画完成后再开始引导
+          setTimeout(() => {
+            console.log('🎲 摇盅动画完成，设置开奖结果:', latest.outCome || latest.result);
+            setDiceResults(latest.outCome || latest.result || []);
+            
+            // 设置中奖信息
+            setWinAmount(winValue);
+            setHasWon(winValue > 0);
+            if (winValue > 0) {
+              playWinSmall();
+              hapticWin();
+            }
+            refreshBalance();
+          }, SHAKE_ANIMATION_DELAY);
+          
+          // 动画结束后重置（总时间 = 摇盅2秒 + 引导1.5秒 + 展示3秒 = 6.5秒）
           setTimeout(() => {
             setGameState('settled');
             setTimeout(() => {
@@ -335,7 +360,7 @@ export default function GlobalGamePage() {
               setHasWon(false);
               setDiceResults([]);
             }, 2000);
-          }, 5000);
+          }, 6500); // 增加总时间，确保动画完整播放
         } else {
           // 如果还没有开奖结果，等待一下再重试
           console.log('⏳ 开奖结果尚未生成，等待中...');
@@ -414,6 +439,11 @@ export default function GlobalGamePage() {
               if (res.success) {
                   toast.success('已清空所有下注');
                   setLastBets({});
+                  // 清空记忆的下注区域
+                  setRememberedBets({});
+                  if (typeof window !== 'undefined') {
+                    localStorage.removeItem('global_dice_remembered_bets');
+                  }
                   refreshBalance();
               } else {
                   toast.error('清空下注失败');
@@ -423,6 +453,11 @@ export default function GlobalGamePage() {
               toast.error('清空下注失败');
           }
       } else {
+          // 即使没有已确认的下注，也清空记忆的下注区域
+          setRememberedBets({});
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('global_dice_remembered_bets');
+          }
           hapticSuccess();
       }
   };
@@ -499,10 +534,17 @@ export default function GlobalGamePage() {
           setLastBets(bets);
           setBets({});
           
-          // 记住用户选择的筹码、倍数和下注区域
+          // 记住用户选择的筹码、倍数和下注区域，并持久化到 localStorage
           setRememberedChip(selectedChip);
           setRememberedMultiplier(multiplier);
           setRememberedBets({ ...bets }); // 深拷贝保存下注区域
+          
+          // 持久化到 localStorage
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('global_dice_remembered_chip', String(selectedChip));
+            localStorage.setItem('global_dice_remembered_multiplier', String(multiplier));
+            localStorage.setItem('global_dice_remembered_bets', JSON.stringify(bets));
+          }
           
           refreshBalance();
           return true;

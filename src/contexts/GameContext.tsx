@@ -90,10 +90,22 @@ export function GameProvider({ children }: { children: ReactNode }) {
   // 上一局下注记录
   const [lastBets, setLastBets] = useState<Record<string, number>>({});
 
-  // 记住用户的选择（筹码、倍数和下注区域）
-  const [rememberedChip, setRememberedChip] = useState<number | null>(null);
-  const [rememberedMultiplier, setRememberedMultiplier] = useState<number | null>(null);
-  const [rememberedBets, setRememberedBets] = useState<Record<string, number>>({});
+  // 记住用户的选择（筹码、倍数和下注区域）- 从 localStorage 恢复
+  const [rememberedChip, setRememberedChip] = useState<number | null>(() => {
+    if (typeof window === 'undefined') return null;
+    const saved = localStorage.getItem('dice_remembered_chip');
+    return saved ? Number(saved) : null;
+  });
+  const [rememberedMultiplier, setRememberedMultiplier] = useState<number | null>(() => {
+    if (typeof window === 'undefined') return null;
+    const saved = localStorage.getItem('dice_remembered_multiplier');
+    return saved ? Number(saved) : null;
+  });
+  const [rememberedBets, setRememberedBets] = useState<Record<string, number>>(() => {
+    if (typeof window === 'undefined') return {};
+    const saved = localStorage.getItem('dice_remembered_bets');
+    return saved ? JSON.parse(saved) : {};
+  });
 
   // 防止Strict Mode重复调用
   const diceOptionsLoadedRef = useRef(false);
@@ -223,6 +235,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
       if (response.success) {
         setBets({});
         setBetHistory([]);
+        // 清空记忆的下注区域
+        setRememberedBets({});
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('dice_remembered_bets');
+        }
         console.log('所有下注已清空');
       } else {
         console.error('清空下注失败:', response.message);
@@ -232,6 +249,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
       // 即使后端失败，也清空前端状态
       setBets({});
       setBetHistory([]);
+      // 清空记忆的下注区域
+      setRememberedBets({});
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('dice_remembered_bets');
+      }
     }
   }, [currentGameId]);
 
@@ -319,10 +341,17 @@ export function GameProvider({ children }: { children: ReactNode }) {
       // 保存为上一局下注
       setLastBets(bets);
 
-      // 记住用户选择的筹码、倍数和下注区域
+      // 记住用户选择的筹码、倍数和下注区域，并持久化到 localStorage
       setRememberedChip(selectedChip);
       setRememberedMultiplier(multiplier);
       setRememberedBets({ ...bets }); // 深拷贝保存下注区域
+      
+      // 持久化到 localStorage
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('dice_remembered_chip', String(selectedChip));
+        localStorage.setItem('dice_remembered_multiplier', String(multiplier));
+        localStorage.setItem('dice_remembered_bets', JSON.stringify(bets));
+      }
 
       // 立即进入rolling状态，提供即时反馈
       setGameState('rolling');
