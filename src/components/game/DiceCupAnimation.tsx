@@ -716,7 +716,7 @@ export default function DiceCupAnimation({
     };
   }, []);
 
-  // 摇盅动画 - 优化版：使用固定角速度，保持线性平滑的转动
+  // 摇盅动画 - 使用物理引擎但严格控制速度
   const shakeDice = () => {
     if (isShakingRef.current || !glassCoverRef.current || !worldRef.current) return;
     isShakingRef.current = true;
@@ -724,70 +724,95 @@ export default function DiceCupAnimation({
     // 唤醒所有骰子（只处理前3个）
     const diceCount = Math.min(diceBodiesRef.current.length, 3);
     
-    // 为每个骰子生成固定的旋转速度（不再使用物理模拟的力）
-    // 这样可以保证速度完全线性可控
-    const diceRotationSpeeds: Array<{x: number, y: number, z: number}> = [];
+    // 初始化骰子状态
     for (let i = 0; i < diceCount; i++) {
       const b = diceBodiesRef.current[i];
       if (b) {
         b.wakeUp();
-        b.velocity.set(0, 0, 0);
-        b.angularVelocity.set(0, 0, 0);
+        // 给每个骰子一个初始的随机角速度
+        b.angularVelocity.set(
+          (Math.random() - 0.5) * 20,
+          (Math.random() - 0.5) * 20,
+          (Math.random() - 0.5) * 20
+        );
+        // 给一个小的初始线速度
+        b.velocity.set(
+          (Math.random() - 0.5) * 5,
+          Math.random() * 3 + 2,
+          (Math.random() - 0.5) * 5
+        );
       }
-      // 为每个骰子生成不同的旋转速度，使它们看起来不同步
-      diceRotationSpeeds.push({
-        x: (8 + Math.random() * 4) * (Math.random() > 0.5 ? 1 : -1), // 8-12 rad/s
-        y: (6 + Math.random() * 4) * (Math.random() > 0.5 ? 1 : -1), // 6-10 rad/s
-        z: (4 + Math.random() * 3) * (Math.random() > 0.5 ? 1 : -1), // 4-7 rad/s
-      });
     }
 
     let shakeFrames = 0;
-    // 摇盅时间约1.5秒
+    // 摇盅时间约1.5秒（90帧 @ 60fps）
     const maxFrames = isMobile ? 75 : 90;
+    
+    // 目标角速度（固定值，用于保持稳定的旋转）
+    const targetAngularSpeed = 15; // rad/s
 
     shakeIntervalRef.current = setInterval(() => {
       shakeFrames++;
       const progress = shakeFrames / maxFrames;
       
-      // 玻璃罩震动（线性衰减）
+      // 玻璃罩震动
       if (glassCoverRef.current) {
-        const offset = 0.15 * (1 - progress); // 线性减小震动幅度
-        glassCoverRef.current.position.x = Math.sin(shakeFrames * 0.5) * offset;
-        glassCoverRef.current.position.z = Math.cos(shakeFrames * 0.5) * offset;
+        const offset = 0.2 * (1 - progress * 0.8);
+        glassCoverRef.current.position.x = Math.sin(shakeFrames * 0.3) * offset;
+        glassCoverRef.current.position.z = Math.cos(shakeFrames * 0.4) * offset;
       }
 
-      // 直接设置骰子的角速度（不使用物理力，完全可控）
+      // 控制骰子速度
       for (let i = 0; i < diceCount; i++) {
         const body = diceBodiesRef.current[i];
         if (!body) continue;
         
-        const speed = diceRotationSpeeds[i];
+        // 计算当前角速度大小
+        const currentAngSpeed = body.angularVelocity.length();
         
-        // 使用线性衰减：从100%到30%
-        // 这样骰子会从快到慢，但变化是完全线性的
-        const speedScale = 1 - progress * 0.7; // 1.0 -> 0.3
+        // 目标速度随进度线性减小：15 -> 5 rad/s
+        const targetSpeed = targetAngularSpeed * (1 - progress * 0.67);
         
-        // 直接设置角速度，不使用物理力
-        body.angularVelocity.x = speed.x * speedScale;
-        body.angularVelocity.y = speed.y * speedScale;
-        body.angularVelocity.z = speed.z * speedScale;
-        
-        // 保持骰子在中心区域，使用简单的位置约束
-        const maxRadius = 2.5;
-        const dist = Math.sqrt(body.position.x * body.position.x + body.position.z * body.position.z);
-        if (dist > maxRadius) {
-          const scale = maxRadius / dist;
-          body.position.x *= scale;
-          body.position.z *= scale;
+        // 如果当前速度偏离目标太多，进行修正
+        if (currentAngSpeed > 0.1) {
+          // 将角速度调整到目标大小，但保持方向
+          const scale = targetSpeed / currentAngSpeed;
+          body.angularVelocity.scale(scale);
+        } else {
+          // 如果速度太小，重新设置一个随机角速度
+          body.angularVelocity.set(
+            (Math.random() - 0.5) * targetSpeed * 2,
+            (Math.random() - 0.5) * targetSpeed * 2,
+            (Math.random() - 0.5) * targetSpeed * 2
+          );
         }
         
-        // 保持骰子在合适的高度
-        if (body.position.y < 0.8) body.position.y = 0.8;
-        if (body.position.y > 3) body.position.y = 3;
+        // 限制线速度，避免骰子飞出去
+        const maxLinearSpeed = 8;
+        const currentLinSpeed = body.velocity.length();
+        if (currentLinSpeed > maxLinearSpeed) {
+          body.velocity.scale(maxLinearSpeed / currentLinSpeed);
+        }
         
-        // 线速度保持较小，让骰子主要是旋转而不是移动
-        body.velocity.scale(0.9);
+        // 保持骰子在中心区域
+        const maxRadius = 3;
+        const dist = Math.sqrt(body.position.x * body.position.x + body.position.z * body.position.z);
+        if (dist > maxRadius) {
+          // 施加一个向中心的力
+          const pushBack = 0.5;
+          body.velocity.x -= body.position.x * pushBack;
+          body.velocity.z -= body.position.z * pushBack;
+        }
+        
+        // 保持骰子在合适的高度范围
+        if (body.position.y < 0.7) {
+          body.position.y = 0.7;
+          body.velocity.y = Math.abs(body.velocity.y) * 0.5;
+        }
+        if (body.position.y > 4) {
+          body.position.y = 4;
+          body.velocity.y = -Math.abs(body.velocity.y) * 0.5;
+        }
       }
 
       if (shakeFrames >= maxFrames) {
@@ -801,12 +826,12 @@ export default function DiceCupAnimation({
           glassCoverRef.current.position.z = 0;
         }
         
-        // 摇盅结束时，平滑减速骰子
+        // 摇盅结束时，让骰子自然减速
         for (let i = 0; i < diceCount; i++) {
           const body = diceBodiesRef.current[i];
           if (body) {
-            // 保留一点角速度，让引导阶段接管
-            body.angularVelocity.scale(0.3);
+            // 设置一个较小的角速度，让引导阶段接管
+            body.angularVelocity.scale(0.4);
             body.velocity.scale(0.3);
           }
         }
