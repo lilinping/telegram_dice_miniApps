@@ -58,6 +58,7 @@ export default function GlobalGamePage() {
     return saved ? JSON.parse(saved) : {};
   });
   const betsLoadedRef = useRef(false); // 标记是否已加载下注信息
+  const isProcessingResultRef = useRef(false); // 标记是否正在处理开奖结果，防止重复调用
 
   // 引用
   const betPanelWrapperRef = useRef<HTMLDivElement>(null);
@@ -306,83 +307,93 @@ export default function GlobalGamePage() {
   const handleCountdownEnd = useCallback(async () => {
     if (!user) return;
     
+    // 防止重复调用
+    if (isProcessingResultRef.current) {
+      console.log('⚠️ 已在处理开奖结果，跳过重复调用');
+      return;
+    }
+    
+    isProcessingResultRef.current = true;
     console.log('⏰ 倒计时结束，开始获取开奖结果，期号:', currentRound);
     
     // 关键修复：延迟获取结果，确保摇盅动画有足够时间完成
     // 摇盅动画需要约1.5-2秒，我们延迟2秒后再设置 diceResults
     const SHAKE_ANIMATION_DELAY = 2000; // 摇盅动画时间
     
-    try {
-      // 使用新接口获取特定期号的开奖结果
-      const response = await apiService.getGlobalSingleResult(currentRound);
-      
-      if (response.success && response.data) {
-        const result = response.data;
+    const fetchResult = async () => {
+      try {
+        // 使用新接口获取特定期号的开奖结果
+        const response = await apiService.getGlobalSingleResult(currentRound);
         
-        // 检查是否已开奖
-        if (result.status === 'FINISHED') {
-          console.log('✅ 获取到开奖结果:', result);
-          setLastProcessedRound(result.number.toString());
+        if (response.success && response.data) {
+          const result = response.data;
           
-          // 获取我的中奖信息（可以提前获取，但不影响动画）
-          let winValue = 0;
-          try {
-            const myResult = await apiService.getGlobalGameInfo(String(user.id), currentRound);
-            if (myResult.success && myResult.data) {
-              winValue = myResult.data.winAmount || 0;
-            }
-          } catch (e) {
-            console.error('Failed to get my result', e);
-          }
-          
-          // 延迟设置 diceResults，确保摇盅动画完成后再开始引导
-          setTimeout(() => {
-            console.log('🎲 摇盅动画完成，设置开奖结果:', result.outCome || result.result);
-            setDiceResults(result.outCome || result.result || []);
+          // 检查是否已开奖
+          if (result.status === 'FINISHED') {
+            console.log('✅ 获取到开奖结果:', result);
+            setLastProcessedRound(result.number.toString());
             
-            // 设置中奖信息
-            setWinAmount(winValue);
-            setHasWon(winValue > 0);
-            if (winValue > 0) {
-              playWinSmall();
-              hapticWin();
+            // 获取我的中奖信息（可以提前获取，但不影响动画）
+            let winValue = 0;
+            try {
+              const myResult = await apiService.getGlobalGameInfo(String(user.id), currentRound);
+              if (myResult.success && myResult.data) {
+                winValue = myResult.data.winAmount || 0;
+              }
+            } catch (e) {
+              console.error('Failed to get my result', e);
             }
-            refreshBalance();
-          }, SHAKE_ANIMATION_DELAY);
-          
-          // 动画结束后重置（总时间 = 摇盅2秒 + 引导1.5秒 + 展示3秒 = 6.5秒）
-          setTimeout(() => {
-            setGameState('settled');
+            
+            // 延迟设置 diceResults，确保摇盅动画完成后再开始引导
             setTimeout(() => {
-              setGameState('betting');
-              setLastBets(bets); // 保存上一局下注
-              setBets({}); // 清空当前下注
-              setWinAmount(0);
-              setHasWon(false);
-              setDiceResults([]);
-            }, 2000);
-          }, 6500); // 增加总时间，确保动画完整播放
+              console.log('🎲 摇盅动画完成，设置开奖结果:', result.outCome || result.result);
+              setDiceResults(result.outCome || result.result || []);
+              
+              // 设置中奖信息
+              setWinAmount(winValue);
+              setHasWon(winValue > 0);
+              if (winValue > 0) {
+                playWinSmall();
+                hapticWin();
+              }
+              refreshBalance();
+            }, SHAKE_ANIMATION_DELAY);
+            
+            // 动画结束后重置（总时间 = 摇盅2秒 + 引导1.5秒 + 展示3秒 = 6.5秒）
+            setTimeout(() => {
+              setGameState('settled');
+              setTimeout(() => {
+                setGameState('betting');
+                setLastBets(bets); // 保存上一局下注
+                setBets({}); // 清空当前下注
+                setWinAmount(0);
+                setHasWon(false);
+                setDiceResults([]);
+                // 重置处理标志，准备下一轮
+                isProcessingResultRef.current = false;
+              }, 2000);
+            }, 6500); // 增加总时间，确保动画完整播放
+            
+            // 成功获取结果，不再重试
+            return;
+          } else {
+            // 如果还没有开奖结果，等待一下再重试
+            console.log('⏳ 开奖结果尚未生成，状态:', result.status, '等待中...');
+          }
         } else {
-          // 如果还没有开奖结果，等待一下再重试
-          console.log('⏳ 开奖结果尚未生成，状态:', result.status, '等待中...');
-          setTimeout(() => {
-            handleCountdownEnd();
-          }, 2000);
+          // API 调用失败
+          console.log('⏳ 获取开奖结果失败，等待重试...');
         }
-      } else {
-        // API 调用失败，重试
-        console.log('⏳ 获取开奖结果失败，等待重试...');
-        setTimeout(() => {
-          handleCountdownEnd();
-        }, 2000);
+      } catch (error) {
+        console.error('❌ 获取开奖结果失败:', error);
       }
-    } catch (error) {
-      console.error('❌ 获取开奖结果失败:', error);
-      // 出错后重试
-      setTimeout(() => {
-        handleCountdownEnd();
-      }, 2000);
-    }
+      
+      // 重试（只有在未获取到 FINISHED 状态时才重试）
+      setTimeout(fetchResult, 2000);
+    };
+    
+    // 开始获取结果
+    fetchResult();
   }, [user, currentRound, bets, playWinSmall, hapticWin, refreshBalance]);
 
   // 倒计时逻辑
@@ -395,12 +406,14 @@ export default function GlobalGamePage() {
         const next = prev - 1;
         if (next <= 30 && next > 0) {
             setGameState('sealed');
-        } else if (next <= 0) {
+        } else if (next === 0) {
+            // 只在倒计时刚好为0时触发一次，避免重复调用
             // 倒计时结束，切换到开奖状态
             setGameState('rolling');
-            // 倒计时结束后，获取开奖结果（只请求一次，不再轮询）
+            // 倒计时结束后，获取开奖结果（只请求一次）
             handleCountdownEnd();
         }
+        // 倒计时为负数时不做任何处理，等待 syncState 重置
         return next;
       });
     }, 1000);
