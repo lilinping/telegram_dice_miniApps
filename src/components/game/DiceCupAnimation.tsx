@@ -18,6 +18,7 @@ interface DiceCupAnimationProps {
   winAmount?: number;
   hasWon?: boolean;
   diceResults?: number[];
+  gameState?: 'betting' | 'rolling' | 'revealing' | 'settled'; // 允许外部传入 gameState
 }
 
 export default function DiceCupAnimation({
@@ -25,8 +26,11 @@ export default function DiceCupAnimation({
   winAmount = 0,
   hasWon = false,
   diceResults: propDiceResults,
+  gameState: propGameState,
 }: DiceCupAnimationProps) {
-  const { gameState, diceResults: contextDiceResults } = useGame();
+  const { gameState: contextGameState, diceResults: contextDiceResults } = useGame();
+  // 优先使用外部传入的 gameState，否则使用 context 中的
+  const gameState = propGameState || contextGameState;
   const diceResults = propDiceResults || contextDiceResults;
   const containerRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);

@@ -1087,9 +1087,15 @@ export default function GlobalGamePage() {
       )}
 
       {/* 开奖动画 */}
-      {gameState === 'rolling' && (
+      {(gameState === 'rolling' || gameState === 'settled') && (
         <div className="fixed inset-0 bg-black/90 flex items-center justify-center" style={{ zIndex: 90 }}>
-          <DiceCupAnimation fullscreen winAmount={winAmount} hasWon={hasWon} diceResults={diceResults} />
+          <DiceCupAnimation 
+            fullscreen 
+            winAmount={winAmount} 
+            hasWon={hasWon} 
+            diceResults={diceResults} 
+            gameState={gameState === 'settled' ? 'settled' : 'rolling'}
+          />
         </div>
       )}
 
