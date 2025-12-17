@@ -166,14 +166,24 @@ export default function GlobalGamePage() {
   const syncState = useCallback(async () => {
     try {
       const response = await apiService.getGlobalLatestResults();
+      
+      // 同时获取历史开奖结果（用于显示上期结果和最近30期）
+      try {
+        const historyResponse = await apiService.getGlobalResults(1, 30);
+        if (historyResponse.success && historyResponse.data && historyResponse.data.list) {
+          const historyList = historyResponse.data.list;
+          setRecentResults(historyList);
+          // 设置上一期结果
+          if (historyList.length > 0) {
+            setLastRoundResult(historyList[0]);
+          }
+        }
+      } catch (e) {
+        console.error('获取历史开奖结果失败:', e);
+      }
+      
       if (response.success && response.data && response.data.length > 0) {
         const latest = response.data[0];
-        setRecentResults(response.data.slice(0, 30)); // 显示最近30期
-        // 设置上一期结果（已完成的开奖）
-        const finishedResult = response.data.find(r => r.status === 'FINISHED');
-        if (finishedResult) {
-          setLastRoundResult(finishedResult);
-        }
         
         // 解析倒计时 (假设 createTime 是本期开始时间)
         const createTime = new Date(latest.createTime).getTime();
@@ -699,10 +709,10 @@ export default function GlobalGamePage() {
             <div className="flex items-center justify-between px-3 py-3 gap-3">
               {/* 左侧：上期结果 */}
               <div className="flex items-center gap-2 flex-1">
-                {lastRoundResult && lastRoundResult.outCome ? (
+                {lastRoundResult && (lastRoundResult.outCome || lastRoundResult.result) ? (
                   <div className="flex items-center gap-2">
                     <span className="text-[11px]" style={{ color: '#a0a0a0' }}>上期:</span>
-                    {lastRoundResult.outCome.map((n, i) => (
+                    {(lastRoundResult.outCome || lastRoundResult.result || []).map((n, i) => (
                       <div
                         key={i}
                         className="w-6 h-6 rounded bg-white border border-gray-300 flex items-center justify-center"
@@ -789,10 +799,10 @@ export default function GlobalGamePage() {
             <div className="flex-1 flex items-center justify-between px-4 py-3">
               {/* 左侧：上期结果 */}
               <div className="flex items-center gap-2 flex-1">
-                {lastRoundResult && lastRoundResult.outCome ? (
+                {lastRoundResult && (lastRoundResult.outCome || lastRoundResult.result) ? (
                   <div className="flex items-center gap-2">
                     <span className="text-[12px]" style={{ color: '#a0a0a0' }}>上期:</span>
-                    {lastRoundResult.outCome.map((n, i) => (
+                    {(lastRoundResult.outCome || lastRoundResult.result || []).map((n, i) => (
                       <div
                         key={i}
                         className="w-8 h-8 rounded bg-white border-2 border-gray-300 flex items-center justify-center shadow-md"
@@ -882,8 +892,10 @@ export default function GlobalGamePage() {
                   </button>
                 </div>
                 <div className="space-y-1 max-h-[120px] overflow-auto pr-1">
-                  {recentResults.filter(r => r.status === 'FINISHED').slice(0, 3).map((item, idx) => {
-                    const analysis = analyzeDice(item.outCome || []);
+                  {recentResults.slice(0, 3).map((item, idx) => {
+                    // 使用 outCome 或 result 字段
+                    const diceResult = item.outCome || item.result || [];
+                    const analysis = analyzeDice(diceResult);
                     return (
                       <div
                         key={`${item.number}-${idx}`}
@@ -894,7 +906,7 @@ export default function GlobalGamePage() {
                           {String(item.number).slice(-4)}
                         </span>
                         <div className="flex items-center gap-1">
-                          {item.outCome && item.outCome.map((n, i) => (
+                          {diceResult.map((n, i) => (
                             <div
                               key={i}
                               className="w-5 h-5 rounded bg-white border border-gray-300 flex items-center justify-center"
@@ -915,7 +927,7 @@ export default function GlobalGamePage() {
                       </div>
                     );
                   })}
-                  {recentResults.filter(r => r.status === 'FINISHED').length === 0 && (
+                  {recentResults.length === 0 && (
                     <div className="text-[11px] text-gray-400">暂无数据</div>
                   )}
                 </div>
