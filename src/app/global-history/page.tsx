@@ -604,25 +604,261 @@ export default function GlobalHistoryPage() {
                   <div className="text-center py-8"><p className="text-text-secondary">暂无数据</p></div>
               ) : (
                 <div className="space-y-6">
-                    {/* 大小走势 - 简化版，直接显示最近20局的大小 */}
-                     <div className="bg-bg-dark rounded-xl p-4 border border-border">
-                         <h3 className="text-base font-semibold text-text-primary mb-3">近期走势</h3>
-                         <div className="flex flex-wrap gap-2">
-                             {resultsData.slice(0, 50).map((record) => {
-                                 const analysis = analyzeDice(record.outCome || []);
-                                 if (!record.outCome) return null;
-                                 return (
-                                     <div key={record.number} className={cn(
-                                         "w-8 h-8 flex items-center justify-center rounded text-xs font-bold text-white",
-                                         analysis.isTriple ? "bg-purple-600" :
-                                         analysis.isBig ? "bg-error" : "bg-info"
-                                     )}>
-                                         {analysis.isTriple ? "豹" : analysis.isBig ? "大" : "小"}
-                                     </div>
-                                 )
-                             })}
-                         </div>
-                     </div>
+                    {/* 大小走势折线图 */}
+                    <div>
+                      <h3 className="text-base font-semibold text-text-primary mb-3">
+                        大小走势（近{Math.min(20, resultsData.length)}期）
+                      </h3>
+                      <div className="bg-bg-dark rounded-xl p-4 border border-border">
+                        {/* 图表区域 */}
+                        <div className="relative h-64 mb-8">
+                          {/* Y轴刻度线 */}
+                          <div className="absolute inset-0 flex flex-col justify-between">
+                            {[18, 15, 12, 9, 6, 3].map((value) => (
+                              <div key={value} className="flex items-center">
+                                <span className="text-xs text-text-disabled w-6">{value}</span>
+                                <div className="flex-1 h-px bg-border ml-2" />
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* 折线图 */}
+                          <div className="absolute inset-0 pl-8 pr-2 pb-8">
+                            {(() => {
+                              const data = resultsData.slice(0, 20).reverse();
+                              const points: string[] = [];
+                              const pointData: Array<{ 
+                                x: number; 
+                                y: number; 
+                                total: number; 
+                                isBig: boolean; 
+                                isTriple: boolean;
+                                idx: number;
+                              }> = [];
+                              
+                              data.forEach((record, idx) => {
+                                const diceResult = record.result || record.outCome || [];
+                                const analysis = analyzeDice(diceResult);
+                                const x = (idx / (data.length - 1 || 1)) * 100;
+                                const y = 100 - ((analysis.total - 3) / 15) * 100;
+                                points.push(`${x},${y}`);
+                                pointData.push({
+                                  x,
+                                  y,
+                                  total: analysis.total,
+                                  isBig: analysis.isBig,
+                                  isTriple: analysis.isTriple,
+                                  idx
+                                });
+                              });
+
+                              return (
+                                <>
+                                  {/* SVG折线 */}
+                                  <svg className="w-full h-full absolute inset-0" viewBox="0 0 100 100" preserveAspectRatio="none">
+                                    <polyline
+                                      points={points.join(' ')}
+                                      fill="none"
+                                      stroke="#3B82F6"
+                                      strokeWidth="1.5"
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                    />
+                                    {pointData.map((point) => (
+                                      <circle
+                                        key={point.idx}
+                                        cx={point.x}
+                                        cy={point.y}
+                                        r="2.5"
+                                        fill={
+                                          point.isTriple
+                                            ? '#9333EA'
+                                            : point.isBig
+                                            ? '#EF4444'
+                                            : '#3B82F6'
+                                        }
+                                        stroke="#fff"
+                                        strokeWidth="1"
+                                      />
+                                    ))}
+                                  </svg>
+                                  
+                                  {/* HTML标签层 */}
+                                  <div className="absolute inset-0">
+                                    {pointData.map((point) => (
+                                      <div
+                                        key={point.idx}
+                                        className="absolute flex flex-col items-center"
+                                        style={{
+                                          left: `${point.x}%`,
+                                          top: `${point.y}%`,
+                                          transform: 'translate(-50%, -100%)',
+                                          marginTop: '-8px'
+                                        }}
+                                      >
+                                        <span
+                                          className={cn(
+                                            'text-xs font-semibold mb-0.5',
+                                            point.isTriple
+                                              ? 'text-purple-400'
+                                              : point.isBig
+                                              ? 'text-error'
+                                              : 'text-info'
+                                          )}
+                                        >
+                                          {point.isTriple ? '豹' : point.isBig ? '大' : '小'}
+                                        </span>
+                                        <span className="text-xs font-bold text-white drop-shadow-md">
+                                          {point.total}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                  
+                                  {/* X轴序号 */}
+                                  <div className="absolute bottom-0 left-0 right-0 flex justify-between">
+                                    {data.map((_, idx) => (
+                                      <span
+                                        key={idx}
+                                        className="text-xs text-text-disabled"
+                                        style={{ 
+                                          width: `${100 / (data.length || 1)}%`, 
+                                          textAlign: 'center' 
+                                        }}
+                                      >
+                                        {20 - idx}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </>
+                              );
+                            })()}
+                          </div>
+                        </div>
+
+                        {/* 图例 */}
+                        <div className="flex justify-center gap-4 pt-2 border-t border-border">
+                          <div className="flex items-center gap-1">
+                            <div className="w-3 h-3 rounded bg-error" />
+                            <span className="text-xs text-text-secondary">大 (11-17)</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <div className="w-3 h-3 rounded bg-info" />
+                            <span className="text-xs text-text-secondary">小 (4-10)</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <div className="w-3 h-3 rounded bg-purple-600" />
+                            <span className="text-xs text-text-secondary">豹子</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 大小统计 */}
+                    <div>
+                      <h3 className="text-base font-semibold text-text-primary mb-3">大小统计</h3>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="bg-bg-dark rounded-xl p-4 border border-border text-center">
+                          <p className="text-sm text-text-secondary mb-2">大</p>
+                          <p className="text-3xl font-bold text-error mb-1">
+                            {resultsData.length > 0
+                              ? Math.round((calculateTrends().bigCount / resultsData.length) * 100)
+                              : 0}
+                            %
+                          </p>
+                          <p className="text-xs text-text-disabled">{calculateTrends().bigCount}期</p>
+                        </div>
+                        <div className="bg-bg-dark rounded-xl p-4 border border-border text-center">
+                          <p className="text-sm text-text-secondary mb-2">小</p>
+                          <p className="text-3xl font-bold text-info mb-1">
+                            {resultsData.length > 0
+                              ? Math.round((calculateTrends().smallCount / resultsData.length) * 100)
+                              : 0}
+                            %
+                          </p>
+                          <p className="text-xs text-text-disabled">{calculateTrends().smallCount}期</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 单双统计 */}
+                    <div>
+                      <h3 className="text-base font-semibold text-text-primary mb-3">单双统计</h3>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="bg-bg-dark rounded-xl p-4 border border-border text-center">
+                          <p className="text-sm text-text-secondary mb-2">单</p>
+                          <p className="text-3xl font-bold text-warning mb-1">
+                            {resultsData.length > 0
+                              ? Math.round((calculateTrends().oddCount / resultsData.length) * 100)
+                              : 0}
+                            %
+                          </p>
+                          <p className="text-xs text-text-disabled">{calculateTrends().oddCount}期</p>
+                        </div>
+                        <div className="bg-bg-dark rounded-xl p-4 border border-border text-center">
+                          <p className="text-sm text-text-secondary mb-2">双</p>
+                          <p className="text-3xl font-bold text-success mb-1">
+                            {resultsData.length > 0
+                              ? Math.round((calculateTrends().evenCount / resultsData.length) * 100)
+                              : 0}
+                            %
+                          </p>
+                          <p className="text-xs text-text-disabled">{calculateTrends().evenCount}期</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 热号冷号 */}
+                    <div>
+                      <h3 className="text-base font-semibold text-text-primary mb-3">热号冷号</h3>
+                      <div className="grid grid-cols-6 gap-2">
+                        {[1, 2, 3, 4, 5, 6].map((num) => {
+                          const trends = calculateTrends();
+                          const frequency = trends.diceFrequency[num - 1];
+                          const totalDice = resultsData.length * 3;
+                          const percentage =
+                            totalDice > 0 ? Math.round((frequency / totalDice) * 100) : 0;
+                          const isHot = percentage > 18;
+
+                          return (
+                            <div
+                              key={num}
+                              className={cn(
+                                'aspect-square rounded-xl p-2 flex flex-col items-center justify-center',
+                                isHot
+                                  ? 'bg-gradient-to-br from-error to-orange-600'
+                                  : 'bg-gradient-to-br from-info to-blue-600'
+                              )}
+                            >
+                              <span className="text-2xl mb-1">{num}</span>
+                              <span className="text-xs font-semibold">{percentage}%</span>
+                              <span className="text-xs opacity-75">{frequency}次</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* 近期走势（大小方块） */}
+                    <div className="bg-bg-dark rounded-xl p-4 border border-border">
+                      <h3 className="text-base font-semibold text-text-primary mb-3">近期走势</h3>
+                      <div className="flex flex-wrap gap-2">
+                        {resultsData.slice(0, 50).map((record) => {
+                          const diceResult = record.result || record.outCome || [];
+                          const analysis = analyzeDice(diceResult);
+                          if (diceResult.length === 0) return null;
+                          return (
+                            <div key={record.number} className={cn(
+                              "w-8 h-8 flex items-center justify-center rounded text-xs font-bold text-white",
+                              analysis.isTriple ? "bg-purple-600" :
+                              analysis.isBig ? "bg-error" : "bg-info"
+                            )}>
+                              {analysis.isTriple ? "豹" : analysis.isBig ? "大" : "小"}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
                 </div>
               )}
              </>
