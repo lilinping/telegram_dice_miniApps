@@ -1020,6 +1020,18 @@ export default function GlobalGamePage() {
           <div className="flex items-center gap-1 flex-shrink-0">
             <span>余额:</span>
             <span className="text-yellow-300 font-semibold">{balance.toLocaleString()}</span>
+            <button
+              onClick={() => router.push('/deposit')}
+              className="ml-1 px-2 py-0.5 rounded text-xs font-semibold"
+              style={{
+                background: 'linear-gradient(180deg, #f5a623 0%, #d4880f 100%)',
+                color: '#fff',
+                border: '1px solid #b8760c',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.2)',
+              }}
+            >
+              充值
+            </button>
           </div>
           <div className="flex items-center gap-1 flex-shrink-0">
             <span>下注额:</span>
