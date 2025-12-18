@@ -27,6 +27,12 @@ interface Transaction {
   timestamp: number;
   gameId?: string;
   originalStatus?: string; // 保存原始状态，用于详情展示
+  // 提现相关字段
+  toAddress?: string;
+  txId?: string;
+  fee?: string;
+  actualAmount?: string;
+  confirmTime?: number;
 }
 
 const filterTabs: { key: TransactionType; label: string }[] = [
@@ -123,14 +129,22 @@ export default function TransactionList() {
           const withdrawHistory = await apiService.getWithdrawalOrders(String(user.id), 1, 20);
           if (withdrawHistory.success && withdrawHistory.data) {
             withdrawHistory.data.list.forEach((order) => {
+              const money = parseFloat(order.money);
+              const fee = 2; // 统一手续费 2 USDT
               allTransactions.push({
                 id: `withdraw-${order.id}`,
                 type: 'withdraw',
-                amount: -parseFloat(order.money),
+                amount: -money,
                 status: order.txCode === 0 ? 'success' : order.txCode === -1 ? 'pending' : 'failed',
                 description: '提现',
-                orderId: `WTH${order.id}`,
+                orderId: String(order.id),
                 timestamp: typeof order.createTime === 'string' ? new Date(order.createTime).getTime() : order.createTime,
+                // 提现详情字段
+                toAddress: order.toAddress,
+                txId: order.txId,
+                fee: fee.toFixed(2),
+                actualAmount: (money - fee).toFixed(2),
+                confirmTime: order.modifyTime,
               });
             });
           }
@@ -402,6 +416,53 @@ export default function TransactionList() {
                           {tx.orderId}
                         </span>
                       </div>
+                    )}
+                    {/* 提现特有字段 */}
+                    {tx.type === 'withdraw' && (
+                      <>
+                        {tx.fee && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-text-secondary">手续费</span>
+                            <span className="text-text-primary font-mono">
+                              {tx.fee} USDT
+                            </span>
+                          </div>
+                        )}
+                        {tx.actualAmount && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-text-secondary">实际到账</span>
+                            <span className="text-primary-gold font-mono font-semibold">
+                              {tx.actualAmount} USDT
+                            </span>
+                          </div>
+                        )}
+                        {tx.toAddress && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-text-secondary">提币地址</span>
+                            <span className="text-text-primary font-mono text-xs">
+                              {tx.toAddress.length > 20 
+                                ? `${tx.toAddress.slice(0, 10)}...${tx.toAddress.slice(-6)}`
+                                : tx.toAddress}
+                            </span>
+                          </div>
+                        )}
+                        {tx.txId && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-text-secondary">交易ID</span>
+                            <span className="text-text-primary font-mono text-xs break-all">
+                              {tx.txId}
+                            </span>
+                          </div>
+                        )}
+                        {tx.confirmTime && tx.confirmTime !== tx.timestamp && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-text-secondary">确认时间</span>
+                            <span className="text-text-primary">
+                              {formatTime(tx.confirmTime)}
+                            </span>
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                 )}
