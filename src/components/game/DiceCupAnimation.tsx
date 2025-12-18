@@ -940,6 +940,12 @@ export default function DiceCupAnimation({
       console.log('⚠️ 已校正完成，跳过');
       return;
     }
+    
+    // 关键：如果已经在校正中，不要重新开始
+    if (isCorrectingRef.current) {
+      console.log('⚠️ 已在校正中，跳过重复调用');
+      return;
+    }
 
     // 重置状态，准备开始新的引导
     // 注意：不要在这里设置 isCorrectingRef，让 animate 函数中的逻辑来处理
@@ -961,7 +967,7 @@ export default function DiceCupAnimation({
     console.log('✅ 引导准备完成，将在主渲染循环中执行');
   };
 
-  // 监听 diceResults 变化，记录结果 key（引导在摇盅结束后由 shakeDice 触发）
+  // 监听 diceResults 变化，只更新 ref（引导由 animate 函数中的摇盅结束逻辑触发）
   useEffect(() => {
     // 更新 ref，解决 animate 函数中的闭包问题
     diceResultsRef.current = diceResults;
@@ -972,25 +978,18 @@ export default function DiceCupAnimation({
       if (lastResultsKeyRef.current !== key) {
         console.log('🆕 检测到新一局结果，记录 key:', diceResults);
         lastResultsKeyRef.current = key;
+        // 只重置校正完成标志，不重置校正中标志
+        // 这样如果正在校正中，不会被打断
         hasCorrectedRef.current = false;
-        isCorrectingRef.current = false;
-        correctionFrameCountRef.current = 0;
       }
       
-      console.log('🔍 检测到 diceResults 变化:', { diceResults, gameState, hasCorrected: hasCorrectedRef.current, isShaking: isShakingRef.current });
-      
-      // 只有在摇盅结束后才开始引导（由 shakeDice 的结束回调触发）
-      // 如果摇盅已经结束且还没开始引导，则立即开始
-      if (!isShakingRef.current && !hasCorrectedRef.current && !isCorrectingRef.current) {
-        console.log('🎯 摇盅已结束，开始引导:', diceResults);
-        correctDiceToResults();
-      } else {
-        console.log('⚠️ 等待摇盅结束或已在校正中');
-      }
+      console.log('🔍 diceResults 已更新:', { diceResults, isShaking: isShakingRef.current, isCorrectingRef: isCorrectingRef.current });
+      // 注意：不在这里触发 correctDiceToResults()
+      // 引导由 animate 函数中的摇盅结束逻辑统一触发，避免重复执行
     }
-  }, [diceResults, gameState]);
+  }, [diceResults]);
 
-  // 根据游戏状态触发动画
+  // 根据游戏状态触发动画（只监听 gameState，不监听 diceResults）
   useEffect(() => {
     console.log('🎮 DiceCupAnimation gameState 变化:', gameState);
     
@@ -1000,6 +999,8 @@ export default function DiceCupAnimation({
       hasCorrectedRef.current = false;
       isCorrectingRef.current = false;
       correctionFrameCountRef.current = 0;
+      initialQuatsRef.current = [];
+      initialVelocitiesRef.current = [];
       // 清空旧结果 key，等待新结果
       lastResultsKeyRef.current = null;
 
@@ -1041,7 +1042,7 @@ export default function DiceCupAnimation({
         glassCoverRef.current.position.set(0, 0.1, 0);
       }
     }
-  }, [gameState, diceResults]);
+  }, [gameState]); // 只监听 gameState，不监听 diceResults
 
   // 计算结果显示（参考 2D 版本）
   const total = diceResults.length === 3 ? diceResults.reduce((sum, val) => sum + val, 0) : 0;
