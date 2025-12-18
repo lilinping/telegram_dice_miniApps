@@ -42,7 +42,8 @@ export default function DiceCupAnimation({
   const glassCoverRef = useRef<THREE.Mesh | null>(null);
   const animationFrameRef = useRef<number>(0);
   const isShakingRef = useRef(false);
-  const shakeIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const shakeFrameRef = useRef(0); // 摇盅帧计数
+  const shakeMaxFramesRef = useRef(0); // 摇盅最大帧数
   const hasCorrectedRef = useRef(false);
   const isCorrectingRef = useRef(false); // 标记是否正在校正
   const correctionFrameCountRef = useRef(0); // 引导帧计数，用于减少验证频率
@@ -352,11 +353,11 @@ export default function DiceCupAnimation({
       diceMeshesRef.current.push(mesh);
 
       const body = new CANNON.Body({
-        mass: 8,
+        mass: 5,
         shape: new CANNON.Box(new CANNON.Vec3(DICE_SIZE / 2, DICE_SIZE / 2, DICE_SIZE / 2)),
         material: diceMat,
-        angularDamping: 0.05, // 降低阻尼，让我们的代码完全控制速度衰减
-        linearDamping: 0.02   // 降低阻尼，让我们的代码完全控制速度衰减
+        angularDamping: 0.1, // 适中的角速度阻尼
+        linearDamping: 0.1   // 适中的线速度阻尼
       });
       body.position.set(xPos, 1.5, 0);
       body.quaternion.setFromEuler(
@@ -493,23 +494,107 @@ export default function DiceCupAnimation({
       animationFrameRef.current = requestAnimationFrame(animate);
 
       const currentResults = diceResultsRef.current;
-      // 关键修复：只有在摇盅结束后才开始引导
-      // isShakingRef.current 为 true 时，物理引擎继续运行，骰子自然转动
-      // 增加额外检查：确保摇盅定时器已清理
-      const canGuide = currentResults.length === 3 && 
-                       !hasCorrectedRef.current && 
-                       !isShakingRef.current && 
-                       shakeIntervalRef.current === null;
       const diceCount = Math.min(diceBodiesRef.current.length, 3);
 
-      // 始终运行物理引擎处理位置和碰撞（包括引导时）
-      // 引导时只控制旋转，位置仍由物理引擎处理，确保骰子自然下落
+      // ========== 摇盅动画逻辑（在 animate 中统一处理）==========
+      if (isShakingRef.current && shakeFrameRef.current < shakeMaxFramesRef.current) {
+        shakeFrameRef.current++;
+        const progress = shakeFrameRef.current / shakeMaxFramesRef.current;
+        
+        // 玻璃罩震动（逐渐减弱）
+        if (glassCoverRef.current) {
+          const intensity = 0.2 * (1 - progress);
+          glassCoverRef.current.position.x = Math.sin(shakeFrameRef.current * 0.3) * intensity;
+          glassCoverRef.current.position.z = Math.cos(shakeFrameRef.current * 0.35) * intensity;
+        }
+
+        // 对每个骰子施加力
+        for (let i = 0; i < diceCount; i++) {
+          const body = diceBodiesRef.current[i];
+          if (!body) continue;
+          
+          body.wakeUp();
+          
+          // 力的强度随时间衰减：前70%保持较强，后30%快速衰减
+          let forceScale: number;
+          if (progress < 0.7) {
+            forceScale = 1.0;
+          } else {
+            forceScale = Math.max(0, 1 - (progress - 0.7) / 0.3);
+          }
+          
+          if (forceScale > 0.1) {
+            // 向中心的回弹力（防止骰子飞出边界）
+            const toCenterX = -body.position.x * 2;
+            const toCenterZ = -body.position.z * 2;
+            
+            // 随机力（模拟摇盅）
+            const randomForceX = (Math.random() - 0.5) * 80;
+            const randomForceY = Math.random() * 60 + 30;
+            const randomForceZ = (Math.random() - 0.5) * 80;
+            
+            // 施加力
+            body.applyForce(
+              new CANNON.Vec3(
+                (toCenterX + randomForceX) * forceScale,
+                randomForceY * forceScale,
+                (toCenterZ + randomForceZ) * forceScale
+              ),
+              body.position
+            );
+            
+            // 施加随机扭矩（让骰子旋转）
+            body.applyTorque(
+              new CANNON.Vec3(
+                (Math.random() - 0.5) * 30 * forceScale,
+                (Math.random() - 0.5) * 30 * forceScale,
+                (Math.random() - 0.5) * 30 * forceScale
+              )
+            );
+          }
+          
+          // 限制最大速度（防止骰子飞太快）
+          const maxLinSpeed = 15;
+          const maxAngSpeed = 20;
+          const linSpeed = body.velocity.length();
+          if (linSpeed > maxLinSpeed) {
+            body.velocity.scale(maxLinSpeed / linSpeed);
+          }
+          const angSpeed = body.angularVelocity.length();
+          if (angSpeed > maxAngSpeed) {
+            body.angularVelocity.scale(maxAngSpeed / angSpeed);
+          }
+        }
+
+        // 摇盅结束
+        if (shakeFrameRef.current >= shakeMaxFramesRef.current) {
+          if (glassCoverRef.current) {
+            glassCoverRef.current.position.x = 0;
+            glassCoverRef.current.position.z = 0;
+          }
+          isShakingRef.current = false;
+          console.log('🎲 摇盅动画完成');
+          
+          // 摇盅结束后，检查是否需要引导
+          if (currentResults.length === 3 && !isCorrectingRef.current && !hasCorrectedRef.current) {
+            console.log('🎯 摇盅结束，开始引导:', currentResults);
+            correctDiceToResults();
+          }
+        }
+      }
+
+      // 只有在摇盅结束后才开始引导
+      const canGuide = currentResults.length === 3 && 
+                       !hasCorrectedRef.current && 
+                       !isShakingRef.current;
+
+      // 始终运行物理引擎
       const deltaTime = 1 / 60;
       if (worldRef.current) {
         worldRef.current.step(1 / 60, deltaTime, 3);
       }
 
-      // 强制边界约束（只处理前3个）
+      // 强制边界约束
       const maxRadius = CONTAINER_RADIUS - 0.7;
       for (let i = 0; i < diceCount; i++) {
         const body = diceBodiesRef.current[i];
@@ -697,13 +782,10 @@ export default function DiceCupAnimation({
       isShakingRef.current = false;
       hasCorrectedRef.current = false;
       isCorrectingRef.current = false;
+      shakeFrameRef.current = 0;
       
       window.removeEventListener('resize', handleResize);
       cancelAnimationFrame(animationFrameRef.current);
-      if (shakeIntervalRef.current) {
-        clearInterval(shakeIntervalRef.current);
-        shakeIntervalRef.current = null;
-      }
       
       // 清理骰子
       diceMeshesRef.current.forEach(mesh => {
@@ -736,117 +818,47 @@ export default function DiceCupAnimation({
     };
   }, []);
 
-  // 摇盅动画 - 使用物理引擎但严格控制速度
-  // 摇盅动画 - 恢复物理模拟，添加速度平滑控制
+  // 摇盅动画 - 初始化摇盅状态，实际动画在 animate 函数中执行
   const shakeDice = () => {
     console.log('🎲 shakeDice 被调用, isShaking:', isShakingRef.current);
     if (isShakingRef.current || !glassCoverRef.current || !worldRef.current) {
       console.log('⚠️ shakeDice 提前返回');
       return;
     }
+    
+    // 初始化摇盅状态
     isShakingRef.current = true;
-    console.log('✅ shakeDice 开始执行');
+    shakeFrameRef.current = 0;
+    shakeMaxFramesRef.current = isMobile ? 100 : 120; // 约1.6-2秒
+    console.log('✅ shakeDice 开始执行，最大帧数:', shakeMaxFramesRef.current);
 
     // 唤醒所有骰子并给予初始速度
     const diceCount = Math.min(diceBodiesRef.current.length, 3);
     console.log('🎲 骰子数量:', diceCount);
     
-    // 给予初始速度
+    // 给予初始速度和位置
     for (let i = 0; i < diceCount; i++) {
-      const b = diceBodiesRef.current[i];
-      if (b) {
-        b.wakeUp();
-        b.velocity.set(
-          (Math.random() - 0.5) * 10,
-          Math.random() * 6 + 4,
-          (Math.random() - 0.5) * 10
+      const body = diceBodiesRef.current[i];
+      if (body) {
+        body.wakeUp();
+        // 初始位置稍微抬高
+        body.position.y = 2 + Math.random();
+        // 初始速度
+        body.velocity.set(
+          (Math.random() - 0.5) * 8,
+          Math.random() * 5 + 3,
+          (Math.random() - 0.5) * 8
         );
-        b.angularVelocity.set(
-          (Math.random() - 0.5) * 15,
-          (Math.random() - 0.5) * 15,
-          (Math.random() - 0.5) * 15
+        // 初始角速度
+        body.angularVelocity.set(
+          (Math.random() - 0.5) * 12,
+          (Math.random() - 0.5) * 12,
+          (Math.random() - 0.5) * 12
         );
       }
     }
-
-    let shakeFrames = 0;
-    const maxFrames = isMobile ? 90 : 110;
     
-    shakeIntervalRef.current = setInterval(() => {
-      shakeFrames++;
-      const progress = shakeFrames / maxFrames;
-      
-      // 玻璃罩震动（逐渐减弱）
-      if (glassCoverRef.current) {
-        const intensity = 0.15 * (1 - progress);
-        glassCoverRef.current.position.x = Math.sin(shakeFrames * 0.25) * intensity;
-        glassCoverRef.current.position.z = Math.cos(shakeFrames * 0.3) * intensity;
-      }
-
-      for (let i = 0; i < diceCount; i++) {
-        const body = diceBodiesRef.current[i];
-        if (!body) continue;
-        
-        body.wakeUp();
-        
-        // 简单的力衰减：从1.0线性减小到0
-        const forceScale = Math.max(0, 1 - progress * 1.2); // 在83%时力变为0
-        
-        if (forceScale > 0) {
-          // 向中心的回弹力
-          const toCenterX = -body.position.x * 3;
-          const toCenterZ = -body.position.z * 3;
-          
-          // 施加力（使用 applyForce，更平滑）
-          body.applyForce(
-            new CANNON.Vec3(
-              (toCenterX + (Math.random() - 0.5) * 40) * forceScale,
-              (Math.random() * 30 + 20) * forceScale,
-              (toCenterZ + (Math.random() - 0.5) * 40) * forceScale
-            ),
-            body.position
-          );
-        }
-        
-        // 全程应用阻尼，让速度逐渐减小
-        // 阻尼系数从0.995逐渐减小到0.97
-        const damping = 0.995 - progress * 0.025;
-        body.velocity.scale(damping);
-        body.angularVelocity.scale(damping);
-        
-        // 限制最大速度
-        const linSpeed = body.velocity.length();
-        if (linSpeed > 12) {
-          body.velocity.scale(12 / linSpeed);
-        }
-        const angSpeed = body.angularVelocity.length();
-        if (angSpeed > 18) {
-          body.angularVelocity.scale(18 / angSpeed);
-        }
-      }
-
-      if (shakeFrames >= maxFrames) {
-        if (shakeIntervalRef.current) {
-          clearInterval(shakeIntervalRef.current);
-          shakeIntervalRef.current = null;
-        }
-        if (glassCoverRef.current) {
-          glassCoverRef.current.position.x = 0;
-          glassCoverRef.current.position.z = 0;
-        }
-        
-        isShakingRef.current = false;
-        console.log('🎲 摇盅动画完成');
-        
-        // 摇盅结束后，检查是否需要引导
-        // 使用 ref 获取最新的 diceResults
-        const currentResults = diceResultsRef.current;
-        if (currentResults.length === 3 && !isCorrectingRef.current && !hasCorrectedRef.current) {
-          console.log('🎯 摇盅结束，开始引导:', currentResults);
-          correctDiceToResults();
-        }
-      }
-    }, 16);
+    console.log('🎲 摇盅动画已启动，将在 animate 循环中执行');
   };
 
   // 获取当前骰子显示的点数（用于调试）
@@ -1007,10 +1019,7 @@ export default function DiceCupAnimation({
       isShakingRef.current = false;
       hasCorrectedRef.current = false; // 重置校正标志
       isCorrectingRef.current = false; // 重置校正中标志
-      if (shakeIntervalRef.current) {
-        clearInterval(shakeIntervalRef.current);
-        shakeIntervalRef.current = null;
-      }
+      shakeFrameRef.current = 0;
       
       // 唤醒骰子，准备下一轮
       diceBodiesRef.current.forEach((body) => {
