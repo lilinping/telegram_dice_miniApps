@@ -497,8 +497,8 @@ export default function DiceCupAnimation({
       const diceCount = Math.min(diceBodiesRef.current.length, 3);
 
       // ========== 新设计：摇盅 + 引导融合 ==========
-      // 阶段1 (0-60%): 纯物理摇盅，骰子自由碰撞
-      // 阶段2 (60-100%): 物理摇盅 + 渐进引导，骰子逐渐转向目标
+      // 阶段1 (0-70%): 纯物理摇盅，骰子自由碰撞，增加向中心的力促进碰撞
+      // 阶段2 (70-100%): 物理摇盅 + 渐进引导，骰子逐渐转向目标
       // 结果：骰子自然停下时就是正确点数
       
       if (isShakingRef.current && shakeFrameRef.current < shakeMaxFramesRef.current) {
@@ -507,9 +507,9 @@ export default function DiceCupAnimation({
         
         // 玻璃罩震动（逐渐减弱）
         if (glassCoverRef.current) {
-          const intensity = 0.15 * Math.max(0, 1 - progress * 1.2);
-          glassCoverRef.current.position.x = Math.sin(shakeFrameRef.current * 0.25) * intensity;
-          glassCoverRef.current.position.z = Math.cos(shakeFrameRef.current * 0.3) * intensity;
+          const intensity = 0.18 * Math.max(0, 1 - progress * 1.1);
+          glassCoverRef.current.position.x = Math.sin(shakeFrameRef.current * 0.2) * intensity;
+          glassCoverRef.current.position.z = Math.cos(shakeFrameRef.current * 0.25) * intensity;
         }
 
         // 对每个骰子施加力和引导
@@ -519,54 +519,55 @@ export default function DiceCupAnimation({
           
           body.wakeUp();
           
-          // === 阶段1: 物理摇盅 (0-60%) ===
-          if (progress < 0.6) {
-            // 力的强度：前40%全力，40-60%逐渐减弱
+          // === 阶段1: 物理摇盅 (0-70%) ===
+          if (progress < 0.7) {
+            // 力的强度：前50%全力，50-70%逐渐减弱
             let forceScale = 1.0;
-            if (progress > 0.4) {
-              forceScale = 1 - (progress - 0.4) / 0.2;
+            if (progress > 0.5) {
+              forceScale = 1 - (progress - 0.5) / 0.2;
             }
             
-            // 向中心的回弹力
-            const toCenterX = -body.position.x * 3;
-            const toCenterZ = -body.position.z * 3;
+            // 强向中心的回弹力（增加碰撞机会）
+            const distFromCenter = Math.sqrt(body.position.x * body.position.x + body.position.z * body.position.z);
+            const toCenterStrength = Math.max(3, distFromCenter * 2); // 距离越远，向心力越大
+            const toCenterX = -body.position.x * toCenterStrength;
+            const toCenterZ = -body.position.z * toCenterStrength;
             
-            // 随机力（每个骰子独立的随机种子，确保均匀）
-            const seed = i * 1000 + shakeFrameRef.current;
-            const pseudoRandom = (n: number) => {
-              const x = Math.sin(n) * 10000;
-              return x - Math.floor(x);
-            };
+            // 周期性的力（模拟摇盅的节奏感）
+            const cyclePhase = shakeFrameRef.current * 0.15;
+            const cycleForceX = Math.sin(cyclePhase + i * 2) * 60;
+            const cycleForceZ = Math.cos(cyclePhase + i * 2.5) * 60;
+            const cycleForceY = Math.abs(Math.sin(cyclePhase * 0.7)) * 50 + 30;
             
-            const randomForceX = (pseudoRandom(seed) - 0.5) * 100;
-            const randomForceY = pseudoRandom(seed + 1) * 80 + 40;
-            const randomForceZ = (pseudoRandom(seed + 2) - 0.5) * 100;
-            
-            // 施加力
+            // 施加力（向中心 + 周期性）
             body.applyForce(
               new CANNON.Vec3(
-                (toCenterX + randomForceX) * forceScale,
-                randomForceY * forceScale,
-                (toCenterZ + randomForceZ) * forceScale
+                (toCenterX + cycleForceX) * forceScale,
+                cycleForceY * forceScale,
+                (toCenterZ + cycleForceZ) * forceScale
               ),
               body.position
             );
             
-            // 施加扭矩（确保每个骰子都有足够的旋转）
-            const torqueScale = forceScale * 50;
-            body.applyTorque(
-              new CANNON.Vec3(
-                (pseudoRandom(seed + 3) - 0.5) * torqueScale,
-                (pseudoRandom(seed + 4) - 0.5) * torqueScale,
-                (pseudoRandom(seed + 5) - 0.5) * torqueScale
-              )
-            );
+            // 施加扭矩（通过碰撞产生旋转，减少直接扭矩）
+            // 只在速度较低时施加少量扭矩
+            const angSpeed = body.angularVelocity.length();
+            if (angSpeed < 5) {
+              const torqueScale = forceScale * 20;
+              body.applyTorque(
+                new CANNON.Vec3(
+                  (Math.sin(shakeFrameRef.current * 0.3 + i) - 0.5) * torqueScale,
+                  (Math.cos(shakeFrameRef.current * 0.25 + i) - 0.5) * torqueScale,
+                  (Math.sin(shakeFrameRef.current * 0.35 + i * 2) - 0.5) * torqueScale
+                )
+              );
+            }
           }
           
-          // === 阶段2: 渐进引导 (60-100%) ===
-          if (progress >= 0.6 && currentResults.length === 3) {
+          // === 阶段2: 渐进引导 (70-100%) ===
+          if (progress >= 0.7 && currentResults.length === 3) {
             // 引导进度：从0到1
-            const guideProgress = (progress - 0.6) / 0.4;
+            const guideProgress = (progress - 0.7) / 0.3;
             // 使用 easeOutQuad 缓动，让引导更自然
             const eased = 1 - (1 - guideProgress) * (1 - guideProgress);
             
@@ -581,8 +582,7 @@ export default function DiceCupAnimation({
             const targetQuat = correctDiceToNumber(body, currentResults[i]);
             
             // 混合物理旋转和目标旋转
-            // 前期物理为主，后期目标为主
-            const blendFactor = eased * eased; // 更平滑的过渡
+            const blendFactor = eased * eased;
             
             // 获取当前物理旋转
             const physicsQuat = new CANNON.Quaternion();
@@ -596,17 +596,17 @@ export default function DiceCupAnimation({
             body.quaternion.copy(finalQuat);
             
             // 逐渐减小角速度
-            const angDamping = 0.92 - guideProgress * 0.15;
+            const angDamping = 0.9 - guideProgress * 0.12;
             body.angularVelocity.scale(angDamping);
             
             // 逐渐减小线速度
-            const linDamping = 0.95 - guideProgress * 0.1;
+            const linDamping = 0.93 - guideProgress * 0.08;
             body.velocity.scale(linDamping);
           }
           
-          // 限制最大速度
-          const maxLinSpeed = 12;
-          const maxAngSpeed = 15;
+          // 限制最大速度（稍微提高，让碰撞更有力）
+          const maxLinSpeed = 14;
+          const maxAngSpeed = 18;
           const linSpeed = body.velocity.length();
           if (linSpeed > maxLinSpeed) {
             body.velocity.scale(maxLinSpeed / linSpeed);
@@ -799,8 +799,8 @@ export default function DiceCupAnimation({
     // 初始化摇盅状态
     isShakingRef.current = true;
     shakeFrameRef.current = 0;
-    // 增加摇盅时间：约2.5-3秒（150-180帧）
-    shakeMaxFramesRef.current = isMobile ? 150 : 180;
+    // 增加摇盅时间：约4.5-5秒（270-300帧）
+    shakeMaxFramesRef.current = isMobile ? 270 : 300;
     // 清空引导用的初始四元数
     initialQuatsRef.current = [];
     hasCorrectedRef.current = false;
@@ -811,30 +811,32 @@ export default function DiceCupAnimation({
     const diceCount = Math.min(diceBodiesRef.current.length, 3);
     console.log('🎲 骰子数量:', diceCount);
     
-    // 给予初始速度和位置（确保每个骰子都有足够的初始动量）
+    // 给予初始速度和位置（骰子靠近中心，增加碰撞机会）
     for (let i = 0; i < diceCount; i++) {
       const body = diceBodiesRef.current[i];
       if (body) {
         body.wakeUp();
-        // 初始位置：稍微分散，避免重叠
-        const angle = (i / diceCount) * Math.PI * 2 + Math.random() * 0.5;
-        const radius = 1 + Math.random() * 0.5;
+        // 初始位置：靠近中心，增加碰撞机会
+        const angle = (i / diceCount) * Math.PI * 2;
+        const radius = 0.8; // 更小的半径，骰子更靠近
         body.position.set(
           Math.cos(angle) * radius,
-          2.5 + Math.random() * 0.5,
+          2 + i * 0.3, // 稍微错开高度
           Math.sin(angle) * radius
         );
-        // 初始速度：向上和随机方向
+        // 初始速度：向中心和向上，增加碰撞
+        const towardsCenterX = -Math.cos(angle) * 3;
+        const towardsCenterZ = -Math.sin(angle) * 3;
         body.velocity.set(
-          (Math.random() - 0.5) * 6,
-          Math.random() * 4 + 2,
-          (Math.random() - 0.5) * 6
+          towardsCenterX + (Math.random() - 0.5) * 4,
+          Math.random() * 3 + 4,
+          towardsCenterZ + (Math.random() - 0.5) * 4
         );
-        // 初始角速度：确保每个骰子都有明显的旋转
+        // 初始角速度：适中，不要太快
         body.angularVelocity.set(
-          (Math.random() - 0.5) * 10 + (i === 0 ? 5 : i === 1 ? -5 : 3),
-          (Math.random() - 0.5) * 10,
-          (Math.random() - 0.5) * 10 + (i === 0 ? -3 : i === 1 ? 3 : -5)
+          (Math.random() - 0.5) * 8,
+          (Math.random() - 0.5) * 8,
+          (Math.random() - 0.5) * 8
         );
       }
     }
