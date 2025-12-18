@@ -396,21 +396,13 @@ export default function GamePage() {
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="mb-0.5">
             <path d="M19 7L18.1327 19.1425C18.0579 20.1891 17.187 21 16.1378 21H7.86224C6.81296 21 5.94208 20.1891 5.86732 19.1425L5 7M10 11V17M14 11V17M15 7V4C15 3.44772 14.5523 3 14 3H10C9.44772 3 9 3.44772 9 4V7M4 7H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
-          <span>清空</span>
+          <span>撤销全部</span>
         </button>
 
-        {/* 撤销按钮 - 当有多个下注时撤销全部，否则撤销上一个 */}
+        {/* 撤销上一次按钮 */}
         <button
           onClick={() => {
-            // 检查是否有多个不同的下注项目
-            const betCount = Object.keys(bets).length;
-            if (betCount > 1) {
-              // 多个下注项目，清空全部
-              clearBets();
-            } else {
-              // 单个或无下注，撤销上一个
-              undoLastBet();
-            }
+            undoLastBet();
             hapticChipSelect();
           }}
           disabled={!canUndo || !canBet}
@@ -424,7 +416,7 @@ export default function GamePage() {
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="mb-0.5">
             <path d="M3 7V13C3 16.866 6.13401 20 10 20H15M3 7L7 3M3 7L7 11M17 11L21 7M17 11L21 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
-          <span>{Object.keys(bets).length > 1 ? '全撤销' : '撤销'}</span>
+          <span>撤销上一次</span>
         </button>
 
         {/* 确认下注按钮 */}
