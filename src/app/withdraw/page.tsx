@@ -36,6 +36,11 @@ export default function WithdrawPage() {
   const [newAddress, setNewAddress] = useState<string>('');
   const [addressValidationError, setAddressValidationError] = useState<string>('');
   const lastFetchKeyRef = useRef('');
+  
+  // 成功弹框状态
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [successOrderId, setSuccessOrderId] = useState<string>('');
+  const [successStatus, setSuccessStatus] = useState<string>('');
 
   const loadAddresses = async (forceRefresh: boolean = false) => {
     if (!userId) return;
@@ -225,31 +230,29 @@ export default function WithdrawPage() {
       if (result.success) {
         setShowConfirm(false);
         
-        // 检查data是否存在
-        if (!result.data) {
-          console.warn('⚠️ API返回success=true但data为空');
-          alert('提现申请已提交！\n请在钱包页面查看提现记录');
-          router.push('/wallet');
-          return;
-        }
-        
         // 安全地获取订单ID - 兼容多种字段名
-        // 后端可能返回 orderId(string) 或 id(number)
-        const orderIdValue = (result.data as any).orderId || 
-                            (result.data as any).id || 
-                            (result.data as any).orderid ||
-                            '未知';
-        const orderId = String(orderIdValue);
-        const txCode = result.data.txCode ?? -1;
+        let orderId = '处理中';
+        let txCode = -1;
+        
+        if (result.data) {
+          // 后端可能返回 orderId(string) 或 id(number)
+          const orderIdValue = (result.data as any).orderId || 
+                              (result.data as any).id || 
+                              (result.data as any).orderid;
+          if (orderIdValue) {
+            orderId = String(orderIdValue);
+          }
+          txCode = result.data.txCode ?? -1;
+        }
         
         console.log('💰 提现成功 - 订单ID:', orderId, 'txCode:', txCode);
         
         // 根据txCode显示不同的状态
-        let statusText = '待确认';
+        let statusText = '待审核';
         if (txCode === 0) {
-          statusText = '成功';
+          statusText = '已完成';
         } else if (txCode === 1) {
-          statusText = '失败';
+          statusText = '处理失败';
         }
         
         // 刷新余额
@@ -257,8 +260,10 @@ export default function WithdrawPage() {
         await refreshBalance();
         console.log('💰 余额刷新完成');
         
-        alert(`提现申请已提交！\n订单ID: ${orderId}\n状态: ${statusText}`);
-        router.push('/wallet');
+        // 显示成功弹框
+        setSuccessOrderId(orderId);
+        setSuccessStatus(statusText);
+        setShowSuccess(true);
       } else {
         console.error('❌ 提现失败:', result.message);
         setError(result.message || '提现失败');
@@ -660,6 +665,63 @@ export default function WithdrawPage() {
                   {loading ? '提交中...' : '确认提现'}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 提现成功弹框 */}
+      {showSuccess && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-bg-dark border border-border rounded-2xl w-[90%] max-w-sm overflow-hidden shadow-2xl">
+            {/* 顶部成功图标 */}
+            <div className="bg-gradient-to-r from-green-500 to-emerald-600 py-6 flex flex-col items-center">
+              <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mb-3">
+                <svg className="w-10 h-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold text-white">提现申请已提交</h3>
+            </div>
+            
+            {/* 订单信息 */}
+            <div className="p-6 space-y-4">
+              <div className="bg-bg-medium rounded-xl p-4 space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-text-secondary">订单编号</span>
+                  <span className="text-sm font-mono text-text-primary">{successOrderId}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-text-secondary">提现金额</span>
+                  <span className="text-sm font-semibold text-primary-gold">{withdrawAmount.toFixed(2)} USDT</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-text-secondary">状态</span>
+                  <span className={cn(
+                    "text-sm font-semibold px-2 py-0.5 rounded",
+                    successStatus === '已完成' ? 'bg-green-500/20 text-green-400' :
+                    successStatus === '处理失败' ? 'bg-red-500/20 text-red-400' :
+                    'bg-yellow-500/20 text-yellow-400'
+                  )}>
+                    {successStatus}
+                  </span>
+                </div>
+              </div>
+              
+              <p className="text-xs text-text-secondary text-center">
+                预计2小时内到账，请在钱包页面查看提现记录
+              </p>
+              
+              {/* 确认按钮 */}
+              <button
+                onClick={() => {
+                  setShowSuccess(false);
+                  router.push('/wallet');
+                }}
+                className="w-full h-12 bg-gradient-to-r from-primary-gold to-primary-dark-gold text-bg-darkest font-bold rounded-xl transition-all hover:opacity-90"
+              >
+                确定
+              </button>
             </div>
           </div>
         </div>
