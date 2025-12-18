@@ -330,7 +330,12 @@ export default function WithdrawPage() {
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               placeholder="输入提现金额"
-              className="w-full h-12 bg-bg-medium border-2 border-border rounded-lg px-4 pr-24 text-base text-text-primary placeholder:text-text-disabled focus:border-primary-gold focus:outline-none focus:ring-2 focus:ring-primary-gold/20 transition-all"
+              className={cn(
+                "w-full h-12 bg-bg-medium border-2 rounded-lg px-4 pr-24 text-base text-text-primary placeholder:text-text-disabled focus:outline-none focus:ring-2 transition-all",
+                amount && parseFloat(amount) > 0 && parseFloat(amount) < 10
+                  ? "border-red-500 focus:border-red-500 focus:ring-red-500/20"
+                  : "border-border focus:border-primary-gold focus:ring-primary-gold/20"
+              )}
               min="10"
               step="0.01"
             />
@@ -338,6 +343,13 @@ export default function WithdrawPage() {
               USDT
             </span>
           </div>
+
+          {/* 金额不足提示 */}
+          {amount && parseFloat(amount) > 0 && parseFloat(amount) < 10 && (
+            <p className="mb-2 text-sm text-red-500 font-medium">
+              ⚠️ 最少需要 10 USDT 才可以提取
+            </p>
+          )}
 
           {/* 全部提现按钮 */}
           <button
