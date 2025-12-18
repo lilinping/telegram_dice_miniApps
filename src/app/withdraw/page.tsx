@@ -36,6 +36,7 @@ export default function WithdrawPage() {
   const [newAddress, setNewAddress] = useState<string>('');
   const [addressValidationError, setAddressValidationError] = useState<string>('');
   const lastFetchKeyRef = useRef('');
+  const [isFreeWithdrawal, setIsFreeWithdrawal] = useState<boolean>(false); // 是否免手续费
   
   // 成功弹框状态
   const [showSuccess, setShowSuccess] = useState(false);
@@ -71,9 +72,24 @@ export default function WithdrawPage() {
     }
   };
 
-  // 加载地址列表
+  // 查询是否免手续费
+  const checkFreeWithdrawal = async () => {
+    if (!userId) return;
+    try {
+      const result = await apiService.checkFreeWithdrawal(String(userId));
+      if (result.success) {
+        setIsFreeWithdrawal(result.data === true);
+        console.log('💰 免手续费状态:', result.data);
+      }
+    } catch (err) {
+      console.error('查询免手续费状态失败:', err);
+    }
+  };
+
+  // 加载地址列表和免手续费状态
   useEffect(() => {
     loadAddresses();
+    checkFreeWithdrawal();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
@@ -187,7 +203,7 @@ export default function WithdrawPage() {
 
   // 计算手续费和实际到账
   const withdrawAmount = parseFloat(amount) || 0;
-  const fee = calculateWithdrawalFee(withdrawAmount);
+  const fee = isFreeWithdrawal ? 0 : calculateWithdrawalFee(withdrawAmount);
   const actualAmount = withdrawAmount - fee;
 
   // 处理全部提现
@@ -491,11 +507,18 @@ export default function WithdrawPage() {
               {withdrawAmount.toFixed(2)} USDT
             </span>
           </div>
-          <div className="flex justify-between">
+          <div className="flex justify-between items-center">
             <span className="text-sm text-text-secondary">手续费</span>
-            <span className="text-sm font-mono text-error">
-              -{fee.toFixed(2)} USDT
-            </span>
+            {isFreeWithdrawal ? (
+              <span className="text-sm font-mono text-success flex items-center gap-1">
+                <span className="px-1.5 py-0.5 bg-success/20 text-success text-xs rounded">免手续费</span>
+                0.00 USDT
+              </span>
+            ) : (
+              <span className="text-sm font-mono text-error">
+                -{fee.toFixed(2)} USDT
+              </span>
+            )}
           </div>
           <div className="h-px bg-border" />
           <div className="flex justify-between">
@@ -513,7 +536,11 @@ export default function WithdrawPage() {
             <div className="flex-1 space-y-1">
               <p className="text-sm font-semibold text-info">提现规则</p>
               <p className="text-xs text-text-secondary">• 最小提现金额: 10 USDT</p>
-              <p className="text-xs text-text-secondary">• 手续费: 2 USDT（统一费率）</p>
+              {isFreeWithdrawal ? (
+                <p className="text-xs text-success">• 手续费: 免手续费 🎉</p>
+              ) : (
+                <p className="text-xs text-text-secondary">• 手续费: 2 USDT（统一费率）</p>
+              )}
               <p className="text-xs text-text-secondary">• 自动审核，2小时内到账</p>
               <p className="text-xs text-text-secondary">• 不限提现次数</p>
             </div>
@@ -614,11 +641,17 @@ export default function WithdrawPage() {
                     {withdrawAmount.toFixed(2)} USDT
                   </span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center">
                   <span className="text-sm text-text-secondary">手续费</span>
-                  <span className="text-sm font-mono text-error">
-                    -{fee.toFixed(2)} USDT
-                  </span>
+                  {isFreeWithdrawal ? (
+                    <span className="text-sm font-mono text-success">
+                      免手续费
+                    </span>
+                  ) : (
+                    <span className="text-sm font-mono text-error">
+                      -{fee.toFixed(2)} USDT
+                    </span>
+                  )}
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm text-text-secondary">实际到账</span>

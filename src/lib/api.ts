@@ -265,6 +265,17 @@ class ApiService {
   // ==================== 提币相关接口 ====================
 
   /**
+   * 查询是否免手续费提现
+   * @param userId 用户ID
+   * @returns BackendResponse<boolean> - true: 免手续费, false: 不免手续费
+   */
+  async checkFreeWithdrawal(userId: string): Promise<BackendResponse<boolean>> {
+    return this.request<boolean>(`/account/take/free/usdt/${userId}`, {
+      method: 'POST'
+    })
+  }
+
+  /**
    * 提币
    * @param userId 用户ID
    * @param amount 提币金额
