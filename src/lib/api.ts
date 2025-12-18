@@ -532,6 +532,14 @@ class ApiService {
     return this.request<GlobalHistoryResponse>(`/dice/global/result/${pageIndex}/${pageSize}`)
   }
 
+  /**
+   * 查看某一期的开奖结果
+   * @param number 期号
+   */
+  async getGlobalSingleResult(number: string | number): Promise<BackendResponse<GlobalDiceResult>> {
+    return this.request<GlobalDiceResult>(`/dice/global/single/result/${number}`)
+  }
+
 }
 
 // 导出单例实例

@@ -10,6 +10,8 @@ import { useGame } from '@/contexts/GameContext';
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import { correctDiceToNumber } from '@/lib/physics/bodies';
+import { getChooseBetId } from '@/lib/betMapping';
+import { GlobalDiceBet } from '@/lib/types';
 // 使用 BoxGeometry 替代 RoundedBoxGeometry（更兼容）
 // import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 
@@ -54,6 +56,7 @@ export default function DiceCupAnimation({
   const diceResultsRef = useRef<number[]>([]); // 存储最新的 diceResults，解决闭包问题
   const initialQuatsRef = useRef<CANNON.Quaternion[]>([]); // 保存引导开始时的初始四元数
   const initialVelocitiesRef = useRef<number[]>([]); // 保存引导开始时的初始速度
+  const [diceStopped, setDiceStopped] = useState(false); // 跟踪骰子是否已完全停止
 
   // 配置参数
   const DICE_SIZE = 1.3;
@@ -985,6 +988,15 @@ export default function DiceCupAnimation({
       initialVelocitiesRef.current = [];
       // 清空旧结果 key，等待新结果
       lastResultsKeyRef.current = null;
+      
+      // 确保骰子被唤醒（如果它们处于 sleep 状态）
+      const diceCount = Math.min(diceBodiesRef.current.length, 3);
+      for (let i = 0; i < diceCount; i++) {
+        const body = diceBodiesRef.current[i];
+        if (body) {
+          body.wakeUp();
+        }
+      }
 
       // 检查场景是否已初始化
       if (!sceneInitializedRef.current) {
@@ -1026,13 +1038,60 @@ export default function DiceCupAnimation({
     }
   }, [gameState]); // 只监听 gameState，不监听 diceResults
 
+  // 将 chooseId 转换为可读文本
+  const getBetLabel = (chooseId: number): string => {
+    const betId = getChooseBetId(chooseId);
+    if (!betId) return `选项${chooseId}`;
+    
+    // 点数 4-17
+    if (betId.startsWith('num-')) {
+      const num = betId.replace('num-', '');
+      return `${num}点`;
+    }
+    // 大小单双
+    if (betId === 'big') return '大';
+    if (betId === 'small') return '小';
+    if (betId === 'odd') return '单';
+    if (betId === 'even') return '双';
+    // 任意三同号
+    if (betId === 'any-triple') return '任意三同';
+    // 对子
+    if (betId.startsWith('double-')) {
+      const num = betId.replace('double-', '');
+      return `${num}-${num}`;
+    }
+    if (betId.startsWith('pair-')) {
+      const parts = betId.replace('pair-', '').split('-');
+      return `${parts[0]}-${parts[1]}`;
+    }
+    // 豹子
+    if (betId.startsWith('triple-')) {
+      const num = betId.replace('triple-', '');
+      return `${num}-${num}-${num}`;
+    }
+    // 单骰号
+    if (betId.startsWith('single-')) {
+      const num = betId.replace('single-', '');
+      return `单骰${num}`;
+    }
+    return betId;
+  };
+
   // 计算结果显示（参考 2D 版本）
   const total = diceResults.length === 3 ? diceResults.reduce((sum, val) => sum + val, 0) : 0;
   const isBig = total >= 11 && total <= 17;
   const isSmall = total >= 4 && total <= 10;
   const isOdd = total % 2 === 1;
+  
+  // 计算全局结果
+  const globalTotal = globalOutcome && globalOutcome.length === 3 
+    ? globalOutcome.reduce((sum, val) => sum + val, 0) 
+    : null;
 
-  const showOverlay = (gameState === 'revealing' || gameState === 'settled') && diceResults.length === 3;
+  // 在全局模式下，当有结果且骰子完全停止后才显示结果卡片
+  const showOverlay = (gameState === 'revealing' || gameState === 'settled' || 
+                       (gameState === 'rolling' && diceResults.length === 3)) && 
+                       diceResults.length === 3 && diceStopped;
   // 为结果面板预留更高的底部空间，避免遮挡骰盅
   const overlayPadding = showOverlay ? (fullscreen ? 460 : 340) : 0;
 
@@ -1078,6 +1137,40 @@ export default function DiceCupAnimation({
           >
             {total}
           </div>
+
+          {/* 我的下注和全局结果 */}
+          {fullscreen && myBets.length > 0 && (
+            <div style={{ marginBottom: '15px', fontSize: '14px' }}>
+              <div style={{ marginBottom: '8px', color: 'rgba(255, 255, 255, 0.8)' }}>
+                <div style={{ fontWeight: '600', marginBottom: '4px' }}>我的下注：</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', justifyContent: 'center' }}>
+                  {myBets.map((bet, idx) => (
+                    <span
+                      key={idx}
+                      style={{
+                        padding: '4px 10px',
+                        borderRadius: '12px',
+                        background: 'rgba(255, 215, 0, 0.2)',
+                        border: '1px solid rgba(255, 215, 0, 0.4)',
+                        color: '#ffd700',
+                        fontSize: '12px',
+                      }}
+                    >
+                      {getBetLabel(bet.chooseId)} × {bet.amount}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              {globalOutcome && globalOutcome.length === 3 && globalTotal !== null && (
+                <div style={{ marginTop: '8px', color: 'rgba(255, 255, 255, 0.8)' }}>
+                  <div style={{ fontWeight: '600', marginBottom: '4px' }}>全局开奖：</div>
+                  <div style={{ fontSize: '18px', color: '#ffd700', fontWeight: 'bold' }}>
+                    {globalOutcome.join(' + ')} = {globalTotal}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* 输赢提示 */}
           {fullscreen && (
