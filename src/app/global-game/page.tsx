@@ -326,9 +326,13 @@ export default function GlobalGamePage() {
     isProcessingResultRef.current = true;
     console.log('⏰ 倒计时结束，开始获取开奖结果，期号:', currentRound);
     
-    // 关键修复：延迟获取结果，确保摇盅动画有足够时间完成
-    // 摇盅动画需要约1.5-2秒，我们延迟2秒后再设置 diceResults
-    const SHAKE_ANIMATION_DELAY = 2000; // 摇盅动画时间
+    // 时间配置（单位：毫秒）
+    // 摇盅动画约 3 秒（180帧 / 60fps）
+    // 骰子停下后 1 秒显示结果卡片
+    // 结果展示 3 秒后重置
+    const SHAKE_ANIMATION_TIME = 3000; // 摇盅动画时间
+    const RESULT_SHOW_DELAY = 1000;    // 骰子停下后延迟显示结果
+    const RESULT_DISPLAY_TIME = 3000;  // 结果展示时间
     
     const fetchResult = async () => {
       try {
@@ -343,7 +347,7 @@ export default function GlobalGamePage() {
             console.log('✅ 获取到开奖结果:', result);
             setLastProcessedRound(result.number.toString());
             
-            // 获取我的中奖信息（可以提前获取，但不影响动画）
+            // 获取我的中奖信息
             let winValue = 0;
             try {
               const myResult = await apiService.getGlobalGameInfo(String(user.id), currentRound);
@@ -354,11 +358,13 @@ export default function GlobalGamePage() {
               console.error('Failed to get my result', e);
             }
             
-            // 延迟设置 diceResults，确保摇盅动画完成后再开始引导
+            // 立即设置 diceResults，让摇盅动画开始引导
+            console.log('🎲 设置开奖结果，开始摇盅动画:', result.outCome || result.result);
+            setDiceResults(result.outCome || result.result || []);
+            
+            // 摇盅动画结束后（约3秒），再等1秒显示结果卡片
             setTimeout(() => {
-              console.log('🎲 摇盅动画完成，设置开奖结果:', result.outCome || result.result);
-              setDiceResults(result.outCome || result.result || []);
-              
+              console.log('🎯 骰子停下，准备显示结果');
               // 设置中奖信息
               setWinAmount(winValue);
               setHasWon(winValue > 0);
@@ -367,22 +373,25 @@ export default function GlobalGamePage() {
                 hapticWin();
               }
               refreshBalance();
-            }, SHAKE_ANIMATION_DELAY);
-            
-            // 动画结束后重置（总时间 = 摇盅2秒 + 引导1.5秒 + 展示3秒 = 6.5秒）
-            setTimeout(() => {
-              setGameState('settled');
+              
+              // 1秒后显示结果卡片
               setTimeout(() => {
-                setGameState('betting');
-                setLastBets(bets); // 保存上一局下注
-                setBets({}); // 清空当前下注
-                setWinAmount(0);
-                setHasWon(false);
-                setDiceResults([]);
-                // 重置处理标志，准备下一轮
-                isProcessingResultRef.current = false;
-              }, 2000);
-            }, 6500); // 增加总时间，确保动画完整播放
+                console.log('📋 显示结果卡片');
+                setGameState('settled');
+                
+                // 结果展示3秒后重置
+                setTimeout(() => {
+                  setGameState('betting');
+                  setLastBets(bets); // 保存上一局下注
+                  setBets({}); // 清空当前下注
+                  setWinAmount(0);
+                  setHasWon(false);
+                  setDiceResults([]);
+                  // 重置处理标志，准备下一轮
+                  isProcessingResultRef.current = false;
+                }, RESULT_DISPLAY_TIME);
+              }, RESULT_SHOW_DELAY);
+            }, SHAKE_ANIMATION_TIME);
             
             // 成功获取结果，不再重试
             return;
