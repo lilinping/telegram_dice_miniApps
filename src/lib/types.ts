@@ -116,7 +116,7 @@ export interface GlobalDiceResult {
   status: 'RUNNING' | 'FINISHED' | 'SEALED' // 状态
 }
 
-// 全局下注记录
+// 全局下注记录（用于实时查询）
 export interface GlobalDiceBet {
   chooseId: number
   amount: number
@@ -124,14 +124,23 @@ export interface GlobalDiceBet {
   createTime?: string
 }
 
+// 全局投注历史中的单个投注信息
+export interface GlobalBetInfo {
+  betId: number      // 押注对象ID
+  bet: string        // 押注额度（字符串格式）
+  win: string        // 这个押注赢了多少（字符串格式）
+}
+
 // 全局游戏详情（查询某一局）
 export interface GlobalDiceQuery {
   number: string | number
   status: string
   outCome: number[] | null
-  myBets: GlobalDiceBet[] // 我的下注情况
+  myBets?: GlobalDiceBet[] // 我的下注情况（实时查询用）
+  betInfo?: GlobalBetInfo[] // 投注历史信息（历史查询用）
   totalBets?: Record<string, number> // 全局总下注（如果有）
   winAmount?: number
+  win?: string // 用户押注赢钱的总和（字符串格式）
 }
 
 // 全局游戏历史（分页）- 开奖结果

@@ -488,14 +488,21 @@ export default function GlobalHistoryPage() {
                 <div className="space-y-3">
                     {myBetsData.map((record) => {
                     const analysis = analyzeDice(record.outCome || []);
-                    // Calculate totals from myBets (确保 myBets 存在)
-                    const totalBet = record.myBets && Array.isArray(record.myBets) 
-                        ? record.myBets.reduce((sum, bet) => sum + (bet.amount || 0), 0)
-                        : 0;
-                    const totalWin = record.winAmount || 0; // The API should ideally return winAmount for the round, or we sum up
-                    // Actually, GlobalDiceQuery has winAmount
                     
-                    const profit = totalWin - totalBet;
+                    // 优先使用 betInfo（历史查询），否则使用 myBets（实时查询）
+                    const hasBetInfo = record.betInfo && Array.isArray(record.betInfo) && record.betInfo.length > 0;
+                    const hasMyBets = record.myBets && Array.isArray(record.myBets) && record.myBets.length > 0;
+                    
+                    // 计算总投注额
+                    let totalBet = 0;
+                    if (hasBetInfo) {
+                        totalBet = record.betInfo!.reduce((sum, bet) => sum + parseFloat(bet.bet || '0'), 0);
+                    } else if (hasMyBets) {
+                        totalBet = record.myBets!.reduce((sum, bet) => sum + (bet.amount || 0), 0);
+                    }
+                    
+                    // 获取总赢钱金额：优先使用 win 字段（字符串），否则使用 winAmount
+                    const totalWin = record.win ? parseFloat(record.win) : (record.winAmount || 0);
                     const isWin = totalWin > 0;
 
                     return (
@@ -517,14 +524,33 @@ export default function GlobalHistoryPage() {
                         <div className="mb-3">
                             <p className="text-xs text-text-secondary mb-2">投注内容</p>
                             <div className="flex flex-wrap gap-2">
-                            {record.myBets && Array.isArray(record.myBets) && record.myBets.length > 0 ? (
-                                record.myBets.map((bet, idx) => (
-                                <span
-                                key={idx}
-                                className="px-2 py-1 bg-bg-medium rounded text-xs"
-                                >
-                                {getBetName(bet.chooseId)} {bet.amount} USDT
-                                </span>
+                            {hasBetInfo ? (
+                                // 使用 betInfo（历史查询返回的数据）
+                                record.betInfo!.map((bet, idx) => {
+                                    const betAmount = parseFloat(bet.bet || '0');
+                                    const betWin = parseFloat(bet.win || '0');
+                                    return (
+                                        <span
+                                            key={idx}
+                                            className={cn(
+                                                "px-2 py-1 rounded text-xs",
+                                                betWin > 0 ? "bg-success/20 text-success" : "bg-bg-medium"
+                                            )}
+                                        >
+                                            {getBetName(bet.betId)} {betAmount.toFixed(2)} USDT
+                                            {betWin > 0 && <span className="ml-1 text-success">+{betWin.toFixed(2)}</span>}
+                                        </span>
+                                    );
+                                })
+                            ) : hasMyBets ? (
+                                // 使用 myBets（实时查询返回的数据）
+                                record.myBets!.map((bet, idx) => (
+                                    <span
+                                        key={idx}
+                                        className="px-2 py-1 bg-bg-medium rounded text-xs"
+                                    >
+                                        {getBetName(bet.chooseId)} {bet.amount} USDT
+                                    </span>
                                 ))
                             ) : (
                                 <span className="text-xs text-text-disabled">暂无投注</span>
@@ -550,13 +576,16 @@ export default function GlobalHistoryPage() {
 
                         {/* 盈亏 */}
                         <div className="pt-3 border-t border-border flex justify-between items-center">
-                            <span className="text-sm text-text-secondary">
-                            {isWin ? '中奖金额' : '未中奖'}
-                            </span>
+                            <div className="flex flex-col">
+                                <span className="text-xs text-text-disabled">投注额: {totalBet.toFixed(2)} USDT</span>
+                                <span className="text-sm text-text-secondary">
+                                    {isWin ? '中奖金额' : '未中奖'}
+                                </span>
+                            </div>
                             {record.status === 'FINISHED' ? (
                                 isWin ? (
                                 <span className="text-lg font-bold font-mono text-success">
-                                    +{profit.toFixed(2)} USDT
+                                    +{totalWin.toFixed(2)} USDT
                                 </span>
                                 ) : (
                                 <span className="text-lg font-bold font-mono text-error">
