@@ -172,25 +172,27 @@ export default function DiceCupAnimation({
     world.gravity.set(0, -9.82 * 3, 0);
     // 提升求解器精度并允许睡眠，帮助稳定并更快收敛
     world.allowSleep = true;
-    world.solver.iterations = 12;
-    (world.solver as any).tolerance = 0.001;
+    // 根据设备能力选择 solver iterations，桌面更高以提高稳定性
+    world.solver.iterations = isMobile ? 10 : 22;
+    (world.solver as any).tolerance = 0.0005;
     worldRef.current = world;
 
     const groundMat = new CANNON.Material();
     const diceMat = new CANNON.Material();
     const wallMat = new CANNON.Material();
 
+    // 更合理的接触材质，降低弹跳并提高摩擦使骰子更容易停下
     const diceDiceContact = new CANNON.ContactMaterial(diceMat, diceMat, {
-      friction: 0.1,
-      restitution: 0.5
+      friction: 0.55,
+      restitution: 0.18
     });
     const diceGroundContact = new CANNON.ContactMaterial(groundMat, diceMat, {
-      friction: 0.3,
-      restitution: 0.3
+      friction: 0.72,
+      restitution: 0.08
     });
     const diceWallContact = new CANNON.ContactMaterial(wallMat, diceMat, {
-      friction: 0.0,
-      restitution: 0.6
+      friction: 0.6,
+      restitution: 0.12
     });
 
     world.addContactMaterial(diceDiceContact);
@@ -363,12 +365,14 @@ export default function DiceCupAnimation({
         mass: 5,
         shape: new CANNON.Box(new CANNON.Vec3(DICE_SIZE / 2, DICE_SIZE / 2, DICE_SIZE / 2)),
         material: diceMat,
-        angularDamping: 0.55, // 更高的角阻尼，减少长时间自转
-        linearDamping: 0.12   // 适度线阻尼
+        // 初始阻尼，稍微偏高以减少长期漂移
+        angularDamping: isMobile ? 0.5 : 0.62,
+        linearDamping: isMobile ? 0.14 : 0.12
       });
       body.allowSleep = true;
-      body.sleepSpeedLimit = 0.15; // 小于该角速度会进入睡眠
-      body.sleepTimeLimit = 0.6;   // 在该时间内低速则睡眠
+      // 更宽松的睡眠门槛但能保证稳定性
+      body.sleepSpeedLimit = 0.2; // 角速度阈值
+      body.sleepTimeLimit = 0.5;   // 连续低速时间后进入睡眠
       body.position.set(xPos, 1.5, 0);
       body.quaternion.setFromEuler(
         Math.random() * Math.PI,
@@ -550,25 +554,28 @@ export default function DiceCupAnimation({
             const cycleForceY = Math.abs(Math.sin(cyclePhase * 0.7)) * 50 + 30;
             
             // 施加脉冲（冲量）在骰子偏心点以产生扭矩，更接近真实碰撞
+            // 使用受控的脉冲序列（连续小脉冲），而非单次大脉冲，避免过度自转
             const offset = new CANNON.Vec3(
-              (Math.random() - 0.5) * 0.4,
-              (Math.random() - 0.2) * 0.4,
-              (Math.random() - 0.5) * 0.4
+              (Math.random() - 0.5) * 0.35,
+              (Math.random() - 0.2) * 0.35,
+              (Math.random() - 0.5) * 0.35
             );
+            // 脉冲基准取决于设备与阶段
+            const impulseScale = (isMobile ? 0.008 : 0.012) * forceScale;
             const impulse = new CANNON.Vec3(
-              (toCenterX + cycleForceX) * 0.01 * forceScale,
-              cycleForceY * 0.01 * forceScale,
-              (toCenterZ + cycleForceZ) * 0.01 * forceScale
+              (toCenterX + cycleForceX) * impulseScale,
+              cycleForceY * impulseScale,
+              (toCenterZ + cycleForceZ) * impulseScale
             );
             const worldPoint = body.position.vadd(offset);
             body.applyImpulse(impulse, worldPoint);
-            // 当角速度较低时，可以稍微施加微小局部脉冲以帮助翻转
+            // 小角速度时施加微小脉冲促进正翻，但幅度受限
             const curAng = body.angularVelocity.length();
-            if (curAng < 5) {
+            if (curAng < 4.5) {
               const tiny = new CANNON.Vec3(
-                (Math.random() - 0.5) * 0.02,
-                (Math.random() - 0.5) * 0.02,
-                (Math.random() - 0.5) * 0.02
+                (Math.random() - 0.5) * 0.01,
+                (Math.random() - 0.5) * 0.01,
+                (Math.random() - 0.5) * 0.01
               );
               body.applyImpulse(tiny, worldPoint);
             }
@@ -605,18 +612,19 @@ export default function DiceCupAnimation({
             const finalQuat = physicsQuat.slerp(guidedQuat, blendFactor);
             body.quaternion.copy(finalQuat);
             
-            // 逐渐减小角速度
-            const angDamping = 0.9 - guideProgress * 0.12;
+            // 逐渐减小角速度并增加阻尼以加速收敛
+            const angDamping = 0.88 - guideProgress * 0.10;
             body.angularVelocity.scale(angDamping);
+            body.angularDamping = Math.min(0.98, body.angularDamping + guideProgress * 0.15);
             
             // 逐渐减小线速度
-            const linDamping = 0.93 - guideProgress * 0.08;
+            const linDamping = 0.92 - guideProgress * 0.06;
             body.velocity.scale(linDamping);
           }
           
           // 限制最大线速度和角速度，防止视觉失真
-          const maxLinSpeed = 14;
-          const maxAngSpeed = 18;
+          const maxLinSpeed = isMobile ? 8 : 10;
+          const maxAngSpeed = isMobile ? 12 : 14;
           const linSpeed = body.velocity.length();
           if (linSpeed > maxLinSpeed) {
             body.velocity.scale(maxLinSpeed / linSpeed);
