@@ -7,6 +7,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useGame } from '@/contexts/GameContext';
+import { useGameSounds } from '@/hooks/useSound';
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import { correctDiceToNumber } from '@/lib/physics/bodies';
@@ -57,6 +58,11 @@ export default function DiceCupAnimation({
   const initialQuatsRef = useRef<CANNON.Quaternion[]>([]); // 保存引导开始时的初始四元数
   const initialVelocitiesRef = useRef<number[]>([]); // 保存引导开始时的初始速度
   const [diceStopped, setDiceStopped] = useState(false); // 跟踪骰子是否已完全停止
+  // 物理步进累积器与时间引用（用于固定步长子步）
+  const accumulatorRef = useRef(0);
+  const lastTimeRef = useRef<number | null>(null);
+  const stoppedFrameCountRef = useRef(0);
+  const diceRollAudioRef = useRef<HTMLAudioElement | null>(null);
 
   // 配置参数
   const DICE_SIZE = 1.3;
@@ -588,35 +594,35 @@ if (typeof window !== 'undefined') (window as any).__shakeStartTimeRef = shakeSt
           
           body.wakeUp();
           
-          // === 阶段1: 物理摇盅 (0-70%) ===
-          if (progress < 0.7) {
-            // 力的强度：前50%全力，50-70%逐渐减弱
+          // === 阶段1: 物理摇盅 (0-75%) ===
+          if (progress < 0.75) {
+            // 力的强度：前60%全力，60-75%逐渐减弱
             let forceScale = 1.0;
-            if (progress > 0.5) {
-              forceScale = 1 - (progress - 0.5) / 0.2;
+            if (progress > 0.6) {
+              forceScale = 1 - (progress - 0.6) / 0.15;
             }
             
             // 强向中心的回弹力（增加碰撞机会）
             const distFromCenter = Math.sqrt(body.position.x * body.position.x + body.position.z * body.position.z);
-            const toCenterStrength = Math.max(3, distFromCenter * 2); // 距离越远，向心力越大
+            const toCenterStrength = Math.max(4, distFromCenter * 2.5); // 距离越远，向心力越大
             const toCenterX = -body.position.x * toCenterStrength;
             const toCenterZ = -body.position.z * toCenterStrength;
             
-            // 周期性的力（模拟摇盅的节奏感）
-            const cyclePhase = shakeFrameRef.current * 0.15;
-            const cycleForceX = Math.sin(cyclePhase + i * 2) * 60;
-            const cycleForceZ = Math.cos(cyclePhase + i * 2.5) * 60;
-            const cycleForceY = Math.abs(Math.sin(cyclePhase * 0.7)) * 50 + 30;
+            // 周期性的力（模拟摇盅的节奏感）- 增加频率和强度
+            const cyclePhase = shakeFrameRef.current * 0.18;
+            const cycleForceX = Math.sin(cyclePhase + i * 2) * 80;
+            const cycleForceZ = Math.cos(cyclePhase + i * 2.5) * 80;
+            const cycleForceY = Math.abs(Math.sin(cyclePhase * 0.7)) * 70 + 40;
             
             // 施加脉冲（冲量）在骰子偏心点以产生扭矩，更接近真实碰撞
             // 使用受控的脉冲序列（连续小脉冲），而非单次大脉冲，避免过度自转
             const offset = new CANNON.Vec3(
-              (Math.random() - 0.5) * 0.35,
-              (Math.random() - 0.2) * 0.35,
-              (Math.random() - 0.5) * 0.35
+              (Math.random() - 0.5) * 0.4,
+              (Math.random() - 0.2) * 0.4,
+              (Math.random() - 0.5) * 0.4
             );
             // 脉冲基准取决于设备与阶段
-            const impulseScale = (isMobile ? 0.008 : 0.012) * forceScale;
+            const impulseScale = (isMobile ? 0.012 : 0.016) * forceScale;
             const impulse = new CANNON.Vec3(
               (toCenterX + cycleForceX) * impulseScale,
               cycleForceY * impulseScale,
@@ -626,20 +632,20 @@ if (typeof window !== 'undefined') (window as any).__shakeStartTimeRef = shakeSt
             body.applyImpulse(impulse, worldPoint);
             // 小角速度时施加微小脉冲促进正翻，但幅度受限
             const curAng = body.angularVelocity.length();
-            if (curAng < 4.5) {
+            if (curAng < 5) {
               const tiny = new CANNON.Vec3(
-                (Math.random() - 0.5) * 0.01,
-                (Math.random() - 0.5) * 0.01,
-                (Math.random() - 0.5) * 0.01
+                (Math.random() - 0.5) * 0.015,
+                (Math.random() - 0.5) * 0.015,
+                (Math.random() - 0.5) * 0.015
               );
               body.applyImpulse(tiny, worldPoint);
             }
           }
           
-          // === 阶段2: 渐进引导 (70-100%) ===
-          if (progress >= 0.7 && currentResults.length === 3) {
+          // === 阶段2: 渐进引导 (75-100%) ===
+          if (progress >= 0.75 && currentResults.length === 3) {
             // 引导进度：从0到1
-            const guideProgress = (progress - 0.7) / 0.3;
+            const guideProgress = (progress - 0.75) / 0.25;
             // 使用 easeOutQuad 缓动，让引导更自然
             const eased = 1 - (1 - guideProgress) * (1 - guideProgress);
             
@@ -739,7 +745,9 @@ if (typeof window !== 'undefined') (window as any).__shakeStartTimeRef = shakeSt
           
           isShakingRef.current = false;
           initialQuatsRef.current = [];
-          console.log('� 摇盅引动画完成');
+          // 设置骰子已停止状态，触发结果展示
+          setDiceStopped(true);
+          console.log('🎲 摇盅引动画完成，骰子已停止');
         }
       }
 
@@ -901,11 +909,14 @@ if (typeof window !== 'undefined') (window as any).__shakeStartTimeRef = shakeSt
       return;
     }
     
+    // 重置骰子停止状态
+    setDiceStopped(false);
+    
     // 初始化摇盅状态
     isShakingRef.current = true;
     shakeFrameRef.current = 0;
-    // 增加摇盅时间：约4.5-5秒（270-300帧）
-    shakeMaxFramesRef.current = isMobile ? 270 : 300;
+    // 增加摇盅时间：约7-8秒（420-480帧）
+    shakeMaxFramesRef.current = isMobile ? 420 : 480;
     // 清空引导用的初始四元数
     initialQuatsRef.current = [];
     hasCorrectedRef.current = false;

@@ -341,10 +341,10 @@ export default function GlobalGamePage() {
     console.log('⏰ 倒计时结束，开始获取开奖结果，期号:', currentRound);
     
     // 时间配置（单位：毫秒）
-    // 摇盅动画约 5 秒（300帧 / 60fps）
+    // 摇盅动画约 8 秒（480帧 / 60fps）
     // 骰子停下后 1 秒显示结果卡片
     // 结果展示 3 秒后重置
-    const SHAKE_ANIMATION_TIME = 5000; // 摇盅动画时间
+    const SHAKE_ANIMATION_TIME = 8000; // 摇盅动画时间
     const RESULT_SHOW_DELAY = 1000;    // 骰子停下后延迟显示结果
     const RESULT_DISPLAY_TIME = 3000;  // 结果展示时间
     
