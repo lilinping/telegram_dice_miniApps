@@ -170,7 +170,10 @@ export default function DiceCupAnimation({
     // 创建物理世界
     const world = new CANNON.World();
     world.gravity.set(0, -9.82 * 3, 0);
+    // 提升求解器精度并允许睡眠，帮助稳定并更快收敛
     world.allowSleep = true;
+    world.solver.iterations = 12;
+    (world.solver as any).tolerance = 0.001;
     worldRef.current = world;
 
     const groundMat = new CANNON.Material();
@@ -355,13 +358,17 @@ export default function DiceCupAnimation({
       scene.add(mesh);
       diceMeshesRef.current.push(mesh);
 
+      // 更合理的物理参数，开启睡眠并增加阻尼，利于快速稳定
       const body = new CANNON.Body({
         mass: 5,
         shape: new CANNON.Box(new CANNON.Vec3(DICE_SIZE / 2, DICE_SIZE / 2, DICE_SIZE / 2)),
         material: diceMat,
-        angularDamping: 0.1, // 适中的角速度阻尼
-        linearDamping: 0.1   // 适中的线速度阻尼
+        angularDamping: 0.55, // 更高的角阻尼，减少长时间自转
+        linearDamping: 0.12   // 适度线阻尼
       });
+      body.allowSleep = true;
+      body.sleepSpeedLimit = 0.15; // 小于该角速度会进入睡眠
+      body.sleepTimeLimit = 0.6;   // 在该时间内低速则睡眠
       body.position.set(xPos, 1.5, 0);
       body.quaternion.setFromEuler(
         Math.random() * Math.PI,
@@ -542,28 +549,28 @@ export default function DiceCupAnimation({
             const cycleForceZ = Math.cos(cyclePhase + i * 2.5) * 60;
             const cycleForceY = Math.abs(Math.sin(cyclePhase * 0.7)) * 50 + 30;
             
-            // 施加力（向中心 + 周期性）
-            body.applyForce(
-              new CANNON.Vec3(
-                (toCenterX + cycleForceX) * forceScale,
-                cycleForceY * forceScale,
-                (toCenterZ + cycleForceZ) * forceScale
-              ),
-              body.position
+            // 施加脉冲（冲量）在骰子偏心点以产生扭矩，更接近真实碰撞
+            const offset = new CANNON.Vec3(
+              (Math.random() - 0.5) * 0.4,
+              (Math.random() - 0.2) * 0.4,
+              (Math.random() - 0.5) * 0.4
             );
-            
-            // 施加扭矩（通过碰撞产生旋转，减少直接扭矩）
-            // 只在速度较低时施加少量扭矩
-            const angSpeed = body.angularVelocity.length();
-            if (angSpeed < 5) {
-              const torqueScale = forceScale * 20;
-              body.applyTorque(
-                new CANNON.Vec3(
-                  (Math.sin(shakeFrameRef.current * 0.3 + i) - 0.5) * torqueScale,
-                  (Math.cos(shakeFrameRef.current * 0.25 + i) - 0.5) * torqueScale,
-                  (Math.sin(shakeFrameRef.current * 0.35 + i * 2) - 0.5) * torqueScale
-                )
+            const impulse = new CANNON.Vec3(
+              (toCenterX + cycleForceX) * 0.01 * forceScale,
+              cycleForceY * 0.01 * forceScale,
+              (toCenterZ + cycleForceZ) * 0.01 * forceScale
+            );
+            const worldPoint = body.position.vadd(offset);
+            body.applyImpulse(impulse, worldPoint);
+            // 当角速度较低时，可以稍微施加微小局部脉冲以帮助翻转
+            const curAng = body.angularVelocity.length();
+            if (curAng < 5) {
+              const tiny = new CANNON.Vec3(
+                (Math.random() - 0.5) * 0.02,
+                (Math.random() - 0.5) * 0.02,
+                (Math.random() - 0.5) * 0.02
               );
+              body.applyImpulse(tiny, worldPoint);
             }
           }
           
@@ -607,16 +614,16 @@ export default function DiceCupAnimation({
             body.velocity.scale(linDamping);
           }
           
-          // 限制最大速度（稍微提高，让碰撞更有力）
+          // 限制最大线速度和角速度，防止视觉失真
           const maxLinSpeed = 14;
           const maxAngSpeed = 18;
           const linSpeed = body.velocity.length();
           if (linSpeed > maxLinSpeed) {
             body.velocity.scale(maxLinSpeed / linSpeed);
           }
-          const angSpeed = body.angularVelocity.length();
-          if (angSpeed > maxAngSpeed) {
-            body.angularVelocity.scale(maxAngSpeed / angSpeed);
+          const angSpeedCur = body.angularVelocity.length();
+          if (angSpeedCur > maxAngSpeed) {
+            body.angularVelocity.scale(maxAngSpeed / angSpeedCur);
           }
         }
 
@@ -655,10 +662,24 @@ export default function DiceCupAnimation({
         }
       }
 
-      // 始终运行物理引擎
-      const deltaTime = 1 / 60;
+      // 固定时间步进物理引擎（子步）以提升稳定性与表现
       if (worldRef.current) {
-        worldRef.current.step(1 / 60, deltaTime, 3);
+        // 使用累积器方式步进
+        const now = performance.now() / 1000;
+        if (!lastTimeRef.current) lastTimeRef.current = now;
+        let delta = now - lastTimeRef.current;
+        lastTimeRef.current = now;
+        // 限制单帧最大 delta（防止暂停/卡顿导致大步长）
+        delta = Math.min(delta, 0.1);
+        accumulatorRef.current += delta;
+        const timeStep = 1 / 120; // 更小的物理步长
+        const maxSteps = 4;
+        let steps = 0;
+        while (accumulatorRef.current >= timeStep && steps < maxSteps) {
+          worldRef.current.step(timeStep);
+          accumulatorRef.current -= timeStep;
+          steps++;
+        }
       }
 
       // 强制边界约束
