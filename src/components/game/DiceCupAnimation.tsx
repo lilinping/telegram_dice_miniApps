@@ -71,6 +71,62 @@ export default function DiceCupAnimation({
     window.innerWidth < 768
   );
 
+// 设备分层物理配置（可扩展）
+const PHYSICS_PRESETS = {
+  low: {
+    timeStep: 1 / 60,
+    maxSubSteps: 2,
+    solverIterations: 8,
+    solverTolerance: 0.0015,
+    angularDamping: 0.7,
+    linearDamping: 0.16,
+    diceFriction: 0.6,
+    groundFriction: 0.8,
+    restitution: 0.35,
+  },
+  medium: {
+    timeStep: 1 / 120,
+    maxSubSteps: 4,
+    solverIterations: 12,
+    solverTolerance: 0.001,
+    angularDamping: 0.55,
+    linearDamping: 0.12,
+    diceFriction: 0.4,
+    groundFriction: 0.6,
+    restitution: 0.35,
+  },
+  high: {
+    timeStep: 1 / 240,
+    maxSubSteps: 6,
+    solverIterations: 20,
+    solverTolerance: 0.0008,
+    angularDamping: 0.45,
+    linearDamping: 0.08,
+    diceFriction: 0.3,
+    groundFriction: 0.45,
+    restitution: 0.3,
+  }
+};
+
+// 根据环境和 query 参数选择 preset（支持 ?physics=low|medium|high）
+const selectPhysicsPreset = () => {
+  try {
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      const q = url.searchParams.get('physics');
+      if (q && (q === 'low' || q === 'medium' || q === 'high')) return PHYSICS_PRESETS[q];
+    }
+  } catch (e) {
+    // ignore
+  }
+  if (isMobile) return PHYSICS_PRESETS.low;
+  if (typeof window !== 'undefined' && window.devicePixelRatio && window.devicePixelRatio > 1.5) return PHYSICS_PRESETS.high;
+  return PHYSICS_PRESETS.medium;
+};
+const physicsConfig = selectPhysicsPreset();
+// 度量埋点（开发时用于对比）
+const shakeStartTimeRef = typeof window !== 'undefined' ? (window as any).__shakeStartTimeRef || { current: null } : { current: null };
+if (typeof window !== 'undefined') (window as any).__shakeStartTimeRef = shakeStartTimeRef;
   // 初始化场景
   useEffect(() => {
     if (!containerRef.current) return;
@@ -172,9 +228,8 @@ export default function DiceCupAnimation({
     world.gravity.set(0, -9.82 * 3, 0);
     // 提升求解器精度并允许睡眠，帮助稳定并更快收敛
     world.allowSleep = true;
-    // 根据设备能力选择 solver iterations，桌面更高以提高稳定性
-    world.solver.iterations = isMobile ? 10 : 22;
-    (world.solver as any).tolerance = 0.0005;
+    world.solver.iterations = physicsConfig.solverIterations;
+    (world.solver as any).tolerance = physicsConfig.solverTolerance;
     worldRef.current = world;
 
     const groundMat = new CANNON.Material();
@@ -183,16 +238,16 @@ export default function DiceCupAnimation({
 
     // 更合理的接触材质，降低弹跳并提高摩擦使骰子更容易停下
     const diceDiceContact = new CANNON.ContactMaterial(diceMat, diceMat, {
-      friction: 0.55,
-      restitution: 0.18
+      friction: physicsConfig.diceFriction,
+      restitution: physicsConfig.restitution
     });
     const diceGroundContact = new CANNON.ContactMaterial(groundMat, diceMat, {
-      friction: 0.72,
-      restitution: 0.08
+      friction: physicsConfig.groundFriction,
+      restitution: physicsConfig.restitution
     });
     const diceWallContact = new CANNON.ContactMaterial(wallMat, diceMat, {
-      friction: 0.6,
-      restitution: 0.12
+      friction: physicsConfig.diceFriction,
+      restitution: physicsConfig.restitution
     });
 
     world.addContactMaterial(diceDiceContact);
@@ -662,6 +717,24 @@ export default function DiceCupAnimation({
             }
             hasCorrectedRef.current = true;
             console.log('✅ 骰子已自然停止到目标点数:', currentResults);
+            // 记录并上报摇盅耗时指标（仅开发环境）
+            try {
+              if (typeof performance !== 'undefined' && shakeStartTimeRef.current) {
+                const elapsed = (performance.now() - shakeStartTimeRef.current) / 1000;
+                console.log(`📈 摇盅耗时: ${elapsed.toFixed(3)}s`);
+                if (typeof window !== 'undefined') {
+                  (window as any).__diceMetrics = (window as any).__diceMetrics || [];
+                  (window as any).__diceMetrics.push({
+                    timestamp: Date.now(),
+                    shakeDurationSec: elapsed,
+                    preset: physicsConfig === PHYSICS_PRESETS.low ? 'low' : (physicsConfig === PHYSICS_PRESETS.high ? 'high' : 'medium')
+                  });
+                }
+                shakeStartTimeRef.current = null;
+              }
+            } catch (e) {
+              // ignore metric errors
+            }
           }
           
           isShakingRef.current = false;
@@ -871,6 +944,10 @@ export default function DiceCupAnimation({
           (Math.random() - 0.5) * 8
         );
       }
+    }
+    // 记录摇盅开始时间（用于度量）
+    if (typeof performance !== 'undefined') {
+      shakeStartTimeRef.current = performance.now();
     }
     
     console.log('🎲 摇盅动画已启动，将在 animate 循环中执行');
