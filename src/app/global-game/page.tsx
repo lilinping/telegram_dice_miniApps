@@ -60,6 +60,11 @@ export default function GlobalGamePage() {
   });
   const betsLoadedRef = useRef(false); // 标记是否已加载下注信息
   const isProcessingResultRef = useRef(false); // 标记是否正在处理开奖结果，防止重复调用
+  const syncStateCalledRef = useRef(false); // 标记是否已调用 syncState
+  const syncStateInitializedRef = useRef(false); // 标记是否已初始化 syncState
+  const lastProcessedRoundRef = useRef<string | null>(null); // 记录已处理的期号
+  const countdownEndTriggeredRef = useRef(false); // 标记倒计时结束是否已触发
+  const queryResultTimerRef = useRef<NodeJS.Timeout | null>(null); // 查询结果的定时器
 
   // 引用
   const betPanelWrapperRef = useRef<HTMLDivElement>(null);
@@ -459,9 +464,10 @@ export default function GlobalGamePage() {
             
             if (lastProcessedValue !== currentRoundValue && currentRoundValue !== 'Loading...') {
               countdownEndTriggeredRef.current = true; // 标记已触发
-            setGameState('rolling');
-            // 倒计时结束后，获取开奖结果（只请求一次）
-            handleCountdownEnd();
+              setGameState('rolling');
+              // 倒计时结束后，获取开奖结果（只请求一次）
+              handleCountdownEnd();
+            }
         }
         // 倒计时为负数时不做任何处理，等待 syncState 重置
         return next;
@@ -1192,26 +1198,15 @@ export default function GlobalGamePage() {
       </div>
       )}
 
-<<<<<<< HEAD
-      {/* 开奖动画 */}
-=======
       {/* 开奖动画 - 在 rolling 和 settled 状态都显示，以便显示结果 */}
->>>>>>> 333f859e82273034d61ff2d28e15657ff534eb1f
       {(gameState === 'rolling' || gameState === 'settled') && (
         <div className="fixed inset-0 bg-black/90 flex items-center justify-center" style={{ zIndex: 90 }}>
           <DiceCupAnimation 
             fullscreen 
             winAmount={winAmount} 
             hasWon={hasWon} 
-<<<<<<< HEAD
-            diceResults={diceResults} 
-            gameState={gameState === 'settled' ? 'settled' : 'rolling'}
-=======
             diceResults={diceResults}
             gameState={gameState}
-            myBets={myBets}
-            globalOutcome={globalOutcome}
->>>>>>> 333f859e82273034d61ff2d28e15657ff534eb1f
           />
         </div>
       )}

@@ -1083,9 +1083,9 @@ export default function DiceCupAnimation({
   const isSmall = total >= 4 && total <= 10;
   const isOdd = total % 2 === 1;
   
-  // 计算全局结果
-  const globalTotal = globalOutcome && globalOutcome.length === 3 
-    ? globalOutcome.reduce((sum, val) => sum + val, 0) 
+  // 计算全局结果（使用 diceResults）
+  const globalTotal = diceResults && diceResults.length === 3 
+    ? diceResults.reduce((sum, val) => sum + val, 0) 
     : null;
 
   // 在全局模式下，当有结果且骰子完全停止后才显示结果卡片
@@ -1138,37 +1138,13 @@ export default function DiceCupAnimation({
             {total}
           </div>
 
-          {/* 我的下注和全局结果 */}
-          {fullscreen && myBets.length > 0 && (
-            <div style={{ marginBottom: '15px', fontSize: '14px' }}>
-              <div style={{ marginBottom: '8px', color: 'rgba(255, 255, 255, 0.8)' }}>
-                <div style={{ fontWeight: '600', marginBottom: '4px' }}>我的下注：</div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', justifyContent: 'center' }}>
-                  {myBets.map((bet, idx) => (
-                    <span
-                      key={idx}
-                      style={{
-                        padding: '4px 10px',
-                        borderRadius: '12px',
-                        background: 'rgba(255, 215, 0, 0.2)',
-                        border: '1px solid rgba(255, 215, 0, 0.4)',
-                        color: '#ffd700',
-                        fontSize: '12px',
-                      }}
-                    >
-                      {getBetLabel(bet.chooseId)} × {bet.amount}
-                    </span>
-                  ))}
-                </div>
+          {/* 全局结果 */}
+          {fullscreen && diceResults && diceResults.length === 3 && globalTotal !== null && (
+            <div style={{ marginTop: '8px', color: 'rgba(255, 255, 255, 0.8)', fontSize: '14px' }}>
+              <div style={{ fontWeight: '600', marginBottom: '4px' }}>全局开奖：</div>
+              <div style={{ fontSize: '18px', color: '#ffd700', fontWeight: 'bold' }}>
+                {diceResults.join(' + ')} = {globalTotal}
               </div>
-              {globalOutcome && globalOutcome.length === 3 && globalTotal !== null && (
-                <div style={{ marginTop: '8px', color: 'rgba(255, 255, 255, 0.8)' }}>
-                  <div style={{ fontWeight: '600', marginBottom: '4px' }}>全局开奖：</div>
-                  <div style={{ fontSize: '18px', color: '#ffd700', fontWeight: 'bold' }}>
-                    {globalOutcome.join(' + ')} = {globalTotal}
-                  </div>
-                </div>
-              )}
             </div>
           )}
 
