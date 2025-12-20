@@ -1,10 +1,13 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useWallet } from '@/contexts/WalletContext';
+import { useTelegram } from '@/contexts/TelegramContext';
 import BalanceCard from '@/components/wallet/BalanceCard';
 import TransactionList from '@/components/wallet/TransactionList';
+import RebateCard from '@/components/wallet/RebateCard';
+import RebateHistory from '@/components/wallet/RebateHistory';
 
 /**
  * 钱包页面
@@ -18,12 +21,20 @@ import TransactionList from '@/components/wallet/TransactionList';
 export default function WalletPage() {
   const router = useRouter();
   const { balance, frozenBalance, bonusBalance, refreshBalance } = useWallet();
+  const { user, isInitialized } = useTelegram();
+  const [activeTab, setActiveTab] = useState<'transactions' | 'rebate'>('transactions');
 
-  // 页面加载时刷新余额
+  // 页面加载时刷新余额（确保用户已初始化）
   useEffect(() => {
-    console.log('💰 钱包页面加载，刷新余额...');
-    refreshBalance();
-  }, [refreshBalance]);
+    if (user && isInitialized) {
+      console.log('💰 钱包页面加载，刷新余额...', { 
+        userId: user.id, 
+        currentBalance: balance,
+        isInitialized 
+      });
+      refreshBalance();
+    }
+  }, [user, isInitialized, refreshBalance]);
 
   return (
     <div className="min-h-screen bg-bg-darkest pb-20">
@@ -40,13 +51,16 @@ export default function WalletPage() {
       </header>
 
       {/* 余额卡片 */}
-      <div className="p-5">
+      <div className="p-5 space-y-4">
         <BalanceCard
           balance={balance}
           frozenBalance={frozenBalance}
           bonusBalance={bonusBalance}
           onRefresh={refreshBalance}
         />
+        
+        {/* 反水卡片 */}
+        <RebateCard onRefresh={refreshBalance} />
       </div>
 
       {/* 操作按钮 */}
@@ -70,10 +84,38 @@ export default function WalletPage() {
         </button>
       </div>
 
-      {/* 交易记录 */}
-      <div className="px-5">
-        <h2 className="text-base font-semibold text-text-primary mb-3">交易记录</h2>
-        <TransactionList />
+      {/* 交易记录 / 反水历史 */}
+      <div className="px-5 pb-6">
+        {/* 标签切换 */}
+        <div className="flex gap-2 mb-4 bg-bg-medium rounded-xl p-1">
+          <button
+            onClick={() => setActiveTab('transactions')}
+            className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${
+              activeTab === 'transactions'
+                ? 'bg-bg-dark text-primary-gold shadow-sm'
+                : 'text-text-secondary hover:text-text-primary'
+            }`}
+          >
+            交易记录
+          </button>
+          <button
+            onClick={() => setActiveTab('rebate')}
+            className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${
+              activeTab === 'rebate'
+                ? 'bg-bg-dark text-purple-400 shadow-sm'
+                : 'text-text-secondary hover:text-text-primary'
+            }`}
+          >
+            反水记录
+          </button>
+        </div>
+
+        {/* 内容区域 */}
+        {activeTab === 'transactions' ? (
+          <TransactionList />
+        ) : (
+          <RebateHistory />
+        )}
       </div>
     </div>
   );

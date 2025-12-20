@@ -32,12 +32,14 @@ const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
 export function WalletProvider({ children }: { children: ReactNode }) {
   const { user, isInitialized } = useTelegram();
+  // 服务器端和客户端都从 0 开始，避免 hydration 错误
   const [balance, setBalance] = useState(0);
   const [frozenBalance, setFrozenBalance] = useState(0);
   const [bonusBalance, setBonusBalance] = useState(0);
   const [depositAmount, setDepositAmount] = useState(0);
   const [accountInfo, setAccountInfo] = useState<AccountModel | null>(null);
   const isFetchingRef = useRef(false);
+  const hasLoadedFromCacheRef = useRef(false);
 
   // 使用 ref 存储 user，避免 refreshBalance 依赖 user 导致循环依赖
   const userRef = useRef(user);
@@ -60,28 +62,104 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     isFetchingRef.current = true;
 
     try {
-      console.log('📡 开始请求余额...', currentUser.id);
+      console.log('📡 开始请求余额...', currentUser.id, '当前余额:', balance);
       const response = await apiService.queryAccount(String(currentUser.id));
+      console.log('📡 API响应:', { 
+        success: response.success, 
+        hasData: !!response.data,
+        message: response.message 
+      });
+      
       if (response.success && response.data) {
         const account = response.data;
+        console.log('📡 账户数据:', account);
         setAccountInfo(account);
 
         // 将字符串金额转换为数字
-        setBalance(parseFloat(account.cash) || 0);
-        setFrozenBalance(parseFloat(account.frozen) || 0);
-        setBonusBalance(parseFloat(account.redPack) || 0);
-        setDepositAmount(parseFloat(account.deposit) || 0);
+        const newBalance = parseFloat(account.cash) || 0;
+        const newFrozenBalance = parseFloat(account.frozen) || 0;
+        const newBonusBalance = parseFloat(account.redPack) || 0;
+        const newDepositAmount = parseFloat(account.deposit) || 0;
 
-        console.log('✅ 余额刷新成功:', account);
+        // 只在成功时更新余额，失败时保留当前值
+        console.log('💰 更新余额:', {
+          旧余额: balance,
+          新余额: newBalance,
+          cash: account.cash,
+          frozen: account.frozen,
+          redPack: account.redPack,
+        });
+        
+        setBalance(newBalance);
+        setFrozenBalance(newFrozenBalance);
+        setBonusBalance(newBonusBalance);
+        setDepositAmount(newDepositAmount);
+        // 缓存到本地，避免刷新时闪 0
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('wallet_balance', String(newBalance));
+          localStorage.setItem('wallet_frozen_balance', String(newFrozenBalance));
+          localStorage.setItem('wallet_bonus_balance', String(newBonusBalance));
+          localStorage.setItem('wallet_deposit_amount', String(newDepositAmount));
+        }
+
+        console.log('✅ 余额刷新成功');
       } else {
-        console.error('❌ 获取余额失败:', response.message);
+        console.error('❌ 获取余额失败:', {
+          success: response.success,
+          message: response.message,
+          data: response.data,
+          当前余额: balance,
+        });
+        // 不更新余额，保留当前值
       }
     } catch (error) {
-      console.error('❌ 刷新余额失败:', error);
+      console.error('❌ 刷新余额异常:', {
+        error,
+        当前余额: balance,
+        userId: currentUser.id,
+      });
+      // 不更新余额，保留当前值
     } finally {
       isFetchingRef.current = false;
     }
   }, []); // 空依赖数组，使用 ref 访问 user
+
+  // 客户端挂载后从缓存读取余额（避免 hydration 错误）
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !hasLoadedFromCacheRef.current) {
+      hasLoadedFromCacheRef.current = true;
+      const cachedBalance = localStorage.getItem('wallet_balance');
+      const cachedFrozen = localStorage.getItem('wallet_frozen_balance');
+      const cachedBonus = localStorage.getItem('wallet_bonus_balance');
+      const cachedDeposit = localStorage.getItem('wallet_deposit_amount');
+      
+      if (cachedBalance) {
+        const val = parseFloat(cachedBalance);
+        if (!isNaN(val)) {
+          console.log('📦 从缓存恢复余额:', val);
+          setBalance(val);
+        }
+      }
+      if (cachedFrozen) {
+        const val = parseFloat(cachedFrozen);
+        if (!isNaN(val)) {
+          setFrozenBalance(val);
+        }
+      }
+      if (cachedBonus) {
+        const val = parseFloat(cachedBonus);
+        if (!isNaN(val)) {
+          setBonusBalance(val);
+        }
+      }
+      if (cachedDeposit) {
+        const val = parseFloat(cachedDeposit);
+        if (!isNaN(val)) {
+          setDepositAmount(val);
+        }
+      }
+    }
+  }, []);
 
   // 初始化时加载余额 - 等待用户初始化完成
   useEffect(() => {
@@ -90,10 +168,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       refreshBalance();
     } else if (user && !isInitialized) {
       console.log('⏳ WalletContext: 用户已登录但后端未初始化，等待中...', user.id);
-    } else if (user) {
-      // 即使 isInitialized 为 false，也尝试刷新余额（可能后端初始化很快）
-      console.log('🔄 WalletContext: 用户已登录，尝试刷新余额...', user.id);
-      refreshBalance();
     }
   }, [user, isInitialized, refreshBalance]);
   

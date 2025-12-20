@@ -15,7 +15,10 @@ import {
   GlobalDiceResult,
   GlobalDiceQuery,
   GlobalHistoryResponse,
-  GlobalUserHistoryResponse
+  GlobalUserHistoryResponse,
+  RebateAmount,
+  RebateTurnover,
+  PageModelRebateHistory
 } from '@/lib/types'
 
 // 使用Next.js代理避免跨域问题
@@ -58,7 +61,11 @@ class ApiService {
     // 获取 Telegram initData 用于认证
     const initData = this.getInitData();
 
+    // 确保默认使用 GET 方法（除非明确指定其他方法）
+    const method = options.method || 'GET';
+
     const defaultOptions: RequestInit = {
+      method, // 明确指定方法
       headers: {
         'Content-Type': 'application/json',
         // 添加 Telegram 认证头
@@ -70,7 +77,9 @@ class ApiService {
     }
 
     try {
-      const response = await fetch(url, { ...defaultOptions, ...options })
+      // 合并选项，确保方法正确传递
+      const finalOptions = { ...defaultOptions, ...options, method };
+      const response = await fetch(url, finalOptions)
 
       if (!response.ok) {
         // 如果是 401 错误，提供更详细的错误信息
@@ -538,6 +547,44 @@ class ApiService {
    */
   async getGlobalSingleResult(number: string | number): Promise<BackendResponse<GlobalDiceResult>> {
     return this.request<GlobalDiceResult>(`/dice/global/single/result/${number}`)
+  }
+
+  // ==================== 反水相关接口 ====================
+
+  /**
+   * 查看当前的反水额度
+   * @param userId 用户ID
+   * @returns BackendResponse<RebateAmount>
+   */
+  async queryRebateAmount(userId: string): Promise<BackendResponse<RebateAmount>> {
+    return this.request<RebateAmount>(`/account/rebate/query/${userId}`)
+  }
+
+  /**
+   * 执行反水操作（将流水转换为反水余额）
+   * 注意：虽然使用GET方法，但这是执行操作，不是查询
+   * @param userId 用户ID
+   * @returns BackendResponse<boolean>
+   */
+  async convertTurnoverToRebate(userId: string): Promise<BackendResponse<boolean>> {
+    return this.request<boolean>(`/account/rebate/money/${userId}`, {
+      method: 'GET'
+    })
+  }
+
+  /**
+   * 查看历史的反水记录信息
+   * @param userId 用户ID
+   * @param pageIndex 页码
+   * @param pageSize 每页大小
+   * @returns BackendResponse<PageModelRebateHistory>
+   */
+  async getRebateHistory(
+    userId: string,
+    pageIndex: number = 1,
+    pageSize: number = 10
+  ): Promise<BackendResponse<PageModelRebateHistory>> {
+    return this.request<PageModelRebateHistory>(`/account/rebate/history/${userId}/${pageIndex}/${pageSize}`)
   }
 
 }
