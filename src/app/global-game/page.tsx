@@ -393,17 +393,24 @@ export default function GlobalGamePage() {
                 console.log('📋 显示结果卡片');
                 setGameState('settled');
                 
-                // 结果展示3秒后重置
-                setTimeout(() => {
-                  setGameState('betting');
-                  setLastBets(bets); // 保存上一局下注
-                  setBets({}); // 清空当前下注
-                  setWinAmount(0);
-                  setHasWon(false);
-                  setDiceResults([]);
-                  // 重置处理标志，准备下一轮
-                  isProcessingResultRef.current = false;
-                }, RESULT_DISPLAY_TIME);
+              // 结果展示3秒后重置
+              setTimeout(() => {
+                setGameState('betting');
+                setLastBets(bets); // 保存上一局下注
+                setBets({}); // 清空当前下注
+                setWinAmount(0);
+                setHasWon(false);
+                setDiceResults([]);
+                // 重置处理标志，准备下一轮
+                isProcessingResultRef.current = false;
+
+                // 主动同步服务器状态以获取下一期信息并启动倒计时
+                try {
+                  syncState();
+                } catch (e) {
+                  console.error('同步状态失败:', e);
+                }
+              }, RESULT_DISPLAY_TIME);
               }, RESULT_SHOW_DELAY);
             }, SHAKE_ANIMATION_TIME);
             
@@ -427,7 +434,7 @@ export default function GlobalGamePage() {
     
     // 开始获取结果
     fetchResult();
-  }, [user, currentRound, bets, playWinSmall, hapticWin, refreshBalance]);
+  }, [user, currentRound, bets, playWinSmall, hapticWin, refreshBalance, syncState]);
 
   // 倒计时逻辑
   useEffect(() => {
