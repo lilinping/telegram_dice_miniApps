@@ -67,16 +67,22 @@ export default function WithdrawalHistory({ userId }: WithdrawalHistoryProps) {
       
       if (result.success && result.data) {
         // 转换后端数据格式以适配前端显示
-        const transformedOrders = result.data.list.map(order => ({
-          ...order,
-          amount: order.money,
-          address: order.toAddress,
-          txid: order.txId,
-          confirmTime: order.modifyTime,
-          // 计算手续费和实际到账（假设手续费为2%或5 USDT）
-          fee: calculateFee(parseFloat(order.money)),
-          actualAmount: calculateActualAmount(parseFloat(order.money)),
-        }));
+        const transformedOrders = result.data.list.map(order => {
+          const moneyNum = parseFloat(order.money || '0');
+          // 后端可能返回 fee 字段（字符串 "0" 或 "2.00"），优先使用后端返回值
+          const backendFeeNum = order.fee !== undefined && order.fee !== null ? parseFloat((order as any).fee as any) : NaN;
+          const feeNum = Number.isFinite(backendFeeNum) ? backendFeeNum : 2.0; // fallback to 2.00
+          const actualNum = Math.max(0, moneyNum - feeNum);
+          return {
+            ...order,
+            amount: order.money,
+            address: order.toAddress,
+            txid: order.txId,
+            confirmTime: order.modifyTime,
+            fee: feeNum.toFixed(2),
+            actualAmount: actualNum.toFixed(2),
+          };
+        });
         
         setOrders(transformedOrders);
         setTotalCount(result.data.totalCount);

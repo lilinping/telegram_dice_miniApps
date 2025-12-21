@@ -289,40 +289,6 @@ export interface PaymentOrder {
   modifyTime: number       // 修改时间
 }
 
-// ==================== 反水相关类型 ====================
-
-// 反水额度信息
-export interface RebateAmount {
-  id?: number
-  userId?: number
-  rebate: string          // 反水额度（字符串格式）- API返回的字段名是 rebate
-  createTime?: number
-  modifyTime?: number
-}
-
-// 反水流水信息
-export interface RebateTurnover {
-  turnover: string         // 当前流水（字符串格式）
-}
-
-// 反水历史记录
-export interface RebateHistory {
-  id: number
-  userId: number
-  rebate: string          // 流水金额
-  fee: string             // 反水金额
-  createTime: number      // 创建时间
-  modifyTime: number      // 修改时间
-}
-
-// 反水历史分页响应
-export interface PageModelRebateHistory {
-  list: RebateHistory[]
-  totalCount: number
-  pageIndex: number
-  pageSize: number
-}
-
 export interface PaymentOrderStatus {
   orderId: string
   userId: number

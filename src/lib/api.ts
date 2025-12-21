@@ -493,13 +493,6 @@ class ApiService {
   }
 
   /**
-   * 查看某一期的开奖结果
-   */
-  async getGlobalSingleResult(number: string): Promise<BackendResponse<GlobalDiceResult>> {
-    return this.request<GlobalDiceResult>(`/dice/global/single/result/${number}`)
-  }
-
-  /**
    * 查看某一局全局骰宝的信息
    */
   async getGlobalGameInfo(userId: string, number: string): Promise<BackendResponse<GlobalDiceQuery>> {
@@ -539,6 +532,14 @@ class ApiService {
    */
   async getGlobalResults(pageIndex: number = 1, pageSize: number = 20): Promise<BackendResponse<GlobalHistoryResponse>> {
     return this.request<GlobalHistoryResponse>(`/dice/global/result/${pageIndex}/${pageSize}`)
+  }
+
+  /**
+   * 查看某一期的开奖结果
+   * @param number 期号
+   */
+  async getGlobalSingleResult(number: string | number): Promise<BackendResponse<GlobalDiceResult>> {
+    return this.request<GlobalDiceResult>(`/dice/global/single/result/${number}`)
   }
 
   // ==================== 反水相关接口 ====================

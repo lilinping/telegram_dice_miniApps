@@ -17,6 +17,14 @@ import { cn } from '@/lib/utils';
 
 const chips = [
   {
+    value: 0.1,
+    label: '0.1',
+    shortLabel: '0.1',
+    gradient: 'radial-gradient(circle, #E0F7FA 0%, #B2EBF2 100%)',
+    textColor: '#000000',
+    borderColor: '#000000',
+  },
+  {
     value: 1,
     label: '$1',
     shortLabel: '1',
@@ -63,24 +71,6 @@ const chips = [
     gradient: 'radial-gradient(circle, #1A1A1A 0%, #000000 100%)',
     textColor: 'var(--gold-bright)',
     borderColor: 'var(--gold-bright)',
-  },
-  {
-    value: 500,
-    label: '$500',
-    shortLabel: '500',
-    gradient: 'radial-gradient(circle, #9C27B0 0%, #7B1FA2 100%)',
-    textColor: '#FFFFFF',
-    borderColor: '#FFFFFF',
-    hasShimmer: true,
-  },
-  {
-    value: 1000,
-    label: '$1K',
-    shortLabel: '1K',
-    gradient: 'radial-gradient(circle, #FFD700 0%, #FFA500 100%)',
-    textColor: '#000000',
-    borderColor: '#000000',
-    hasGlow: true,
   },
 ];
 

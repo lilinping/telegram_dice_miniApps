@@ -8,6 +8,7 @@ import { useGame } from '@/contexts/GameContext'; // Still need this for diceOpt
 import { apiService } from '@/lib/api';
 import { GlobalDiceResult, GlobalDiceQuery } from '@/lib/types';
 import { getChooseBetId } from '@/lib/betMapping';
+import TrendChartECharts from '@/components/charts/TrendChartECharts';
 
 /**
  * 全局游戏历史记录页面
@@ -331,10 +332,7 @@ export default function GlobalHistoryPage() {
                             <tr style={{ backgroundColor: '#fff' }}>
                                 <th className="px-3 py-2.5 text-left text-xs font-semibold border border-gray-300" style={{ color: '#000', backgroundColor: '#fff' }}>期号</th>
                                 <th className="px-3 py-2.5 text-left text-xs font-semibold border border-gray-300" style={{ color: '#000', backgroundColor: '#fff' }}>结果</th>
-                                <th className="px-3 py-2.5 text-left text-xs font-semibold border border-gray-300" style={{ color: '#000', backgroundColor: '#fff' }}>特码</th>
                                 <th className="px-3 py-2.5 text-left text-xs font-semibold border border-gray-300" style={{ color: '#000', backgroundColor: '#fff' }}>双面</th>
-                                <th className="px-3 py-2.5 text-left text-xs font-semibold border border-gray-300" style={{ color: '#000', backgroundColor: '#fff' }}>极值</th>
-                                <th className="px-3 py-2.5 text-left text-xs font-semibold border border-gray-300" style={{ color: '#000', backgroundColor: '#fff' }}>形态</th>
                             </tr>
                         </thead>
                         {/* 表体 */}
@@ -426,27 +424,9 @@ export default function GlobalHistoryPage() {
                                             )}
                                         </td>
                                         
-                                        {/* 特码 */}
-                                        <td className="px-3 py-2.5 text-xs border border-gray-300" style={{ color: '#000' }}>
-                                            {/* 特码列留空 */}
-                                        </td>
-                                        
                                         {/* 双面 */}
                                         <td className="px-3 py-2.5 text-xs border border-gray-300" style={{ color: '#d32f2f', fontWeight: 500 }}>
                                             {doubleSide || '-'}
-                                        </td>
-                                        
-                                        {/* 极值 */}
-                                        <td className="px-3 py-2.5 text-xs border border-gray-300" style={{ color: '#000' }}>
-                                            {extremeValue || '-'}
-                                        </td>
-                                        
-                                        {/* 形态 */}
-                                        <td className="px-3 py-2.5 text-xs border border-gray-300" style={{ 
-                                            color: pattern === '对子' || pattern === '顺子' ? '#2e7d32' : '#000',
-                                            fontWeight: pattern === '对子' || pattern === '顺子' ? 500 : 400,
-                                        }}>
-                                            {pattern || '-'}
                                         </td>
                                     </tr>
                     );
@@ -641,127 +621,13 @@ export default function GlobalHistoryPage() {
                       <div className="bg-bg-dark rounded-xl p-4 border border-border">
                         {/* 图表区域 */}
                         <div className="relative h-64 mb-8">
-                          {/* Y轴刻度线 */}
-                          <div className="absolute inset-0 flex flex-col justify-between">
-                            {[18, 15, 12, 9, 6, 3].map((value) => (
-                              <div key={value} className="flex items-center">
-                                <span className="text-xs text-text-disabled w-6">{value}</span>
-                                <div className="flex-1 h-px bg-border ml-2" />
-                              </div>
-                            ))}
-                          </div>
+                          {/* Y轴刻度线 由 TrendChart 组件内部渲染，页面层不再重复渲染 */}
 
                           {/* 折线图 */}
-                          <div className="absolute inset-0 pl-8 pr-2 pb-8">
-                            {(() => {
-                              const data = resultsData.slice(0, 20).reverse();
-                              const points: string[] = [];
-                              const pointData: Array<{ 
-                                x: number; 
-                                y: number; 
-                                total: number; 
-                                isBig: boolean; 
-                                isTriple: boolean;
-                                idx: number;
-                              }> = [];
-                              
-                              data.forEach((record, idx) => {
-                                const diceResult = record.result || record.outCome || [];
-                                const analysis = analyzeDice(diceResult);
-                                const x = (idx / (data.length - 1 || 1)) * 100;
-                                const y = 100 - ((analysis.total - 3) / 15) * 100;
-                                points.push(`${x},${y}`);
-                                pointData.push({
-                                  x,
-                                  y,
-                                  total: analysis.total,
-                                  isBig: analysis.isBig,
-                                  isTriple: analysis.isTriple,
-                                  idx
-                                });
-                              });
-
-                              return (
-                                <>
-                                  {/* SVG折线 */}
-                                  <svg className="w-full h-full absolute inset-0" viewBox="0 0 100 100" preserveAspectRatio="none">
-                                    <polyline
-                                      points={points.join(' ')}
-                                      fill="none"
-                                      stroke="#3B82F6"
-                                      strokeWidth="1.5"
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                    />
-                                    {pointData.map((point) => (
-                                      <circle
-                                        key={point.idx}
-                                        cx={point.x}
-                                        cy={point.y}
-                                        r="2.5"
-                                        fill={
-                                          point.isTriple
-                                            ? '#9333EA'
-                                            : point.isBig
-                                            ? '#EF4444'
-                                            : '#3B82F6'
-                                        }
-                                        stroke="#fff"
-                                        strokeWidth="1"
-                                      />
-                                    ))}
-                                  </svg>
-                                  
-                                  {/* HTML标签层 */}
-                                  <div className="absolute inset-0">
-                                    {pointData.map((point) => (
-                                      <div
-                                        key={point.idx}
-                                        className="absolute flex flex-col items-center"
-                                        style={{
-                                          left: `${point.x}%`,
-                                          top: `${point.y}%`,
-                                          transform: 'translate(-50%, -100%)',
-                                          marginTop: '-8px'
-                                        }}
-                                      >
-                                        <span
-                                          className={cn(
-                                            'text-xs font-semibold mb-0.5',
-                                            point.isTriple
-                                              ? 'text-purple-400'
-                                              : point.isBig
-                                              ? 'text-error'
-                                              : 'text-info'
-                                          )}
-                                        >
-                                          {point.isTriple ? '豹' : point.isBig ? '大' : '小'}
-                                        </span>
-                                        <span className="text-xs font-bold text-white drop-shadow-md">
-                                          {point.total}
-                                        </span>
-                                      </div>
-                                    ))}
-                                  </div>
-                                  
-                                  {/* X轴序号 */}
-                                  <div className="absolute bottom-0 left-0 right-0 flex justify-between">
-                                    {data.map((_, idx) => (
-                                      <span
-                                        key={idx}
-                                        className="text-xs text-text-disabled"
-                                        style={{ 
-                                          width: `${100 / (data.length || 1)}%`, 
-                                          textAlign: 'center' 
-                                        }}
-                                      >
-                                        {20 - idx}
-                                      </span>
-                                    ))}
-                                  </div>
-                                </>
-                              );
-                            })()}
+                          <div className="absolute inset-0 pl-2 pr-2 pb-14">
+                            {/* 使用共享 TrendChart 组件 */}
+                            {/* @ts-ignore */}
+                            <TrendChartECharts results={resultsData} maxPoints={20} />
                           </div>
                         </div>
 
@@ -775,10 +641,7 @@ export default function GlobalHistoryPage() {
                             <div className="w-3 h-3 rounded bg-info" />
                             <span className="text-xs text-text-secondary">小 (4-10)</span>
                           </div>
-                          <div className="flex items-center gap-1">
-                            <div className="w-3 h-3 rounded bg-purple-600" />
-                            <span className="text-xs text-text-secondary">豹子</span>
-                          </div>
+                          {/* 已移除豹子图例，走势只展示 大 / 小 */}
                         </div>
                       </div>
                     </div>

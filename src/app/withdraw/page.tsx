@@ -247,28 +247,40 @@ export default function WithdrawPage() {
         setShowConfirm(false);
         
         // 安全地获取订单ID - 兼容多种字段名
-        let orderId = '处理中';
+        // 注意：不要把默认订单ID设为状态文本（如 "处理中"），否则会误显示为订单编号
+        let orderId = '未知';
         let txCode = -1;
         
         if (result.data) {
-          // 后端可能返回 orderId(string) 或 id(number)
-          const orderIdValue = (result.data as any).orderId || 
-                              (result.data as any).id || 
-                              (result.data as any).orderid;
-          if (orderIdValue) {
-            orderId = String(orderIdValue);
+          // 兼容后端返回 data 为原始字符串/数字（直接为 orderId），或者为对象 { orderId, id, txCode, ... }
+          const raw = result.data as any;
+          if (typeof raw === 'string' || typeof raw === 'number') {
+            orderId = String(raw);
+            txCode = -1;
+            console.log('💰 提现API返回 primitive data, orderId:', orderId);
+          } else if (typeof raw === 'object' && raw !== null) {
+            const orderIdValue = raw.orderId ?? raw.id ?? raw.orderid ?? raw.orderID;
+            if (orderIdValue !== undefined && orderIdValue !== null && String(orderIdValue).trim() !== '') {
+              orderId = String(orderIdValue);
+            } else {
+              console.warn('💰 提现API返回对象但未包含 orderId 字段，保留默认 orderId:', raw);
+            }
+            txCode = raw.txCode ?? raw.txcode ?? -1;
+          } else {
+            console.warn('💰 提现API返回未知 data 类型:', typeof raw, raw);
           }
-          txCode = result.data.txCode ?? -1;
         }
         
         console.log('💰 提现成功 - 订单ID:', orderId, 'txCode:', txCode);
         
-        // 根据txCode显示不同的状态
-        let statusText = '待审核';
+        // 根据 txCode 映射状态文本，保证 -1（未确认）显示为“处理中”
+        let statusText = '处理中';
         if (txCode === 0) {
           statusText = '已完成';
         } else if (txCode === 1) {
           statusText = '处理失败';
+        } else if (txCode === -1) {
+          statusText = '处理中';
         }
         
         // 刷新余额
@@ -720,9 +732,11 @@ export default function WithdrawPage() {
             {/* 订单信息 */}
             <div className="p-6 space-y-4">
               <div className="bg-bg-medium rounded-xl p-4 space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-text-secondary">订单编号</span>
-                  <span className="text-sm font-mono text-text-primary">{successOrderId}</span>
+                <div className="flex items-start gap-3">
+                  <span className="text-sm text-text-secondary min-w-[64px]">订单编号</span>
+                  <div className="flex-1 min-w-0">
+                    <span className="text-sm font-mono text-text-primary break-all break-words overflow-auto block">{successOrderId}</span>
+                  </div>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-text-secondary">提现金额</span>

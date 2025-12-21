@@ -27,6 +27,7 @@ export default function GlobalGamePage() {
   // 状态管理
   const [gameState, setGameState] = useState<GlobalGameState>('betting');
   const [currentRound, setCurrentRound] = useState<string>('Loading...');
+  const currentRoundRef = useRef<string>('Loading...'); // 使用 ref 存储当前期号，避免闭包问题
   const [countdown, setCountdown] = useState(300); // 5分钟
   const [bets, setBets] = useState<Record<string, number>>({});
   const [selectedChip, setSelectedChip] = useState(1);
@@ -41,11 +42,12 @@ export default function GlobalGamePage() {
   const [lastRoundResult, setLastRoundResult] = useState<GlobalDiceResult | null>(null);
   const [showMultiplierSelector, setShowMultiplierSelector] = useState(false);
   const [multiplier, setMultiplier] = useState(1); // 倍投倍数，默认1倍
+  const animationCompleteResolveRef = useRef<(() => void) | null>(null);
   // 记住的筹码、倍数和下注区域 - 从 localStorage 恢复
   const [rememberedChip, setRememberedChip] = useState<number | null>(() => {
-    if (typeof window === 'undefined') return null;
+    if (typeof window === 'undefined') return 1;
     const saved = localStorage.getItem('global_dice_remembered_chip');
-    return saved ? Number(saved) : null;
+    return saved ? Number(saved) : 1;
   });
   const [rememberedMultiplier, setRememberedMultiplier] = useState<number | null>(() => {
     if (typeof window === 'undefined') return null;
@@ -59,6 +61,11 @@ export default function GlobalGamePage() {
   });
   const betsLoadedRef = useRef(false); // 标记是否已加载下注信息
   const isProcessingResultRef = useRef(false); // 标记是否正在处理开奖结果，防止重复调用
+  const syncStateCalledRef = useRef(false); // 标记是否已调用 syncState
+  const syncStateInitializedRef = useRef(false); // 标记是否已初始化 syncState
+  const lastProcessedRoundRef = useRef<string | null>(null); // 记录已处理的期号
+  const countdownEndTriggeredRef = useRef(false); // 标记倒计时结束是否已触发
+  const queryResultTimerRef = useRef<NodeJS.Timeout | null>(null); // 查询结果的定时器
 
   // 引用
   const betPanelWrapperRef = useRef<HTMLDivElement>(null);
@@ -117,53 +124,38 @@ export default function GlobalGamePage() {
     }
   }, [user, refreshBalance]);
 
-  // 页面加载时立即加载用户下注信息
-  useEffect(() => {
-    const loadUserBetsOnMount = async () => {
-      if (!user) return;
-      
-      try {
-        // 先获取最新结果，确定当前期号
-        const response = await apiService.getGlobalLatestResults();
-        if (response.success && response.data && response.data.length > 0) {
-          const latest = response.data[0];
-          if (latest.status === 'RUNNING' || latest.status === 'SEALED') {
-            const currentRoundNumber = latest.number.toString();
-            console.log('🚀 页面加载：立即加载下注信息，期号:', currentRoundNumber);
-            
-            const myGameInfo = await apiService.getGlobalGameInfo(String(user.id), currentRoundNumber);
-            if (myGameInfo.success && myGameInfo.data) {
-              if (myGameInfo.data.myBets && Array.isArray(myGameInfo.data.myBets) && myGameInfo.data.myBets.length > 0) {
-                const loadedBets: Record<string, number> = {};
-                myGameInfo.data.myBets.forEach((bet) => {
-                  const betId = getChooseBetId(bet.chooseId);
-                  if (betId) {
-                    loadedBets[betId] = (loadedBets[betId] || 0) + bet.amount;
-                  }
-                });
-                const totalAmount = Object.values(loadedBets).reduce((sum, amount) => sum + amount, 0);
-                console.log('✅ 页面加载：成功加载下注信息，总金额:', totalAmount, loadedBets);
-                setLastBets(loadedBets);
-                setCurrentRound(currentRoundNumber);
-                betsLoadedRef.current = true;
-              } else {
-                console.log('⚠️ 页面加载：当前期号无下注信息');
-                betsLoadedRef.current = true;
-              }
-            }
-          }
+  // 页面加载时立即加载用户下注信息（已合并到 syncState 中，避免重复请求）
+  // 这个 useEffect 已移除，逻辑合并到 syncState 中
+
+  // 加载上期结果（从开奖历史获取第一条）
+  const loadLastRoundResult = useCallback(async () => {
+    try {
+      const historyResponse = await apiService.getGlobalResults(1, 1); // 获取第一页，每页1条
+      if (historyResponse.success && historyResponse.data && historyResponse.data.list && historyResponse.data.list.length > 0) {
+        const firstResult = historyResponse.data.list[0];
+        if (firstResult && (firstResult.outCome || firstResult.result)) {
+          console.log('✅ 从开奖历史获取到上期结果:', firstResult);
+          setLastRoundResult(firstResult);
+        } else {
+          console.log('⚠️ 开奖历史第一条没有结果数据');
         }
-      } catch (e) {
-        console.error('❌ 页面加载：加载下注信息失败', e);
-        betsLoadedRef.current = true;
+      } else {
+        console.log('⚠️ 开奖历史为空');
       }
-    };
-    
-    loadUserBetsOnMount();
-  }, [user]);
+    } catch (error) {
+      console.error('❌ 获取上期结果失败:', error);
+    }
+  }, []);
 
   // 轮询同步服务器状态
   const syncState = useCallback(async () => {
+    // 防止重复调用（在请求完成前不会再次调用）
+    if (syncStateCalledRef.current) {
+      console.log('⏸️ syncState 正在执行，跳过重复请求');
+      return;
+    }
+    syncStateCalledRef.current = true;
+    
     try {
       const response = await apiService.getGlobalLatestResults();
       
@@ -185,12 +177,22 @@ export default function GlobalGamePage() {
       if (response.success && response.data && response.data.length > 0) {
         const latest = response.data[0];
         
-        // 解析倒计时 (假设 createTime 是本期开始时间)
+        // 解析倒计时 (使用 openTime 作为开奖时间)
+        let remaining = 0;
+        if (latest.openTime) {
+          const openTime = typeof latest.openTime === 'string' 
+            ? new Date(latest.openTime).getTime() 
+            : latest.openTime;
+          const now = Date.now();
+          remaining = Math.max(0, (openTime - now) / 1000);
+        } else {
+          // 如果没有 openTime，使用 createTime + 5分钟作为备用方案
         const createTime = new Date(latest.createTime).getTime();
         const now = Date.now();
         const diff = (now - createTime) / 1000;
         const roundDuration = 300; // 5分钟
-        let remaining = Math.max(0, roundDuration - diff);
+          remaining = Math.max(0, roundDuration - diff);
+        }
         
         // 只在倒计时结束后才处理开奖结果
         // 如果状态是 FINISHED，但不应该在这里处理，应该在倒计时结束后处理
@@ -203,10 +205,20 @@ export default function GlobalGamePage() {
              const currentRoundNumber = latest.number.toString();
              const isNewRound = currentRoundNumber !== currentRound;
              
+             // 确保 currentRoundRef 始终是最新的期号（即使不是新的一期也要更新）
+             if (currentRoundRef.current !== currentRoundNumber) {
+               currentRoundRef.current = currentRoundNumber;
+             }
+             
              // 如果是新的一期，更新期号
              if (isNewRound && gameState !== 'rolling' && gameState !== 'settled') {
                  setCurrentRound(currentRoundNumber);
+                 currentRoundRef.current = currentRoundNumber; // 同时更新 ref
                  betsLoadedRef.current = false; // 重置加载标记
+                 // 重置已处理期号标记，允许查询新一期的结果
+                 setLastProcessedRound(null);
+                 lastProcessedRoundRef.current = null; // 同时重置 ref
+                 countdownEndTriggeredRef.current = false; // 重置倒计时结束触发标记
                  
                  // 恢复用户上次选择的筹码、倍数和下注区域（如果用户之前下过注）
                  if (rememberedChip !== null) {
@@ -232,7 +244,7 @@ export default function GlobalGamePage() {
                                    (latest.status === 'RUNNING' || latest.status === 'SEALED') && 
                                    !betsLoadedRef.current && 
                                    (currentRoundNumber === currentRound || isNewRound || currentRound === 'Loading...');
-             
+                    
              // 只在倒计时结束时才请求用户下注信息，而不是每10秒轮询
              // 这里只在新一期开始时加载一次
              if (shouldLoadBets && isNewRound) {
@@ -284,8 +296,8 @@ export default function GlobalGamePage() {
                              setLastBets(loadedBets);
                          } else {
                              setLastBets({});
-                         }
-                     } else {
+             }
+        } else {
                          setLastBets({});
                      }
                  } catch (e) {
@@ -310,6 +322,9 @@ export default function GlobalGamePage() {
       }
     } catch (error) {
       console.error('Failed to sync global game state', error);
+    } finally {
+      // 请求完成后重置标记，允许下次调用
+      syncStateCalledRef.current = false;
     }
   }, [gameState, currentRound, user, rememberedChip, rememberedMultiplier, rememberedBets]);
 
@@ -362,36 +377,63 @@ export default function GlobalGamePage() {
             console.log('🎲 设置开奖结果，开始摇盅动画:', result.outCome || result.result);
             setDiceResults(result.outCome || result.result || []);
             
-            // 摇盅动画结束后（约3秒），再等1秒显示结果卡片
-            setTimeout(() => {
-              console.log('🎯 骰子停下，准备显示结果');
-              // 设置中奖信息
-              setWinAmount(winValue);
-              setHasWon(winValue > 0);
-              if (winValue > 0) {
-                playWinSmall();
-                hapticWin();
-              }
-              refreshBalance();
-              
-              // 1秒后显示结果卡片
-              setTimeout(() => {
-                console.log('📋 显示结果卡片');
-                setGameState('settled');
-                
-                // 结果展示3秒后重置
+            // 等待动画完成或超时（若 DiceCupAnimation 调用了 onAnimationComplete 则尽快返回）
+            const MAX_SHAKE_WAIT = 12000; // 12s 最长等待
+            const waitForAnimationCompletion = (timeoutMs: number) =>
+              new Promise<void>((resolve) => {
+                animationCompleteResolveRef.current = () => {
+                  animationCompleteResolveRef.current = null;
+                  resolve();
+                };
+                // 超时兜底
                 setTimeout(() => {
-                  setGameState('betting');
-                  setLastBets(bets); // 保存上一局下注
-                  setBets({}); // 清空当前下注
-                  setWinAmount(0);
-                  setHasWon(false);
-                  setDiceResults([]);
-                  // 重置处理标志，准备下一轮
-                  isProcessingResultRef.current = false;
-                }, RESULT_DISPLAY_TIME);
-              }, RESULT_SHOW_DELAY);
-            }, SHAKE_ANIMATION_TIME);
+                  if (animationCompleteResolveRef.current) {
+                    animationCompleteResolveRef.current = null;
+                    resolve();
+                  }
+                }, timeoutMs);
+              });
+
+            try {
+              await waitForAnimationCompletion(MAX_SHAKE_WAIT);
+              console.log('🎯 动画完成或超时，准备显示结果');
+            } catch (e) {
+              console.warn('⚠️ 等待动画完成时发生异常，继续显示结果', e);
+            }
+
+            // 设置中奖信息
+            setWinAmount(winValue);
+            setHasWon(winValue > 0);
+            if (winValue > 0) {
+              playWinSmall();
+              hapticWin();
+            }
+            refreshBalance();
+
+            // 1秒后显示结果卡片
+            setTimeout(() => {
+              console.log('📋 显示结果卡片');
+              setGameState('settled');
+
+            // 结果展示3秒后重置
+            setTimeout(() => {
+              setGameState('betting');
+              setLastBets(bets); // 保存上一局下注
+              setBets({}); // 清空当前下注
+              setWinAmount(0);
+              setHasWon(false);
+              setDiceResults([]);
+              // 重置处理标志，准备下一轮
+              isProcessingResultRef.current = false;
+
+              // 主动同步服务器状态以获取下一期信息并启动倒计时
+              try {
+                syncState();
+              } catch (e) {
+                console.error('同步状态失败:', e);
+              }
+            }, RESULT_DISPLAY_TIME);
+            }, RESULT_SHOW_DELAY);
             
             // 成功获取结果，不再重试
             return;
@@ -413,12 +455,17 @@ export default function GlobalGamePage() {
     
     // 开始获取结果
     fetchResult();
-  }, [user, currentRound, bets, playWinSmall, hapticWin, refreshBalance]);
+  }, [user, currentRound, bets, playWinSmall, hapticWin, refreshBalance, syncState]);
 
   // 倒计时逻辑
   useEffect(() => {
-    // 初始同步一次（只同步状态，不获取开奖结果）
-    syncState();
+    // 只在组件首次挂载时调用一次 syncState，避免重复请求
+    if (!syncStateInitializedRef.current) {
+      syncStateInitializedRef.current = true;
+      syncState();
+      // 加载上期结果
+      loadLastRoundResult();
+    }
     
     timerRef.current = setInterval(() => {
       setCountdown((prev) => {
@@ -428,9 +475,27 @@ export default function GlobalGamePage() {
         } else if (next === 0) {
             // 只在倒计时刚好为0时触发一次，避免重复调用
             // 倒计时结束，切换到开奖状态
-            setGameState('rolling');
-            // 倒计时结束后，获取开奖结果（只请求一次）
-            handleCountdownEnd();
+            // 防止重复触发（倒计时可能多次检查 next <= 0）
+            if (countdownEndTriggeredRef.current) {
+              return 0; // 已经触发过，保持为0
+            }
+            
+            // 检查是否已经处理过这一期，避免重复查询（使用 ref 避免闭包问题）
+            const currentRoundValue = currentRoundRef.current;
+            const lastProcessedValue = lastProcessedRoundRef.current;
+            console.log('⏰ 倒计时结束，检查是否需要查询结果:', {
+              currentRoundValue,
+              lastProcessedValue,
+              shouldQuery: lastProcessedValue !== currentRoundValue,
+              alreadyTriggered: countdownEndTriggeredRef.current
+            });
+            
+            if (lastProcessedValue !== currentRoundValue && currentRoundValue !== 'Loading...') {
+              countdownEndTriggeredRef.current = true; // 标记已触发
+              setGameState('rolling');
+              // 倒计时结束后，获取开奖结果（只请求一次）
+              handleCountdownEnd();
+            }
         }
         // 倒计时为负数时不做任何处理，等待 syncState 重置
         return next;
@@ -439,8 +504,33 @@ export default function GlobalGamePage() {
 
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
+      if (queryResultTimerRef.current) {
+        clearTimeout(queryResultTimerRef.current);
+        queryResultTimerRef.current = null;
+      }
     };
-  }, [syncState, handleCountdownEnd]);
+  }, [syncState, handleCountdownEnd, loadLastRoundResult]);
+
+  // 监听 DiceCupAnimation 派发的全局事件，作为 waitForAnimationCompletion 的兜底通知
+  useEffect(() => {
+    const handler = (e: Event) => {
+      try {
+        // 如果父组件在等待动画完成则 resolve
+        if (animationCompleteResolveRef.current) {
+          animationCompleteResolveRef.current();
+          animationCompleteResolveRef.current = null;
+          console.log('🔔 收到 dice:animationComplete 全局事件，已通知等待者');
+        }
+      } catch (err) {
+        console.warn('处理 dice:animationComplete 事件失败', err);
+      }
+    };
+
+    window.addEventListener('dice:animationComplete', handler as EventListener);
+    return () => {
+      window.removeEventListener('dice:animationComplete', handler as EventListener);
+    };
+  }, []);
 
   // 下注逻辑
   const placeBet = (betId: string) => {
@@ -552,6 +642,14 @@ export default function GlobalGamePage() {
 
   const confirmBets = async () => {
       if (!user) return;
+      
+      // 验证最小下注（0.1U）
+      const MIN_BET = 0.1;
+      const hasBelowMin = Object.values(bets).some(amount => amount < MIN_BET);
+      if (hasBelowMin) {
+          toast.error(`单注金额不得少于 ${MIN_BET}U`);
+          return false;
+      }
       
       let successCount = 0;
       const betEntries = Object.entries(bets);
@@ -948,8 +1046,38 @@ export default function GlobalGamePage() {
 
       {/* 状态提示 */}
       {gameState === 'sealed' && (
-          <div className="w-full bg-red-900/50 text-red-200 text-center py-1 text-xs animate-pulse">
-              ⚠️ 已封盘，停止下注
+          <div className="w-full bg-red-900/50 text-red-200 text-center py-2 text-xs">
+            <div className="flex items-center justify-center gap-2 flex-wrap">
+              <span className="animate-pulse">⚠️ 已封盘，停止下注</span>
+              {totalBetAmount > 0 && (
+                <>
+                  <span className="text-yellow-300 font-semibold">
+                    投注总额: ${totalBetAmount.toLocaleString()}
+                  </span>
+                  {multiplier > 1 && (
+                    <span className="text-orange-400 font-semibold">
+                      倍数: {multiplier}x
+                    </span>
+                  )}
+                </>
+              )}
+              </div>
+            </div>
+          )}
+
+      {/* 投注信息提示 - 只要用户有投注就显示 */}
+      {totalBetAmount > 0 && gameState !== 'sealed' && gameState !== 'rolling' && gameState !== 'settled' && (
+          <div className="w-full bg-blue-900/50 text-blue-200 text-center py-2 text-xs">
+            <div className="flex items-center justify-center gap-2 flex-wrap">
+              <span className="text-yellow-300 font-semibold">
+                当前投注: ${totalBetAmount.toLocaleString()}
+              </span>
+              {multiplier > 1 && (
+                <span className="text-orange-400 font-semibold">
+                  倍数: {multiplier}x
+                </span>
+              )}
+              </div>
             </div>
           )}
 
@@ -1119,15 +1247,21 @@ export default function GlobalGamePage() {
       </div>
       )}
 
-      {/* 开奖动画 */}
+      {/* 开奖动画 - 在 rolling 和 settled 状态都显示，以便显示结果 */}
       {(gameState === 'rolling' || gameState === 'settled') && (
         <div className="fixed inset-0 bg-black/90 flex items-center justify-center" style={{ zIndex: 90 }}>
-          <DiceCupAnimation 
-            fullscreen 
-            winAmount={winAmount} 
-            hasWon={hasWon} 
-            diceResults={diceResults} 
-            gameState={gameState === 'settled' ? 'settled' : 'rolling'}
+          <DiceCupAnimation
+            fullscreen
+            winAmount={winAmount}
+            hasWon={hasWon}
+            diceResults={diceResults}
+            gameState={gameState}
+            onAnimationComplete={() => {
+              if (animationCompleteResolveRef.current) {
+                animationCompleteResolveRef.current();
+                animationCompleteResolveRef.current = null;
+              }
+            }}
           />
         </div>
       )}

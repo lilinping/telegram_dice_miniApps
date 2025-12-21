@@ -72,22 +72,26 @@ export default function RebateCard({ onRefresh }: RebateCardProps) {
   const handleConvertTurnover = async () => {
     if (!user || isConverting) return;
 
+    // 前端校验：流水须>=100 才能转换
+    const availableTurnover = parseFloat(rebateAmount) || 0;
+    if (availableTurnover < 100) {
+      toast.warning('流水额度不足 100 USDT，无法转换');
+      return;
+    }
+
     // 确认操作（防止误触）
     console.log('🔄 用户手动点击：执行反水操作');
-    
+
     setIsConverting(true);
     try {
       const response = await apiService.convertTurnoverToRebate(String(user.id));
-      
+
       if (response.success) {
         toast.success('反水操作成功');
-        
+
         // 刷新反水数据和余额
-        await Promise.all([
-          loadRebateData(),
-          refreshBalance(),
-        ]);
-        
+        await Promise.all([loadRebateData(), refreshBalance()]);
+
         onRefresh?.();
       } else {
         toast.error(response.message || '反水操作失败');
@@ -157,28 +161,44 @@ export default function RebateCard({ onRefresh }: RebateCardProps) {
         {/* 操作按钮 */}
         <div className="space-y-4">
           {/* 执行反水按钮 */}
-          <button
-            onClick={handleConvertTurnover}
-            disabled={isConverting || isLoading}
-            className={cn(
-              'w-full py-3 rounded-xl font-semibold text-white shadow-lg transition-all flex items-center justify-center gap-2',
-              'bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700',
-              'active:scale-98 disabled:opacity-50 disabled:cursor-not-allowed',
-              isConverting && 'animate-pulse'
-            )}
-          >
-            {isConverting ? (
+          {(() => {
+            const canConvert = !isConverting && !isLoading && rebateAmountNum >= 100;
+            return (
               <>
-                <span className="animate-spin">⏳</span>
-                <span>反水中...</span>
+                <button
+                  onClick={handleConvertTurnover}
+                  disabled={!canConvert}
+                  className={cn(
+                    'w-full py-3 rounded-xl font-semibold text-white shadow-lg transition-all flex items-center justify-center gap-2',
+                    rebateAmountNum >= 100
+                      ? 'bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700'
+                      : 'bg-bg-medium text-text-secondary cursor-not-allowed',
+                    'active:scale-98 disabled:opacity-50 disabled:cursor-not-allowed',
+                    isConverting && 'animate-pulse'
+                  )}
+                >
+                  {isConverting ? (
+                    <>
+                      <span className="animate-spin">⏳</span>
+                      <span>反水中...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-xl">💎</span>
+                      <span>点击反水</span>
+                    </>
+                  )}
+                </button>
+
+                {/* 最低流水提示 */}
+                {rebateAmountNum < 100 && (
+                  <p className="mt-2 text-xs text-text-secondary text-center">
+                    最低流水 <span className="font-semibold">100 USDT</span> 才能转换为反水
+                  </p>
+                )}
               </>
-            ) : (
-              <>
-                <span className="text-xl">💎</span>
-                <span>点击反水</span>
-              </>
-            )}
-          </button>
+            );
+          })()}
 
           {/* 提示信息 */}
           {rebateAmountNum === 0 && (

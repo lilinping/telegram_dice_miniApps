@@ -9,6 +9,7 @@ import { apiService } from '@/lib/api';
 import { DiceEntity } from '@/lib/types';
 import { getChooseBetId } from '@/lib/betMapping';
 import WithdrawalHistory from '@/components/wallet/WithdrawalHistory';
+import TrendChartECharts from '@/components/charts/TrendChartECharts';
 
 /**
  * 历史记录页面
@@ -458,140 +459,16 @@ export default function HistoryPage() {
               <div className="bg-bg-dark rounded-xl p-4 border border-border">
                 {/* 图表区域 */}
                 <div className="relative h-64 mb-8">
-                  {/* Y轴刻度线 */}
-                  <div className="absolute inset-0 flex flex-col justify-between">
-                    {[18, 15, 12, 9, 6, 3].map((value) => (
-                      <div key={value} className="flex items-center">
-                        <span className="text-xs text-text-disabled w-6">{value}</span>
-                        <div className="flex-1 h-px bg-border ml-2" />
-                      </div>
-                    ))}
-                  </div>
+                  {/* Y轴刻度线 由 TrendChart 组件内部渲染，页面层不再重复渲染 */}
 
                   {/* 折线图 */}
-                  <div className="absolute inset-0 pl-8 pr-2 pb-8">
-                    {(() => {
-                      const data = historyData.slice(0, 20).reverse();
-                      const points: string[] = [];
-                      const pointData: Array<{ 
-                        x: number; 
-                        y: number; 
-                        total: number; 
-                        isBig: boolean; 
-                        isTriple: boolean;
-                        idx: number;
-                      }> = [];
-                      
-                      data.forEach((record, idx) => {
-                        const analysis = analyzeDice(record.outCome);
-                        const x = (idx / (data.length - 1 || 1)) * 100;
-                        const y = 100 - ((analysis.total - 3) / 15) * 100; // 3-18 映射到 0-100%，反转Y轴
-                        points.push(`${x},${y}`);
-                        pointData.push({
-                          x,
-                          y,
-                          total: analysis.total,
-                          isBig: analysis.isBig,
-                          isTriple: analysis.isTriple,
-                          idx
-                        });
-                      });
-
-                      return (
-                        <>
-                          {/* SVG折线 */}
-                          <svg className="w-full h-full absolute inset-0" viewBox="0 0 100 100" preserveAspectRatio="none">
-                            {/* 折线路径 */}
-                            <polyline
-                              points={points.join(' ')}
-                              fill="none"
-                              stroke="#3B82F6"
-                              strokeWidth="1.5"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            />
-                            {/* 数据点 */}
-                            {pointData.map((point) => (
-                              <circle
-                                key={point.idx}
-                                cx={point.x}
-                                cy={point.y}
-                                r="2.5"
-                                fill={
-                                  point.isTriple
-                                    ? '#9333EA'
-                                    : point.isBig
-                                    ? '#EF4444'
-                                    : '#3B82F6'
-                                }
-                                stroke="#fff"
-                                strokeWidth="1"
-                              />
-                            ))}
-                          </svg>
-                          
-                          {/* HTML标签层 */}
-                          <div className="absolute inset-0">
-                            {pointData.map((point) => {
-                              const leftPercent = point.x;
-                              const topPercent = point.y;
-                              
-                              return (
-                                <div
-                                  key={point.idx}
-                                  className="absolute flex flex-col items-center"
-                                  style={{
-                                    left: `${leftPercent}%`,
-                                    top: `${topPercent}%`,
-                                    transform: 'translate(-50%, -100%)',
-                                    marginTop: '-8px'
-                                  }}
-                                >
-                                  {/* 大小标签 */}
-                                  <span
-                                    className={cn(
-                                      'text-xs font-semibold mb-0.5',
-                                      point.isTriple
-                                        ? 'text-purple-400'
-                                        : point.isBig
-                                        ? 'text-error'
-                                        : 'text-info'
-                                    )}
-                                  >
-                                    {point.isTriple ? '豹' : point.isBig ? '大' : '小'}
-                                  </span>
-                                  {/* 点数标签 */}
-                                  <span className="text-xs font-bold text-white drop-shadow-md">
-                                    {point.total}
-                                  </span>
-                                </div>
-                              );
-                            })}
-                          </div>
-                          
-                          {/* X轴序号 */}
-                          <div className="absolute bottom-0 left-0 right-0 flex justify-between">
-                            {data.map((_, idx) => (
-                              <span
-                                key={idx}
-                                className="text-xs text-text-disabled"
-                                style={{ 
-                                  width: `${100 / (data.length || 1)}%`, 
-                                  textAlign: 'center' 
-                                }}
-                              >
-                                {20 - idx}
-                              </span>
-                            ))}
-                          </div>
-                        </>
-                      );
-                    })()}
-                  </div>
+                    <div className="absolute inset-0 pl-2 pr-2 pb-14">
+                      <TrendChartECharts results={historyData} maxPoints={20} />
+                    </div>
                 </div>
 
                 {/* 图例 */}
-                <div className="flex justify-center gap-4 pt-2 border-t border-border">
+                  <div className="flex justify-center gap-4 pt-2 border-t border-border">
                   <div className="flex items-center gap-1">
                     <div className="w-3 h-3 rounded bg-error" />
                     <span className="text-xs text-text-secondary">大 (11-17)</span>
@@ -599,10 +476,6 @@ export default function HistoryPage() {
                   <div className="flex items-center gap-1">
                     <div className="w-3 h-3 rounded bg-info" />
                     <span className="text-xs text-text-secondary">小 (4-10)</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <div className="w-3 h-3 rounded bg-purple-600" />
-                    <span className="text-xs text-text-secondary">豹子</span>
                   </div>
                 </div>
               </div>
