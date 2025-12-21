@@ -42,11 +42,12 @@ export default function GlobalGamePage() {
   const [lastRoundResult, setLastRoundResult] = useState<GlobalDiceResult | null>(null);
   const [showMultiplierSelector, setShowMultiplierSelector] = useState(false);
   const [multiplier, setMultiplier] = useState(1); // 倍投倍数，默认1倍
+  const animationCompleteResolveRef = useRef<(() => void) | null>(null);
   // 记住的筹码、倍数和下注区域 - 从 localStorage 恢复
   const [rememberedChip, setRememberedChip] = useState<number | null>(() => {
-    if (typeof window === 'undefined') return null;
+    if (typeof window === 'undefined') return 1;
     const saved = localStorage.getItem('global_dice_remembered_chip');
-    return saved ? Number(saved) : null;
+    return saved ? Number(saved) : 1;
   });
   const [rememberedMultiplier, setRememberedMultiplier] = useState<number | null>(() => {
     if (typeof window === 'undefined') return null;
@@ -393,24 +394,17 @@ export default function GlobalGamePage() {
                 console.log('📋 显示结果卡片');
                 setGameState('settled');
                 
-              // 结果展示3秒后重置
-              setTimeout(() => {
-                setGameState('betting');
-                setLastBets(bets); // 保存上一局下注
-                setBets({}); // 清空当前下注
-                setWinAmount(0);
-                setHasWon(false);
-                setDiceResults([]);
-                // 重置处理标志，准备下一轮
-                isProcessingResultRef.current = false;
-
-                // 主动同步服务器状态以获取下一期信息并启动倒计时
-                try {
-                  syncState();
-                } catch (e) {
-                  console.error('同步状态失败:', e);
-                }
-              }, RESULT_DISPLAY_TIME);
+                // 结果展示3秒后重置
+                setTimeout(() => {
+                  setGameState('betting');
+                  setLastBets(bets); // 保存上一局下注
+                  setBets({}); // 清空当前下注
+                  setWinAmount(0);
+                  setHasWon(false);
+                  setDiceResults([]);
+                  // 重置处理标志，准备下一轮
+                  isProcessingResultRef.current = false;
+                }, RESULT_DISPLAY_TIME);
               }, RESULT_SHOW_DELAY);
             }, SHAKE_ANIMATION_TIME);
             
@@ -488,7 +482,7 @@ export default function GlobalGamePage() {
         queryResultTimerRef.current = null;
       }
     };
-  }, [syncState, handleCountdownEnd, loadLastRoundResult]);
+  }, [syncState, handleCountdownEnd]);
 
   // 下注逻辑
   const placeBet = (betId: string) => {
@@ -600,14 +594,6 @@ export default function GlobalGamePage() {
 
   const confirmBets = async () => {
       if (!user) return;
-      
-      // 验证最小下注（1U）
-      const MIN_BET = 1;
-      const hasBelowMin = Object.values(bets).some(amount => amount < MIN_BET);
-      if (hasBelowMin) {
-          toast.error(`单注金额不得少于 ${MIN_BET}U`);
-          return false;
-      }
       
       let successCount = 0;
       const betEntries = Object.entries(bets);
@@ -1212,8 +1198,8 @@ export default function GlobalGamePage() {
             fullscreen 
             winAmount={winAmount} 
             hasWon={hasWon} 
-            diceResults={diceResults}
-            gameState={gameState}
+            diceResults={diceResults} 
+            gameState={gameState === 'settled' ? 'settled' : 'rolling'}
           />
         </div>
       )}

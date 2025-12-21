@@ -195,21 +195,26 @@ export default function RulesPage() {
 
   // 计算示例收益
   const calculateWinAmount = (betId: string, betAmount: number): number => {
+    // 这里返回“净赢金额”（不包含原始下注本金），按照用户要求：
+    // 赢得金额 = 押注额度 * 赔率（如赔率为2:1，则净赢 = betAmount * 2）
     const chooseId = getBetChooseId(betId);
-    if (chooseId === null) return betAmount * 2;
+    // 默认赔率为 1:1（即净赢 = betAmount * 1）
+    const defaultMulti = 1;
+    if (chooseId === null) return betAmount * defaultMulti;
     
     const option = diceOptions.get(chooseId);
-    if (!option || !option.multi) return betAmount * 2;
+    if (!option || !option.multi) return betAmount * defaultMulti;
     
     // 处理范围赔率（如 "2-4"，取中间值）
     if (option.multi.includes('-')) {
       const [min, max] = option.multi.split('-').map(Number);
       const avgMulti = (min + max) / 2;
-      return betAmount * (avgMulti + 1);
+      return betAmount * avgMulti;
     }
     
     const multi = parseFloat(option.multi);
-    return betAmount * (multi + 1);
+    if (Number.isNaN(multi)) return betAmount * defaultMulti;
+    return betAmount * multi;
   };
 
   // 生成带赔率的投注类型数据
@@ -258,7 +263,7 @@ export default function RulesPage() {
                 <span className="text-primary-gold">•</span> 游戏流程：下注 → 封盘 → 开奖 → 结算
               </p>
               <p className="text-sm text-text-secondary">
-                <span className="text-primary-gold">•</span> 投注时间：30秒
+                <span className="text-primary-gold">•</span> 投注时间：每局 5 分钟开奖，提前 30 秒封盘
               </p>
             </div>
           </div>

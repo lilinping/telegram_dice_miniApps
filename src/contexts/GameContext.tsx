@@ -92,9 +92,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   // 记住用户的选择（筹码、倍数和下注区域）- 从 localStorage 恢复
   const [rememberedChip, setRememberedChip] = useState<number | null>(() => {
-    if (typeof window === 'undefined') return null;
+    if (typeof window === 'undefined') return 1;
     const saved = localStorage.getItem('dice_remembered_chip');
-    return saved ? Number(saved) : null;
+    return saved ? Number(saved) : 1;
   });
   const [rememberedMultiplier, setRememberedMultiplier] = useState<number | null>(() => {
     if (typeof window === 'undefined') return null;
@@ -241,6 +241,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
           localStorage.removeItem('dice_remembered_bets');
         }
         console.log('所有下注已清空');
+        try {
+          // 刷新余额，确保撤回后金额回到用户账户
+          await refreshBalance();
+        } catch (e) {
+          console.warn('刷新余额失败（clearBets）', e);
+        }
       } else {
         console.error('清空下注失败:', response.message);
       }
@@ -254,8 +260,14 @@ export function GameProvider({ children }: { children: ReactNode }) {
       if (typeof window !== 'undefined') {
         localStorage.removeItem('dice_remembered_bets');
       }
+      try {
+        // 尝试刷新余额，防止前端状态与余额不一致
+        await refreshBalance();
+      } catch (e) {
+        console.warn('刷新余额失败（clearBets fallback）', e);
+      }
     }
-  }, [currentGameId]);
+  }, [currentGameId, refreshBalance]);
 
   // 撤销上一步下注
   const undoLastBet = useCallback(async () => {
@@ -287,13 +299,25 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
         setBetHistory((prev) => prev.slice(0, -1));
         console.log('撤销下注成功');
+        try {
+          // 刷新余额，确保撤回金额回到用户账户
+          await refreshBalance();
+        } catch (e) {
+          console.warn('刷新余额失败（undoLastBet）', e);
+        }
       } else {
         console.error('撤销下注失败:', response.message);
       }
     } catch (error) {
       console.error('撤销下注失败:', error);
+      try {
+        // 在异常情况下仍然尝试刷新余额，避免前端与后端不一致
+        await refreshBalance();
+      } catch (e) {
+        console.warn('刷新余额失败（undoLastBet fallback）', e);
+      }
     }
-  }, [betHistory, currentGameId]);
+  }, [betHistory, currentGameId, refreshBalance]);
 
   // 重复上局下注
   const repeatLastBets = useCallback(() => {

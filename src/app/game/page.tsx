@@ -90,8 +90,8 @@ export default function GamePage() {
 
   // 下注限额
   const BET_LIMITS = {
-    min: 1,
-    max: 10000,
+    min: 0.1,
+    max: 100,
     vipMax: 50000,
   };
 
@@ -154,18 +154,12 @@ export default function GamePage() {
     // 验证最小限额
     const hasBelowMin = Object.values(bets).some(amount => amount < BET_LIMITS.min);
     if (hasBelowMin) {
-      toast.error(`单注金额不得少于 $${BET_LIMITS.min}`);
+      toast.error(`单注金额不得少于 $${BET_LIMITS.min.toFixed ? BET_LIMITS.min.toFixed(2) : BET_LIMITS.min}`);
       hapticError();
       return;
     }
 
-    // 验证最大限额
-    const hasAboveMax = Object.values(bets).some(amount => amount > BET_LIMITS.max);
-    if (hasAboveMax) {
-      toast.error(`单注金额不得超过 $${BET_LIMITS.max}`);
-      hapticError();
-      return;
-    }
+    // 最大限额校验已移除，交由后端/风控处理
 
     // 验证余额
     if (totalBetAmount > balance) {

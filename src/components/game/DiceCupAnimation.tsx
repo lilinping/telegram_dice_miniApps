@@ -22,6 +22,7 @@ interface DiceCupAnimationProps {
   hasWon?: boolean;
   diceResults?: number[];
   gameState?: 'betting' | 'rolling' | 'revealing' | 'settled'; // 允许外部传入 gameState
+  onAnimationComplete?: () => void;
 }
 
 export default function DiceCupAnimation({
@@ -30,11 +31,22 @@ export default function DiceCupAnimation({
   hasWon = false,
   diceResults: propDiceResults,
   gameState: propGameState,
+  onAnimationComplete,
 }: DiceCupAnimationProps) {
   const { gameState: contextGameState, diceResults: contextDiceResults } = useGame();
   // 优先使用外部传入的 gameState，否则使用 context 中的
   const gameState = propGameState || contextGameState;
   const diceResults = propDiceResults || contextDiceResults;
+  // 输出来源调试：说明当前使用的是 prop 还是 context 的结果
+  try {
+    console.log('🎲 DiceCupAnimation 使用的 diceResults 来源:', propDiceResults ? 'propDiceResults' : 'contextDiceResults', {
+      propDiceResults,
+      contextDiceResults,
+      resolved: diceResults,
+    });
+  } catch (e) {
+    // ignore logging errors
+  }
   const containerRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -89,6 +101,8 @@ const PHYSICS_PRESETS = {
     diceFriction: 0.6,
     groundFriction: 0.8,
     restitution: 0.35,
+    impulseScale: 0.9,
+    shakeDurationMultiplier: 1.1,
   },
   medium: {
     timeStep: 1 / 120,
@@ -100,6 +114,8 @@ const PHYSICS_PRESETS = {
     diceFriction: 0.4,
     groundFriction: 0.6,
     restitution: 0.35,
+    impulseScale: 1.0,
+    shakeDurationMultiplier: 1.0,
   },
   high: {
     timeStep: 1 / 240,
@@ -111,6 +127,8 @@ const PHYSICS_PRESETS = {
     diceFriction: 0.3,
     groundFriction: 0.45,
     restitution: 0.3,
+    impulseScale: 1.2,
+    shakeDurationMultiplier: 0.95,
   }
 };
 
@@ -234,7 +252,7 @@ if (typeof window !== 'undefined') (window as any).__shakeStartTimeRef = shakeSt
     world.gravity.set(0, -9.82 * 3, 0);
     // 提升求解器精度并允许睡眠，帮助稳定并更快收敛
     world.allowSleep = true;
-    world.solver.iterations = physicsConfig.solverIterations;
+    (world.solver as any).iterations = physicsConfig.solverIterations;
     (world.solver as any).tolerance = physicsConfig.solverTolerance;
     worldRef.current = world;
 
@@ -607,22 +625,22 @@ if (typeof window !== 'undefined') (window as any).__shakeStartTimeRef = shakeSt
             const toCenterStrength = Math.max(4, distFromCenter * 2.5); // 距离越远，向心力越大
             const toCenterX = -body.position.x * toCenterStrength;
             const toCenterZ = -body.position.z * toCenterStrength;
-            
-            // 周期性的力（模拟摇盅的节奏感）- 增加频率和强度
-            const cyclePhase = shakeFrameRef.current * 0.18;
-            const cycleForceX = Math.sin(cyclePhase + i * 2) * 80;
-            const cycleForceZ = Math.cos(cyclePhase + i * 2.5) * 80;
+            // 周期性的力（模拟摇盅的节奏感），放大振幅以增加碰撞能量
+            const cyclePhase = shakeFrameRef.current * 0.15;
+            const cycleForceX = Math.sin(cyclePhase + i * 2) * 90;
+            const cycleForceZ = Math.cos(cyclePhase + i * 2.5) * 90;
             const cycleForceY = Math.abs(Math.sin(cyclePhase * 0.7)) * 70 + 40;
             
             // 施加脉冲（冲量）在骰子偏心点以产生扭矩，更接近真实碰撞
             // 使用受控的脉冲序列（连续小脉冲），而非单次大脉冲，避免过度自转
             const offset = new CANNON.Vec3(
-              (Math.random() - 0.5) * 0.4,
-              (Math.random() - 0.2) * 0.4,
-              (Math.random() - 0.5) * 0.4
+              (Math.random() - 0.5) * 0.35,
+              (Math.random() - 0.2) * 0.35,
+              (Math.random() - 0.5) * 0.35
             );
-            // 脉冲基准取决于设备与阶段
-            const impulseScale = (isMobile ? 0.012 : 0.016) * forceScale;
+            // 脉冲基准取决于设备与阶段，增大基准提升碰撞感
+            const IMPULSE_BASE = isMobile ? 0.012 : 0.02;
+            const impulseScale = IMPULSE_BASE * forceScale;
             const impulse = new CANNON.Vec3(
               (toCenterX + cycleForceX) * impulseScale,
               cycleForceY * impulseScale,
@@ -632,11 +650,11 @@ if (typeof window !== 'undefined') (window as any).__shakeStartTimeRef = shakeSt
             body.applyImpulse(impulse, worldPoint);
             // 小角速度时施加微小脉冲促进正翻，但幅度受限
             const curAng = body.angularVelocity.length();
-            if (curAng < 5) {
+            if (curAng < 4.5) {
               const tiny = new CANNON.Vec3(
-                (Math.random() - 0.5) * 0.015,
-                (Math.random() - 0.5) * 0.015,
-                (Math.random() - 0.5) * 0.015
+                (Math.random() - 0.5) * 0.03,
+                (Math.random() - 0.5) * 0.03,
+                (Math.random() - 0.5) * 0.03
               );
               body.applyImpulse(tiny, worldPoint);
             }
@@ -703,7 +721,7 @@ if (typeof window !== 'undefined') (window as any).__shakeStartTimeRef = shakeSt
             glassCoverRef.current.position.z = 0;
           }
           
-          // 最终校正：确保骰子完全停在目标点数
+          // 最终校正与稳定：确保骰子完全停在目标点数并消除微小平移漂移
           if (currentResults.length === 3) {
             for (let i = 0; i < diceCount && i < currentResults.length; i++) {
               const body = diceBodiesRef.current[i];
@@ -711,18 +729,41 @@ if (typeof window !== 'undefined') (window as any).__shakeStartTimeRef = shakeSt
               if (!body) continue;
               
               const targetQuat = correctDiceToNumber(body, currentResults[i]);
+              // 直接设置朝向，并清零速度
               body.quaternion.copy(targetQuat);
               body.velocity.setZero();
               body.angularVelocity.setZero();
+              // 提高阻尼并让物理引擎进入睡眠
+              body.linearDamping = Math.max(body.linearDamping, 0.98);
+              body.angularDamping = Math.max(body.angularDamping, 0.98);
+              // 将位置微调（四舍五入到毫米级）以消除小幅位移
+              body.position.x = Math.round(body.position.x * 1000) / 1000;
+              body.position.y = Math.round(body.position.y * 1000) / 1000;
+              body.position.z = Math.round(body.position.z * 1000) / 1000;
               body.sleep();
               
               if (mesh) {
                 mesh.quaternion.copy(targetQuat as any);
-                mesh.position.copy(body.position as any);
+                // 将 mesh 位置与 body 严格同步
+                mesh.position.set(body.position.x, body.position.y, body.position.z);
               }
             }
             hasCorrectedRef.current = true;
-            console.log('✅ 骰子已自然停止到目标点数:', currentResults);
+            // 标记本地状态：骰子已停止（用于在组件内显示结果面板）
+            try { setDiceStopped(true); } catch (e) {}
+            console.log('✅ 骰子已自然停止到目标点数并已稳定:', currentResults);
+            // 如果父组件提供了回调，通知外部动画已完成
+            try {
+              (onAnimationComplete as any)?.();
+            } catch (e) {
+              // ignore
+            }
+            // 向全局广播一个事件，作为兜底通知（方便未传入回调的父组件监听）
+            try {
+              if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('dice:animationComplete', { detail: { results: currentResults } }));
+              }
+            } catch (e) {}
             // 记录并上报摇盅耗时指标（仅开发环境）
             try {
               if (typeof performance !== 'undefined' && shakeStartTimeRef.current) {
@@ -915,8 +956,8 @@ if (typeof window !== 'undefined') (window as any).__shakeStartTimeRef = shakeSt
     // 初始化摇盅状态
     isShakingRef.current = true;
     shakeFrameRef.current = 0;
-    // 增加摇盅时间：约7-8秒（420-480帧）
-    shakeMaxFramesRef.current = isMobile ? 420 : 480;
+    // 增加摇盅时间：延长以提高碰撞次数与表现（移动端/桌面端分别设置）
+    shakeMaxFramesRef.current = isMobile ? 350 : 390;
     // 清空引导用的初始四元数
     initialQuatsRef.current = [];
     hasCorrectedRef.current = false;
@@ -1029,6 +1070,16 @@ if (typeof window !== 'undefined') (window as any).__shakeStartTimeRef = shakeSt
     hasCorrectedRef.current = true;
     isCorrectingRef.current = false;
     correctionFrameCountRef.current = 0;
+    try { setDiceStopped(true); } catch (e) {}
+    // 通知外部动画已完成（兜底场景）
+    try {
+      (onAnimationComplete as any)?.();
+    } catch (e) {}
+    try {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('dice:animationComplete', { detail: { results: diceResults } }));
+      }
+    } catch (e) {}
   };
 
   // 校正骰子到指定点数（现在引导已融合到摇盅中，这个函数仅作为备用）
@@ -1255,10 +1306,12 @@ if (typeof window !== 'undefined') (window as any).__shakeStartTimeRef = shakeSt
             {total}
           </div>
 
-          {/* 全局结果 */}
+          {/* 开奖结果详情（根据使用场景调整文案：全局模式显示“全局开奖”，个人模式显示“开奖”） */}
           {fullscreen && diceResults && diceResults.length === 3 && globalTotal !== null && (
             <div style={{ marginTop: '8px', color: 'rgba(255, 255, 255, 0.8)', fontSize: '14px' }}>
-              <div style={{ fontWeight: '600', marginBottom: '4px' }}>全局开奖：</div>
+              <div style={{ fontWeight: '600', marginBottom: '4px' }}>
+                {typeof propGameState !== 'undefined' ? '全局开奖：' : '开奖：'}
+              </div>
               <div style={{ fontSize: '18px', color: '#ffd700', fontWeight: 'bold' }}>
                 {diceResults.join(' + ')} = {globalTotal}
               </div>

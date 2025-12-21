@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
 import { apiService } from '@/lib/api';
+import { getWithdrawalStatusText } from './WithdrawalHistory';
 import { useTelegram } from '@/contexts/TelegramContext';
 
 /**
@@ -21,7 +22,7 @@ interface Transaction {
   id: string;
   type: 'deposit' | 'withdraw' | 'bet' | 'win';
   amount: number;
-  status: 'success' | 'pending' | 'failed';
+  status: 'success' | 'pending' | 'failed' | 'manual' | 'rejected';
   description: string;
   orderId?: string;
   timestamp: number;
@@ -54,6 +55,8 @@ const statusConfig = {
   success: { label: '成功', color: 'text-success' },
   pending: { label: '处理中', color: 'text-warning' },
   failed: { label: '失败', color: 'text-error' },
+  manual: { label: '人工审核中', color: 'text-warning' },
+  rejected: { label: '已驳回', color: 'text-error' },
 };
 
 export default function TransactionList() {
@@ -129,23 +132,36 @@ export default function TransactionList() {
           const withdrawHistory = await apiService.getWithdrawalOrders(String(user.id), 1, 20);
           if (withdrawHistory.success && withdrawHistory.data) {
             withdrawHistory.data.list.forEach((order) => {
-              const money = parseFloat(order.money);
-              const fee = 2; // 统一手续费 2 USDT
-              allTransactions.push({
-                id: `withdraw-${order.id}`,
-                type: 'withdraw',
-                amount: -money,
-                status: order.txCode === 0 ? 'success' : order.txCode === -1 ? 'pending' : 'failed',
-                description: '提现',
-                orderId: String(order.id),
-                timestamp: typeof order.createTime === 'string' ? new Date(order.createTime).getTime() : order.createTime,
-                // 提现详情字段
-                toAddress: order.toAddress,
-                txId: order.txId,
-                fee: fee.toFixed(2),
-                actualAmount: (money - fee).toFixed(2),
-                confirmTime: order.modifyTime,
-              });
+              const money = parseFloat(order.money || '0');
+              // 优先使用后端返回的 fee 字段（可能为 "0"），否则回退到默认 2.00
+              const backendFeeNum = order.fee !== undefined && order.fee !== null ? parseFloat((order as any).fee as any) : NaN;
+              const feeNum = Number.isFinite(backendFeeNum) ? backendFeeNum : 2.0;
+              {
+                const txCode = order.txCode;
+                let statusKey: Transaction['status'] = 'pending';
+                if (txCode === 0) statusKey = 'success';
+                else if (txCode === -1) statusKey = 'pending';
+                else if (txCode === -2) statusKey = 'manual';
+                else if (txCode === 1) statusKey = 'failed';
+                else if (txCode === -3) statusKey = 'rejected';
+
+                allTransactions.push({
+                  id: `withdraw-${order.id}`,
+                  type: 'withdraw',
+                  amount: -money,
+                  status: statusKey,
+                  description: '提现',
+                  orderId: String(order.id),
+                  timestamp: typeof order.createTime === 'string' ? new Date(order.createTime).getTime() : order.createTime,
+                  // 提现详情字段
+                  toAddress: order.toAddress,
+                  txId: order.txId,
+                  fee: feeNum.toFixed(2),
+                  actualAmount: Math.max(0, money - feeNum).toFixed(2),
+                  confirmTime: order.modifyTime,
+                  originalStatus: getWithdrawalStatusText(txCode),
+                });
+              }
             });
           }
         } catch (err) {

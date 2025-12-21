@@ -26,14 +26,14 @@ export default function WalletPage() {
 
   // 页面加载时刷新余额（确保用户已初始化）
   useEffect(() => {
-    if (user && isInitialized) {
-      console.log('💰 钱包页面加载，刷新余额...', { 
-        userId: user.id, 
-        currentBalance: balance,
-        isInitialized 
-      });
-      refreshBalance();
-    }
+      if (user && isInitialized) {
+        console.log('💰 钱包页面加载，刷新余额...', {
+          userId: user.id,
+          currentBalance: balance,
+          isInitialized,
+        });
+        refreshBalance();
+      }
   }, [user, isInitialized, refreshBalance]);
 
   return (
