@@ -145,22 +145,22 @@ export default function TransactionList() {
                 else if (txCode === 1) statusKey = 'failed';
                 else if (txCode === -3) statusKey = 'rejected';
 
-                allTransactions.push({
-                  id: `withdraw-${order.id}`,
-                  type: 'withdraw',
-                  amount: -money,
+              allTransactions.push({
+                id: `withdraw-${order.id}`,
+                type: 'withdraw',
+                amount: -money,
                   status: statusKey,
-                  description: '提现',
-                  orderId: String(order.id),
-                  timestamp: typeof order.createTime === 'string' ? new Date(order.createTime).getTime() : order.createTime,
-                  // 提现详情字段
-                  toAddress: order.toAddress,
-                  txId: order.txId,
+                description: '提现',
+                orderId: String(order.id),
+                timestamp: typeof order.createTime === 'string' ? new Date(order.createTime).getTime() : order.createTime,
+                // 提现详情字段
+                toAddress: order.toAddress,
+                txId: order.txId,
                   fee: feeNum.toFixed(2),
                   actualAmount: Math.max(0, money - feeNum).toFixed(2),
-                  confirmTime: order.modifyTime,
+                confirmTime: order.modifyTime,
                   originalStatus: getWithdrawalStatusText(txCode),
-                });
+              });
               }
             });
           }

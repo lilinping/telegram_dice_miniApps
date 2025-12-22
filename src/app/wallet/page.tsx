@@ -32,7 +32,7 @@ export default function WalletPage() {
           currentBalance: balance,
           isInitialized,
         });
-        refreshBalance();
+    refreshBalance();
       }
   }, [user, isInitialized, refreshBalance]);
 
@@ -112,7 +112,7 @@ export default function WalletPage() {
 
         {/* 内容区域 */}
         {activeTab === 'transactions' ? (
-          <TransactionList />
+        <TransactionList />
         ) : (
           <RebateHistory />
         )}

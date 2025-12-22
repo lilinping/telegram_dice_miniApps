@@ -74,11 +74,11 @@ export default function WithdrawalHistory({ userId }: WithdrawalHistoryProps) {
           const feeNum = Number.isFinite(backendFeeNum) ? backendFeeNum : 2.0; // fallback to 2.00
           const actualNum = Math.max(0, moneyNum - feeNum);
           return {
-            ...order,
-            amount: order.money,
-            address: order.toAddress,
-            txid: order.txId,
-            confirmTime: order.modifyTime,
+          ...order,
+          amount: order.money,
+          address: order.toAddress,
+          txid: order.txId,
+          confirmTime: order.modifyTime,
             fee: feeNum.toFixed(2),
             actualAmount: actualNum.toFixed(2),
           };

@@ -15,6 +15,11 @@ export default function ProfilePage() {
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [statistics, setStatistics] = useState<DiceStatisticEntity | null>(null);
   const [loading, setLoading] = useState(true);
+  const [inviteCount, setInviteCount] = useState<number | null>(null);
+  const [inviteLink, setInviteLink] = useState<string>('');
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [copiedAt, setCopiedAt] = useState<number | null>(null);
 
   // 获取用户统计数据
   useEffect(() => {
@@ -59,7 +64,7 @@ export default function ProfilePage() {
     winRate: statistics && statistics.totalCount > 0 
       ? ((statistics.winCount / statistics.totalCount) * 100).toFixed(1) 
       : '0.0',
-    inviteCount: 0, // 暂时固定为0，后续添加邀请功能后对接
+    inviteCount: inviteCount ?? 0,
   };
 
   // VIP等级配置
@@ -160,6 +165,111 @@ export default function ProfilePage() {
     }
   };
 
+  // 邀请相关：加载邀请数
+  const loadInviteCount = async () => {
+    if (!user?.id) return;
+    try {
+      const resp = await fetch(`/api/backend/account/invite/count/${user.id}`, { method: 'GET' });
+      const res = await resp.json();
+      if (res && (res.success || res.code === 200)) {
+        setInviteCount(Number(res.data) || 0);
+      } else {
+        console.warn('加载邀请数失败', res);
+      }
+    } catch (e) {
+      console.error('loadInviteCount error', e);
+    }
+  };
+
+  const generateInviteLink = async () => {
+    if (!user?.id) return;
+    setInviteLoading(true);
+    try {
+      const resp = await fetch(`/api/backend/account/invite/generate/${user.id}`, { method: 'GET' });
+      const res = await resp.json();
+      if (res && (res.success || res.code === 200) && res.data) {
+        const link = String(res.data);
+        setInviteLink(link);
+        await loadInviteCount();
+        // 打开本地 Modal 显示链接（不要依赖 Telegram showPopup）
+        setShowInviteModal(true);
+      } else {
+        console.warn('生成邀请链接失败', res);
+        // eslint-disable-next-line no-alert
+        alert(res?.message || '生成邀请链接失败');
+      }
+    } catch (e) {
+      console.error('generateInviteLink error', e);
+      // eslint-disable-next-line no-alert
+      alert('生成邀请链接异常');
+    } finally {
+      setInviteLoading(false);
+    }
+  };
+
+  const copyInviteLink = async () => {
+    if (!inviteLink) {
+      // 如果没有链接，提示并返回
+      // eslint-disable-next-line no-alert
+      alert('请先生成邀请链接');
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(inviteLink);
+      // 在页面内显示已复制提示（非原生弹窗）
+      setCopiedAt(Date.now());
+    } catch (e) {
+      console.error('copyInviteLink error', e);
+      // eslint-disable-next-line no-alert
+      alert('复制失败，请手动复制');
+    }
+  };
+
+  useEffect(() => {
+    loadInviteCount();
+  }, [user]);
+ 
+  // 简单的 Invite 链接 Modal（供生成后的查看与复制）
+  const InviteModal = () => (
+    <Modal isOpen={showInviteModal} onClose={() => setShowInviteModal(false)} title="邀请链接">
+      <div className="space-y-4">
+        <div className="font-mono break-all">{inviteLink || '（暂无）'}</div>
+        <div className="flex gap-2">
+          <button
+            onClick={async () => {
+              if (!inviteLink) {
+                // eslint-disable-next-line no-alert
+                alert('请先生成邀请链接');
+                return;
+              }
+              try {
+                await navigator.clipboard.writeText(inviteLink);
+                setCopiedAt(Date.now());
+              } catch (e) {
+                // eslint-disable-next-line no-alert
+                alert('复制失败，请手动复制');
+              }
+            }}
+            className="flex-1 py-2 rounded-md bg-primary-gold text-bg-dark font-semibold"
+          >
+            复制链接
+          </button>
+          <button onClick={() => setShowInviteModal(false)} className="flex-1 py-2 rounded-md bg-bg-medium/60">
+            关闭
+          </button>
+        </div>
+        {copiedAt && (
+          <div className="text-sm text-green-400 mt-2">已复制 • {(() => {
+            const diff = Math.floor((Date.now() - copiedAt) / 1000)
+            if (diff < 60) return '刚刚'
+            if (diff < 3600) return `${Math.floor(diff/60)} 分钟前`
+            return `${Math.floor(diff/3600)} 小时前`
+          })()}</div>
+        )}
+      </div>
+    </Modal>
+  );
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#0A0A0A] to-[#1A1A1A] pt-16 safe-top pb-20">
       {/* 顶部导航 */}
@@ -256,13 +366,23 @@ export default function ProfilePage() {
                 <div className="text-[#A0A0A0]">{item.label}</div>
                 <div className="flex items-center gap-2">
                   <span className="text-white font-medium">{item.value}</span>
-                  {item.copyValue && (
+                  {item.label === '邀请数' ? (
                     <button
-                      onClick={() => handleCopy(item.copyValue)}
-                      className="text-xs text-primary-gold border border-primary-gold/40 rounded-full px-2 py-0.5 hover:bg-primary-gold/10 transition"
+                      onClick={generateInviteLink}
+                      disabled={inviteLoading}
+                      className="text-xs bg-primary-gold text-bg-dark rounded-full px-3 py-1 hover:opacity-90 transition"
                     >
-                      复制
+                      {inviteLoading ? '生成中...' : '生成'}
                     </button>
+                  ) : (
+                    item.copyValue && (
+                      <button
+                        onClick={() => handleCopy(item.copyValue)}
+                        className="text-xs text-primary-gold border border-primary-gold/40 rounded-full px-2 py-0.5 hover:bg-primary-gold/10 transition"
+                      >
+                        复制
+                      </button>
+                    )
                   )}
                 </div>
               </div>
@@ -344,6 +464,9 @@ export default function ProfilePage() {
           </div>
         </div>
       </Modal>
+
+      {/* 生成后展示邀请链接的 Modal */}
+      <InviteModal />
 
       {/* 版本信息 */}
       <div className="text-center py-8 text-xs text-[#505050]">
