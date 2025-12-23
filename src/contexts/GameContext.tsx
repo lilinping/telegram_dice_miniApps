@@ -6,6 +6,7 @@ import { useTelegram } from './TelegramContext';
 import { useWallet } from './WalletContext';
 import { DiceEntity, DiceChooseVO } from '@/lib/types';
 import { getBetChooseId } from '@/lib/betMapping';
+import { toast } from '@/components/ui/Toast';
 
 type GameState = 'betting' | 'rolling' | 'revealing' | 'settled';
 
@@ -214,6 +215,30 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
       const actualAmount = selectedChip * multiplier;
 
+      // 检查该下注选项是否有policy限制
+      try {
+        const chooseId = getBetChooseId(betId);
+        if (chooseId !== null) {
+          const option = diceOptions.get(chooseId);
+          if (option && option.policy) {
+            const min = option.policy.min ? parseFloat(String(option.policy.min)) : undefined;
+            const max = option.policy.max ? parseFloat(String(option.policy.max)) : undefined;
+            const current = bets[betId] || 0;
+            const newTotal = current + actualAmount;
+            if (min !== undefined && newTotal < min) {
+              toast.error(`该选项最小下注为 ${min}，当前筹码不足以达成。`);
+              return;
+            }
+            if (max !== undefined && newTotal > max) {
+              toast.error(`该选项最大下注为 ${max}，请调整筹码或倍数。`);
+              return;
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('policy 校验失败，继续下注', e);
+      }
+
       setBets((prev) => ({
         ...prev,
         [betId]: (prev[betId] || 0) + actualAmount,
@@ -340,6 +365,27 @@ export function GameProvider({ children }: { children: ReactNode }) {
     }
 
     try {
+      // 在提交前对每个下注项做一次 policy 校验，避免客户端将违规下注发送到后端
+      for (const [betId, amount] of Object.entries(bets)) {
+        const chooseId = getBetChooseId(betId);
+        if (chooseId === null) {
+          throw new Error(`无效的下注选项: ${betId}`);
+        }
+        const option = diceOptions.get(chooseId);
+        if (option && option.policy) {
+          const min = option.policy.min ? parseFloat(String(option.policy.min)) : undefined;
+          const max = option.policy.max ? parseFloat(String(option.policy.max)) : undefined;
+          if (min !== undefined && amount < min) {
+            toast.error(`下注金额低于该选项最小限制：${min}`);
+            return false;
+          }
+          if (max !== undefined && amount > max) {
+            toast.error(`下注金额超过该选项最大限制：${max}`);
+            return false;
+          }
+        }
+      }
+
       // 提交所有下注到后端
       const betPromises = Object.entries(bets).map(([betId, amount]) => {
         const chooseId = getBetChooseId(betId);

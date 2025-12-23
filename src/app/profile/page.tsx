@@ -229,12 +229,20 @@ export default function ProfilePage() {
     loadInviteCount();
   }, [user]);
  
-  // 简单的 Invite 链接 Modal（供生成后的查看与复制）
+  // 简单的 Invite 链接 Modal（供生成后的查看与复制），样式接近截图的简洁模式
   const InviteModal = () => (
     <Modal isOpen={showInviteModal} onClose={() => setShowInviteModal(false)} title="邀请链接">
       <div className="space-y-4">
-        <div className="font-mono break-all">{inviteLink || '（暂无）'}</div>
-        <div className="flex gap-2">
+        <div className="text-sm text-text-secondary">生成的邀请链接（可复制）：</div>
+        <div className="font-mono text-lg break-all bg-[#0b0b0b] p-6 rounded text-center">
+          {inviteLink || '（暂无）'}
+        </div>
+
+        <div className="text-sm text-text-secondary mt-2">
+          好友通过该邀请加入游戏有机会获得新手或活动奖励；邀请人在好友完成指定条件（如首次充值或达到有效流水）后可获得相应邀请奖励。
+        </div>
+
+        <div className="flex gap-3">
           <button
             onClick={async () => {
               if (!inviteLink) {
@@ -250,20 +258,21 @@ export default function ProfilePage() {
                 alert('复制失败，请手动复制');
               }
             }}
-            className="flex-1 py-2 rounded-md bg-primary-gold text-bg-dark font-semibold"
+            className="flex-1 py-3 rounded-md bg-primary-gold text-bg-dark font-semibold"
           >
             复制链接
           </button>
-          <button onClick={() => setShowInviteModal(false)} className="flex-1 py-2 rounded-md bg-bg-medium/60">
+          <button onClick={() => setShowInviteModal(false)} className="flex-1 py-3 rounded-md bg-bg-medium/60">
             关闭
           </button>
         </div>
+
         {copiedAt && (
           <div className="text-sm text-green-400 mt-2">已复制 • {(() => {
-            const diff = Math.floor((Date.now() - copiedAt) / 1000)
-            if (diff < 60) return '刚刚'
-            if (diff < 3600) return `${Math.floor(diff/60)} 分钟前`
-            return `${Math.floor(diff/3600)} 小时前`
+            const diff = Math.floor((Date.now() - copiedAt) / 1000);
+            if (diff < 60) return '刚刚';
+            if (diff < 3600) return `${Math.floor(diff / 60)} 分钟前`;
+            return `${Math.floor(diff / 3600)} 小时前`;
           })()}</div>
         )}
       </div>
@@ -372,7 +381,7 @@ export default function ProfilePage() {
                       disabled={inviteLoading}
                       className="text-xs bg-primary-gold text-bg-dark rounded-full px-3 py-1 hover:opacity-90 transition"
                     >
-                      {inviteLoading ? '生成中...' : '生成'}
+                      {inviteLoading ? '生成中...' : '邀请链接'}
                     </button>
                   ) : (
                     item.copyValue && (

@@ -81,6 +81,10 @@ export interface DiceChooseVO {
   id: number
   multi: string          // 赔率（字符串格式）
   display: string        // 显示名称
+  policy?: {
+    min?: string
+    max?: string
+  }
 }
 
 export interface DiceBetEntity {

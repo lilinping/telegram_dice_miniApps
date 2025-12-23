@@ -108,6 +108,21 @@ export default function BetPanel({ disabled = false, bets: propBets, onPlaceBet,
     return `${option.multi}:1`;
   };
 
+  const getPolicyText = (betId: string): string | undefined => {
+    const chooseId = getBetChooseId(betId);
+    if (chooseId === null) return undefined;
+    const option = diceOptions.get(chooseId);
+    if (!option || !option.policy) return undefined;
+    const min = option.policy.min ? parseFloat(String(option.policy.min)) : undefined;
+    const max = option.policy.max ? parseFloat(String(option.policy.max)) : undefined;
+    if (min !== undefined && max !== undefined) {
+      return `限额 ${min}-${max}`;
+    }
+    if (min !== undefined) return `最小 ${min}`;
+    if (max !== undefined) return `最大 ${max}`;
+    return undefined;
+  };
+
   return (
     <div className="px-2 py-1 space-y-1">
       {/* 第一排：小 / 单 / 任意三 / 双 / 大 （浅色瓷片风格） */}
@@ -270,6 +285,7 @@ export default function BetPanel({ disabled = false, bets: propBets, onPlaceBet,
               type="points"
               size="small"
               theme={theme}
+              policyText={getPolicyText(bet.id)}
             />
           ))}
         </div>
@@ -295,6 +311,7 @@ export default function BetPanel({ disabled = false, bets: propBets, onPlaceBet,
               type="points"
               size="small"
               theme={theme}
+              policyText={getPolicyText(bet.id)}
             />
           ))}
         </div>

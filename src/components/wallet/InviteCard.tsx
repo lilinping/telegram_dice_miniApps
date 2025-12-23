@@ -13,6 +13,7 @@ export default function InviteCard({ className }: { className?: string }) {
   const [count, setCount] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [showSimpleModal, setShowSimpleModal] = useState(true);
   const [invitees, setInvitees] = useState<Array<{ id?: string; name?: string; joinedAt?: string }>>([]);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [generateStatus, setGenerateStatus] = useState<'idle' | 'success' | 'error'>('idle');
@@ -47,6 +48,7 @@ export default function InviteCard({ className }: { className?: string }) {
         await loadInviteCount();
         // 打开预览弹窗并加载被邀请用户列表
         await fetchInvitees();
+        setShowSimpleModal(true);
         setShowPreview(true);
         setGenerateStatus('success');
         setGenerateAt(Date.now());
@@ -79,6 +81,7 @@ export default function InviteCard({ className }: { className?: string }) {
       setCopiedAt(Date.now());
       // 复制后弹出预览（后端仅提供邀请数量接口，名单不可用）
       setInvitees([]);
+      setShowSimpleModal(true);
       setShowPreview(true);
     } catch (e) {
       console.error('copy failed', e);
@@ -151,90 +154,141 @@ export default function InviteCard({ className }: { className?: string }) {
 
       {/* 链接复制在弹窗内进行，外部不提供复制或打开按钮 */}
 
-      <Modal isOpen={showPreview} onClose={() => setShowPreview(false)} title="邀请预览" size="large">
-        <div className="space-y-4">
-          <div className="text-sm text-text-secondary">生成的邀请链接（可复制）：</div>
-          <div className="font-mono text-sm break-all bg-[#0b0b0b] p-3 rounded">{inviteLink || '（暂无）'}</div>
+      <Modal
+        isOpen={showPreview}
+        onClose={() => setShowPreview(false)}
+        title={showSimpleModal ? '邀请链接' : '邀请预览'}
+        size={showSimpleModal ? 'small' : 'large'}
+      >
+        {showSimpleModal ? (
+          <div className="space-y-4">
+            <div className="text-sm text-text-secondary">生成的邀请链接（可复制）：</div>
+            <div className="font-mono text-lg break-all bg-[#0b0b0b] p-6 rounded text-center">{inviteLink || '（暂无）'}</div>
 
-          <div className="text-sm text-text-secondary">邀请页欢迎文案预览：</div>
-          <div className="bg-bg-medium p-3 rounded">
-            <div className="mb-2">🎉 <strong>欢迎加入游戏！</strong></div>
-            <div className="text-sm text-text-secondary mb-2">
-              你是通过 <span className="text-white font-medium">{user?.firstName || user?.username || '邀请人'}</span> 的邀请进入游戏的
-            </div>
-            <div className="text-sm text-text-secondary">
-              系统已为你送上 <span className="text-white font-medium">0.2 USDT</span> 新手奖励
-            </div>
-            <div className="mt-2 text-xs text-text-secondary">示例显示（请以后台实际文案与金额为准）</div>
-          </div>
-
-          <div className="text-sm text-text-secondary">邀请成功通知示例：</div>
-          <div className="bg-bg-medium p-3 rounded">
-            <div>✅ <strong>邀请成功！</strong></div>
-            <div className="text-sm text-text-secondary mt-1">
-              你的好友 <span className="text-white font-medium">{'{inviteeName}'}</span> 已通过你的邀请链接进入游戏。
-            </div>
-            <div className="text-sm text-text-secondary mt-1">
-              当 TA 的有效游戏流水达到 <span className="text-white font-medium">{'{targetAmount}'}</span> USDT，你将获得 <span className="text-white font-medium">{'{rewardAmount}'}</span> USDT 邀请奖励。
-            </div>
-          </div>
-
-          <div>
-            <div className="text-sm text-text-secondary mb-2">已邀请的用户（最近 20 条）：</div>
-            {previewLoading ? (
-              <div className="text-sm text-text-secondary">载入中...</div>
-            ) : invitees.length === 0 ? (
-              <div className="text-sm text-text-secondary">暂无已邀请用户或接口未提供详细名单。</div>
-            ) : (
-              <div className="space-y-2 max-h-64 overflow-auto">
-                {invitees.map((it, idx) => (
-                  <div key={idx} className="flex items-center justify-between bg-[#0b0b0b] p-2 rounded">
-                    <div>
-                      <div className="text-white text-sm">{it.name || it.id || '匿名'}</div>
-                      {it.joinedAt && <div className="text-xs text-text-secondary">{it.joinedAt}</div>}
-                    </div>
-                    <div className="text-xs text-text-secondary">{it.id ? `#${it.id}` : ''}</div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="flex gap-2">
-            <button
-              onClick={async () => {
-                if (inviteLink) {
-                  try {
-                    await navigator.clipboard.writeText(inviteLink);
-                    setCopiedAt(Date.now());
-                  } catch (e) {
-                    // eslint-disable-next-line no-alert
-                    alert('复制失败');
+            <div className="flex gap-3">
+              <button
+                onClick={async () => {
+                  if (inviteLink) {
+                    try {
+                      await navigator.clipboard.writeText(inviteLink);
+                      setCopiedAt(Date.now());
+                    } catch (e) {
+                      // eslint-disable-next-line no-alert
+                      alert('复制失败');
+                    }
                   }
-                }
-              }}
-              className="flex-1 py-2 rounded-md bg-primary-gold text-bg-dark font-semibold"
-            >
-              复制链接
-            </button>
-            <div className="flex items-center text-sm text-text-secondary">
-              {copiedAt && <span className="text-green-400">已复制 • {formatTimeAgo(copiedAt)}</span>}
+                }}
+                className="flex-1 py-3 rounded-md bg-primary-gold text-bg-dark font-semibold"
+              >
+                复制链接
+              </button>
+              <button
+                onClick={() => setShowPreview(false)}
+                className="flex-1 py-3 rounded-md bg-bg-medium/60"
+              >
+                关闭
+              </button>
             </div>
-            <button
-              onClick={() => setShowPreview(false)}
-              className="flex-1 py-2 rounded-md bg-bg-medium/60"
-            >
-              关闭
-            </button>
+
+            <div className="text-center">
+              <button
+                onClick={() => setShowSimpleModal(false)}
+                className="text-sm text-text-secondary underline"
+              >
+                查看详情
+              </button>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="text-sm text-text-secondary">生成的邀请链接（可复制）：</div>
+            <div className="font-mono text-sm break-all bg-[#0b0b0b] p-3 rounded">{inviteLink || '（暂无）'}</div>
+
+            <div className="text-sm text-text-secondary mt-2">
+              好友通过该邀请加入游戏有机会获得新手或活动奖励，邀请人也可在好友达到指定条件（如首次充值或有效流水）后获得相应邀请奖励。具体奖励规则请以邀请页说明为准。
+            </div>
+
+            <div className="text-sm text-text-secondary">邀请页欢迎文案预览：</div>
+            <div className="bg-bg-medium p-3 rounded">
+              <div className="mb-2">🎉 <strong>欢迎加入游戏！</strong></div>
+              <div className="text-sm text-text-secondary mb-2">
+                你是通过 <span className="text-white font-medium">{user?.firstName || user?.username || '邀请人'}</span> 的邀请进入游戏的
+              </div>
+              <div className="text-sm text-text-secondary">
+                系统已为你送上 <span className="text-white font-medium">0.2 USDT</span> 新手奖励
+              </div>
+              <div className="mt-2 text-xs text-text-secondary">示例显示（请以后台实际文案与金额为准）</div>
+            </div>
+
+            <div className="text-sm text-text-secondary">邀请成功通知示例：</div>
+            <div className="bg-bg-medium p-3 rounded">
+              <div>✅ <strong>邀请成功！</strong></div>
+              <div className="text-sm text-text-secondary mt-1">
+                你的好友 <span className="text-white font-medium">{'{inviteeName}'}</span> 已通过你的邀请链接进入游戏。
+              </div>
+              <div className="text-sm text-text-secondary mt-1">
+                当 TA 的有效游戏流水达到 <span className="text-white font-medium">{'{targetAmount}'}</span> USDT，你将获得 <span className="text-white font-medium">{'{rewardAmount}'}</span> USDT 邀请奖励。
+              </div>
+            </div>
+
+            <div>
+              <div className="text-sm text-text-secondary mb-2">已邀请的用户（最近 20 条）：</div>
+              {previewLoading ? (
+                <div className="text-sm text-text-secondary">载入中...</div>
+              ) : invitees.length === 0 ? (
+                <div className="text-sm text-text-secondary">暂无已邀请用户或接口未提供详细名单。</div>
+              ) : (
+                <div className="space-y-2 max-h-64 overflow-auto">
+                  {invitees.map((it, idx) => (
+                    <div key={idx} className="flex items-center justify-between bg-[#0b0b0b] p-2 rounded">
+                      <div>
+                        <div className="text-white text-sm">{it.name || it.id || '匿名'}</div>
+                        {it.joinedAt && <div className="text-xs text-text-secondary">{it.joinedAt}</div>}
+                      </div>
+                      <div className="text-xs text-text-secondary">{it.id ? `#${it.id}` : ''}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={async () => {
+                  if (inviteLink) {
+                    try {
+                      await navigator.clipboard.writeText(inviteLink);
+                      setCopiedAt(Date.now());
+                    } catch (e) {
+                      // eslint-disable-next-line no-alert
+                      alert('复制失败');
+                    }
+                  }
+                }}
+                className="flex-1 py-2 rounded-md bg-primary-gold text-bg-dark font-semibold"
+              >
+                复制链接
+              </button>
+              <div className="flex items-center text-sm text-text-secondary">
+                {copiedAt && <span className="text-green-400">已复制 • {formatTimeAgo(copiedAt)}</span>}
+              </div>
+              <button
+                onClick={() => setShowPreview(false)}
+                className="flex-1 py-2 rounded-md bg-bg-medium/60"
+              >
+                关闭
+              </button>
+            </div>
+          </div>
+        )}
       </Modal>
 
       <div className="mt-3 text-xs text-text-secondary">
         欢迎文案将在邀请页面展示：<br />
         「🎉 欢迎加入游戏！你是通过 {`{inviterName}`} 的邀请进入游戏的；系统已为你送上 0.2 USDT 新手奖励。」<br />
         邀请成功通知示例：<br />
-        「✅ 邀请成功！你的好友 {`{inviteeName}`} 已通过你的邀请链接进入游戏，当 TA 的有效流水达到 {`{targetAmount}`} USDT，你将获得 {`{rewardAmount}`} USDT 邀请奖励。」
+        「✅ 邀请成功！你的好友 {`{inviteeName}`} 已通过你的邀请链接进入游戏，当 TA 的有效流水达到 {`{targetAmount}`} USDT，你将获得 {`{rewardAmount}`} USDT 邀请奖励。」<br />
+        温馨提示：好友通过邀请加入可获得对应的新手或活动奖励，邀请人则可在好友完成指定条件后获得邀请奖励，具体细则请查看「邀请好友」页的奖励规则。
       </div>
     </div>
   );

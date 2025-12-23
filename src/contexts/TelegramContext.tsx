@@ -37,11 +37,47 @@ export function TelegramProvider({ children }: { children: ReactNode }) {
   const [isInitialized, setIsInitialized] = useState(false);
   const [initError, setInitError] = useState<string | null>(null);
   const initializationRef = useRef(false);
+  const lastUserIdRef = useRef<number | null>(null);
+  const pollTimerRef = useRef<number | null>(null);
+  // 检查 Telegram WebApp 中当前用户是否变化（可在多账号/切换场景使用）
+  const checkTelegramUser = () => {
+    try {
+      const current = (window as any).Telegram?.WebApp?.initDataUnsafe?.user;
+      const currentId = current ? current.id : null;
+      if (currentId && lastUserIdRef.current !== currentId) {
+        // 用户切换：更新本地状态并重新初始化后端用户
+        lastUserIdRef.current = currentId;
+        const userObj: TelegramUser = {
+          id: current.id,
+          firstName: current.first_name,
+          lastName: current.last_name,
+          username: current.username,
+          languageCode: current.language_code,
+          photoUrl: current.photo_url,
+          isPremium: current.is_premium || false,
+        };
+        console.log('检测到 Telegram 用户变更，更新用户：', userObj);
+        setUser(userObj);
+        // 异步触发后端初始化但不阻塞UI
+        initializeBackendUser(userObj).catch((e) => console.warn('初始化后端用户失败', e));
+      }
+    } catch (e) {
+      // ignore
+    }
+  };
 
   useEffect(() => {
     if (initializationRef.current) return;
     initializationRef.current = true;
     initializeTelegram();
+    // 清理定时器和事件监听
+    return () => {
+      if (pollTimerRef.current) {
+        window.clearInterval(pollTimerRef.current);
+      }
+      window.removeEventListener('focus', checkTelegramUser);
+      document.removeEventListener('visibilitychange', checkTelegramUser);
+    };
   }, []);
 
   const initializeTelegram = async () => {
@@ -55,6 +91,14 @@ export function TelegramProvider({ children }: { children: ReactNode }) {
         // 初始化Telegram WebApp
         tg.ready();
         tg.expand();
+
+        // 立即记录当前 user id
+        lastUserIdRef.current = tg.initDataUnsafe?.user?.id || null;
+        // 轮询检查（2s）
+        pollTimerRef.current = window.setInterval(checkTelegramUser, 2000);
+        // 在窗口聚焦或可见性变化时也立即检查
+        window.addEventListener('focus', checkTelegramUser);
+        document.addEventListener('visibilitychange', checkTelegramUser);
 
         // 获取用户信息
         const telegramUser = tg.initDataUnsafe?.user;

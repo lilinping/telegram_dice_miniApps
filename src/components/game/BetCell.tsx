@@ -32,6 +32,7 @@ interface BetCellProps {
   size?: 'small' | 'medium' | 'large';
   type?: 'primary' | 'points' | 'combination' | 'triple';
   theme?: 'classic' | 'green';
+  policyText?: string;
 }
 
 export default function BetCell({
@@ -51,6 +52,7 @@ export default function BetCell({
   size = 'medium',
   type = 'primary',
   theme = 'classic',
+  policyText,
 }: BetCellProps) {
   const hasAmount = amount > 0;
 
@@ -268,6 +270,11 @@ export default function BetCell({
               >
                 {odds}
               </span>
+            )}
+            {policyText && (
+              <div className="text-xs text-text-secondary mt-1" style={{ fontSize: '11px' }}>
+                {policyText}
+              </div>
             )}
           </>
         )}

@@ -730,6 +730,7 @@ if (typeof window !== 'undefined') (window as any).__shakeStartTimeRef = shakeSt
               
               const targetQuat = correctDiceToNumber(body, currentResults[i]);
               // 直接设置朝向，并清零速度
+              // 优先尝试标准校正
               body.quaternion.copy(targetQuat);
               body.velocity.setZero();
               body.angularVelocity.setZero();
@@ -746,6 +747,46 @@ if (typeof window !== 'undefined') (window as any).__shakeStartTimeRef = shakeSt
                 mesh.quaternion.copy(targetQuat as any);
                 // 将 mesh 位置与 body 严格同步
                 mesh.position.set(body.position.x, body.position.y, body.position.z);
+              }
+              
+              // 兜底：验证视觉朝上点数是否与目标一致；若不一致，尝试查找一个能让视觉结果匹配目标的 quaternion
+              try {
+                const finalNumbers = getCurrentDiceNumbers();
+                if (finalNumbers[i] !== currentResults[i]) {
+                  console.warn('🔧 校正后视觉点数与目标不符，尝试基于 yaw 旋转的替代四元数', { index: i, target: currentResults[i], actual: finalNumbers[i] });
+                  const originalQuat = new CANNON.Quaternion();
+                  originalQuat.copy(body.quaternion);
+                  const baseQuat = correctDiceToNumber(body, currentResults[i]);
+                  // 尝试不同的 yaw 偏移（0, 90, 180, 270 deg）
+                  const yaws = [0, Math.PI / 2, Math.PI, (3 * Math.PI) / 2];
+                  let applied = false;
+                  for (const yaw of yaws) {
+                    try {
+                      const delta = new CANNON.Quaternion();
+                      delta.setFromEuler(0, yaw, 0);
+                      // newQuat = delta * baseQuat (先绕Y旋转再应用基准朝向)
+                      const tryQuat = delta.mult(baseQuat);
+                      body.quaternion.copy(tryQuat);
+                      if (mesh) mesh.quaternion.copy(tryQuat as any);
+                      const nums = getCurrentDiceNumbers();
+                      if (nums[i] === currentResults[i]) {
+                        console.log('✅ 基于 yaw 的替代四元数匹配成功', { index: i, yaw, nums });
+                        applied = true;
+                        break;
+                      }
+                    } catch (e) {
+                      // ignore rotation errors and continue
+                    }
+                  }
+                  if (!applied) {
+                    // 恢复原始四元数以避免不可预期的视觉跳变
+                    body.quaternion.copy(originalQuat);
+                    if (mesh) mesh.quaternion.copy(originalQuat as any);
+                    console.warn('❌ 基于 yaw 的替代四元数未能匹配目标，恢复原始四元数');
+                  }
+                }
+              } catch (e) {
+                console.warn('校正后视觉验证失败', e);
               }
             }
             hasCorrectedRef.current = true;
@@ -1056,14 +1097,46 @@ if (typeof window !== 'undefined') (window as any).__shakeStartTimeRef = shakeSt
       const mesh = diceMeshesRef.current[i];
       if (!body || !mesh) continue;
       const targetNumber = diceResults[i];
-      const targetQuat = correctDiceToNumber(body, targetNumber);
+      // 尝试标准校正并验证视觉结果；若不符则尝试基于 yaw 偏移的替代四元数
+      const originalQuat = new CANNON.Quaternion();
+      originalQuat.copy(body.quaternion);
+      const baseQuat = correctDiceToNumber(body, targetNumber);
       body.wakeUp();
-      body.quaternion.copy(targetQuat);
+      body.quaternion.copy(baseQuat);
+      mesh.quaternion.copy(baseQuat as any);
+      // 清零速度并睡眠
       body.angularVelocity.setZero();
       body.velocity.setZero();
       body.sleep();
-      mesh.quaternion.copy(targetQuat as any);
-      mesh.position.copy(body.position as any);
+      // 验证视觉点数
+      const finalNums = getCurrentDiceNumbers();
+      if (finalNums[i] !== targetNumber) {
+        console.warn('🔧 兜底校正后视觉点数与目标不符，尝试基于 yaw 偏移的替代四元数', { index: i, target: targetNumber, actual: finalNums[i] });
+        const yaws = [0, Math.PI / 2, Math.PI, (3 * Math.PI) / 2];
+        let found = false;
+        for (const yaw of yaws) {
+          try {
+            const delta = new CANNON.Quaternion();
+            delta.setFromEuler(0, yaw, 0);
+            const tryQuat = delta.mult(baseQuat);
+            body.quaternion.copy(tryQuat);
+            mesh.quaternion.copy(tryQuat as any);
+            const nums = getCurrentDiceNumbers();
+            if (nums[i] === targetNumber) {
+              console.log('✅ 兜底 yaw 枚举匹配成功', { index: i, yaw, nums });
+              found = true;
+              break;
+            }
+          } catch (e) {
+            // ignore and continue
+          }
+        }
+        if (!found) {
+          body.quaternion.copy(originalQuat);
+          mesh.quaternion.copy(originalQuat as any);
+          console.warn('❌ 兜底 yaw 枚举未能匹配目标，恢复原始四元数');
+        }
+      }
     }
     const finalNumbers = getCurrentDiceNumbers();
     console.warn('🧾 兜底后的点数:', finalNumbers, '目标:', diceResults);
