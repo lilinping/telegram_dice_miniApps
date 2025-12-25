@@ -202,9 +202,10 @@ export default function WithdrawPage() {
   };
 
   // 计算手续费和实际到账
+  // 注意：手续费从余额额外扣除，用户输入的金额就是实际到账金额
   const withdrawAmount = parseFloat(amount) || 0;
   const fee = isFreeWithdrawal ? 0 : calculateWithdrawalFee(withdrawAmount);
-  const actualAmount = withdrawAmount - fee;
+  const actualAmount = withdrawAmount; // 实际到账 = 用户输入的金额
 
   // 处理全部提现
   const handleWithdrawAll = () => {

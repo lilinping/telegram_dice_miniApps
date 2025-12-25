@@ -157,7 +157,7 @@ export default function TransactionList() {
                   toAddress: order.toAddress,
                   txId: order.txId,
                   fee: feeNum.toFixed(2),
-                  actualAmount: Math.max(0, money - feeNum).toFixed(2),
+                  actualAmount: money.toFixed(2), // 实际到账 = 提现金额（手续费从余额额外扣除）
                   confirmTime: order.modifyTime,
                   originalStatus: getWithdrawalStatusText(txCode),
                 });

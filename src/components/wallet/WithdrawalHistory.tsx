@@ -80,7 +80,8 @@ export default function WithdrawalHistory({ userId }: WithdrawalHistoryProps) {
           // 后端可能返回 fee 字段（字符串 "0" 或 "2.00"），优先使用后端返回值
           const backendFeeNum = order.fee !== undefined && order.fee !== null ? parseFloat((order as any).fee as any) : NaN;
           const feeNum = Number.isFinite(backendFeeNum) ? backendFeeNum : 2.0; // fallback to 2.00
-          const actualNum = Math.max(0, moneyNum - feeNum);
+          // 实际到账 = 提现金额（手续费从余额额外扣除，不影响到账金额）
+          const actualNum = moneyNum;
           return {
             ...order,
             amount: order.money,
@@ -110,12 +111,6 @@ export default function WithdrawalHistory({ userId }: WithdrawalHistoryProps) {
   const calculateFee = (amount: number): string => {
     // 统一手续费: 2 USDT
     return '2.00';
-  };
-  
-  // 计算实际到账金额
-  const calculateActualAmount = (amount: number): string => {
-    // 统一手续费: 2 USDT
-    return (amount - 2).toFixed(2);
   };
 
   // 初始加载
