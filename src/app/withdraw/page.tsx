@@ -247,9 +247,9 @@ export default function WithdrawPage() {
         setShowConfirm(false);
         
         // 安全地获取订单ID - 兼容多种字段名
-        // 注意：不要把默认订单ID设为状态文本（如 "处理中"），否则会误显示为订单编号
-        let orderId = '未知';
+        let orderId = '';
         let txCode = -1;
+        let isManualReview = false; // 是否人工审核
         
         if (result.data) {
           // 兼容后端返回 data 为原始字符串/数字（直接为 orderId），或者为对象 { orderId, id, txCode, ... }
@@ -260,10 +260,8 @@ export default function WithdrawPage() {
             console.log('💰 提现API返回 primitive data, orderId:', orderId);
           } else if (typeof raw === 'object' && raw !== null) {
             const orderIdValue = raw.orderId ?? raw.id ?? raw.orderid ?? raw.orderID;
-            if (orderIdValue !== undefined && orderIdValue !== null && String(orderIdValue).trim() !== '') {
+            if (orderIdValue !== undefined && orderIdValue !== null) {
               orderId = String(orderIdValue);
-            } else {
-              console.warn('💰 提现API返回对象但未包含 orderId 字段，保留默认 orderId:', raw);
             }
             txCode = raw.txCode ?? raw.txcode ?? -1;
           } else {
@@ -271,17 +269,32 @@ export default function WithdrawPage() {
           }
         }
         
-        console.log('💰 提现成功 - 订单ID:', orderId, 'txCode:', txCode);
+        // 判断是否人工审核：orderId 为 -1 或 "-1"
+        if (orderId === '-1' || orderId === -1 || !orderId) {
+          isManualReview = true;
+        }
         
-        // 根据 txCode 映射状态文本，保证 -1（未确认）显示为“处理中”
+        console.log('💰 提现成功 - 订单ID:', orderId, 'txCode:', txCode, '人工审核:', isManualReview);
+        
+        // 根据情况设置状态文本
         let statusText = '处理中';
-        if (txCode === 0) {
+        if (isManualReview) {
+          statusText = '人工审核中';
+        } else if (txCode === 0) {
           statusText = '已完成';
         } else if (txCode === 1) {
           statusText = '处理失败';
-        } else if (txCode === -1) {
-          statusText = '处理中';
+        } else {
+          statusText = '自动处理中';
         }
+
+
+
+
+
+
+
+
         
         // 刷新余额
         console.log('💰 刷新余额...');
@@ -289,7 +302,7 @@ export default function WithdrawPage() {
         console.log('💰 余额刷新完成');
         
         // 显示成功弹框
-        setSuccessOrderId(orderId);
+        setSuccessOrderId(isManualReview ? '' : orderId); // 人工审核不显示订单号
         setSuccessStatus(statusText);
         setShowSuccess(true);
       } else {
@@ -732,12 +745,15 @@ export default function WithdrawPage() {
             {/* 订单信息 */}
             <div className="p-6 space-y-4">
               <div className="bg-bg-medium rounded-xl p-4 space-y-3">
-                <div className="flex items-start gap-3">
-                  <span className="text-sm text-text-secondary min-w-[64px]">订单编号</span>
-                  <div className="flex-1 min-w-0">
-                    <span className="text-sm font-mono text-text-primary break-all break-words overflow-auto block">{successOrderId}</span>
+                {/* 只有非人工审核时才显示订单编号 */}
+                {successOrderId && (
+                  <div className="flex items-start gap-3">
+                    <span className="text-sm text-text-secondary min-w-[64px]">订单编号</span>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-sm font-mono text-text-primary break-all break-words overflow-auto block">{successOrderId}</span>
+                    </div>
                   </div>
-                </div>
+                )}
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-text-secondary">提现金额</span>
                   <span className="text-sm font-semibold text-primary-gold">{withdrawAmount.toFixed(2)} USDT</span>
@@ -756,7 +772,9 @@ export default function WithdrawPage() {
               </div>
               
               <p className="text-xs text-text-secondary text-center">
-                预计2小时内到账，请在钱包页面查看提现记录
+                {successStatus === '人工审核中' 
+                  ? '人工审核中，预计24小时内处理完成' 
+                  : '预计2小时内到账，请在钱包页面查看提现记录'}
               </p>
               
               {/* 确认按钮 */}
