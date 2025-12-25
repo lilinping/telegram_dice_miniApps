@@ -373,7 +373,7 @@ export default function GamePage() {
             transition: 'opacity 0.2s ease',
           }}
         >
-          <BetPanel disabled={!canBet} />
+          <BetPanel disabled={!canBet} onPlaceBet={placeBet} diceOptions={diceOptions} />
         </div>
       </div>
 

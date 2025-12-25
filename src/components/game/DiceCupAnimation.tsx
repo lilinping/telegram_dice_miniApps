@@ -783,6 +783,20 @@ if (typeof window !== 'undefined') (window as any).__shakeStartTimeRef = shakeSt
             } catch (e) {
               // ignore metric errors
             }
+          } else {
+            // 兜底：如果没有结果，也要让骰子停下来
+            console.warn('⚠️ 摇盅结束但没有有效结果，让骰子自然停止');
+            for (let i = 0; i < diceCount; i++) {
+              const body = diceBodiesRef.current[i];
+              if (!body) continue;
+              body.velocity.setZero();
+              body.angularVelocity.setZero();
+              body.linearDamping = 0.98;
+              body.angularDamping = 0.98;
+              body.sleep();
+            }
+            hasCorrectedRef.current = true;
+            try { setDiceStopped(true); } catch (e) {}
           }
           
           isShakingRef.current = false;
@@ -1179,6 +1193,7 @@ if (typeof window !== 'undefined') (window as any).__shakeStartTimeRef = shakeSt
       hasCorrectedRef.current = false; // 重置校正标志
       isCorrectingRef.current = false; // 重置校正中标志
       shakeFrameRef.current = 0;
+      setDiceStopped(false); // 重置骰子停止状态
       
       // 唤醒骰子，准备下一轮
       diceBodiesRef.current.forEach((body) => {
@@ -1199,8 +1214,18 @@ if (typeof window !== 'undefined') (window as any).__shakeStartTimeRef = shakeSt
       if (glassCoverRef.current) {
         glassCoverRef.current.position.set(0, 0.1, 0);
       }
+    } else if (gameState === 'settled' || gameState === 'revealing') {
+      // 兜底：如果进入 settled/revealing 状态但骰子还没停止，强制设置
+      if (!diceStopped && diceResults.length === 3) {
+        console.log('🛠️ 进入 settled/revealing 状态，强制设置骰子结果');
+        forceSetDiceToResults('进入 settled/revealing 状态');
+      } else if (!diceStopped && diceResults.length !== 3) {
+        // 如果没有结果，也要标记骰子已停止
+        console.warn('⚠️ 进入 settled/revealing 状态但没有有效结果');
+        setDiceStopped(true);
+      }
     }
-  }, [gameState]); // 只监听 gameState，不监听 diceResults
+  }, [gameState, diceStopped, diceResults]); // 监听 gameState, diceStopped 和 diceResults
 
   // 将 chooseId 转换为可读文本
   const getBetLabel = (chooseId: number): string => {
