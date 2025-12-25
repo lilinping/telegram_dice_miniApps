@@ -11,16 +11,20 @@ interface WithdrawalHistoryProps {
 
 /**
  * 获取提币状态显示文本
- * @param txCode 状态码：-1=未确认, 0=成功, 1=失败
+ * @param txCode 状态码：-1=处理中, 0=成功, 1=失败, -2=人工审核中, -3=拒绝
  */
 export function getWithdrawalStatusText(txCode: number): string {
   switch (txCode) {
     case -1:
-      return '待确认';
+      return '处理中';
     case 0:
       return '成功';
     case 1:
       return '失败';
+    case -2:
+      return '人工审核中';
+    case -3:
+      return '已拒绝';
     default:
       return '未知';
   }
@@ -36,6 +40,10 @@ export function getWithdrawalStatusColor(txCode: number): string {
     case 0:
       return 'text-success bg-success/10 border-success/30';
     case 1:
+      return 'text-error bg-error/10 border-error/30';
+    case -2:
+      return 'text-info bg-info/10 border-info/30';
+    case -3:
       return 'text-error bg-error/10 border-error/30';
     default:
       return 'text-text-secondary bg-bg-medium border-border';
@@ -236,7 +244,8 @@ export default function WithdrawalHistory({ userId }: WithdrawalHistoryProps) {
                     {formatAddress(order.toAddress)}
                   </span>
                 </div>
-                {order.txId && (
+                {/* 只有非人工审核和非拒绝状态才显示交易ID */}
+                {order.txId && order.txCode !== -2 && order.txCode !== -3 && (
                   <div className="flex justify-between text-sm">
                     <span className="text-text-secondary">交易ID</span>
                     <span className="font-mono text-xs text-text-primary break-all">
