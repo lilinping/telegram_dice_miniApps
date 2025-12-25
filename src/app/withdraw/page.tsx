@@ -207,10 +207,15 @@ export default function WithdrawPage() {
   const fee = isFreeWithdrawal ? 0 : calculateWithdrawalFee(withdrawAmount);
   const actualAmount = withdrawAmount; // 实际到账 = 用户输入的金额
 
-  // 处理全部提现
+  // 处理全部提现（考虑手续费）
   const handleWithdrawAll = () => {
-    setAmount(balance.toString());
+    // 全部提现时，需要预留手续费
+    const maxWithdraw = Math.max(0, balance - fee);
+    setAmount(maxWithdraw.toFixed(2));
   };
+
+  // 计算总扣款金额（提现金额 + 手续费）
+  const totalDeduction = withdrawAmount + fee;
 
   // 处理提现确认
   const handleConfirm = () => {
@@ -221,8 +226,9 @@ export default function WithdrawPage() {
       return;
     }
 
-    if (withdrawAmount > balance) {
-      setError('余额不足');
+    // 校验余额是否足够支付提现金额+手续费
+    if (totalDeduction > balance) {
+      setError(`余额不足，需要 ${totalDeduction.toFixed(2)} USDT（含手续费 ${fee.toFixed(2)} USDT）`);
       return;
     }
 
@@ -398,6 +404,13 @@ export default function WithdrawPage() {
             </p>
           )}
 
+          {/* 余额不足提示 */}
+          {withdrawAmount >= 10 && totalDeduction > balance && (
+            <p className="mb-2 text-sm text-red-500 font-medium">
+              ⚠️ 余额不足，需要 {totalDeduction.toFixed(2)} USDT（含手续费 {fee.toFixed(2)} USDT），当前余额 {balance.toFixed(2)} USDT
+            </p>
+          )}
+
           {/* 全部提现按钮 */}
           <button
             onClick={handleWithdrawAll}
@@ -407,7 +420,7 @@ export default function WithdrawPage() {
           </button>
 
           <p className="mt-2 text-xs text-text-secondary">
-            最小提现金额: 10 USDT
+            最小提现金额: 10 USDT，手续费: {fee.toFixed(2)} USDT
           </p>
         </section>
 
@@ -542,15 +555,32 @@ export default function WithdrawPage() {
               </span>
             ) : (
               <span className="text-sm font-mono text-error">
-                -{fee.toFixed(2)} USDT
+                +{fee.toFixed(2)} USDT
               </span>
             )}
           </div>
           <div className="h-px bg-border" />
           <div className="flex justify-between">
-            <span className="text-sm font-semibold text-text-primary">实际到账</span>
+            <span className="text-sm font-semibold text-text-primary">总扣款</span>
+            <span className="text-base font-mono font-bold text-error">
+              -{totalDeduction > 0 ? totalDeduction.toFixed(2) : '0.00'} USDT
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-sm text-text-secondary">实际到账</span>
             <span className="text-base font-mono font-bold text-primary-gold">
               {actualAmount > 0 ? actualAmount.toFixed(2) : '0.00'} USDT
+            </span>
+          </div>
+          {/* 余额提示 */}
+          <div className="h-px bg-border" />
+          <div className="flex justify-between">
+            <span className="text-sm text-text-secondary">当前余额</span>
+            <span className={cn(
+              "text-sm font-mono",
+              totalDeduction > balance ? "text-error" : "text-text-primary"
+            )}>
+              {balance.toFixed(2)} USDT
             </span>
           </div>
         </section>
@@ -576,7 +606,7 @@ export default function WithdrawPage() {
         {/* 提现按钮 */}
         <button
           onClick={handleConfirm}
-          disabled={loading || withdrawAmount < 10 || withdrawAmount > balance || !selectedAddressId}
+          disabled={loading || withdrawAmount < 10 || totalDeduction > balance || !selectedAddressId}
           className="w-full h-14 bg-gradient-to-r from-warning to-orange-600 text-white text-lg font-bold rounded-xl shadow-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
         >
           {loading ? '处理中...' : '确认提现'}
@@ -675,9 +705,16 @@ export default function WithdrawPage() {
                     </span>
                   ) : (
                     <span className="text-sm font-mono text-error">
-                      -{fee.toFixed(2)} USDT
+                      +{fee.toFixed(2)} USDT
                     </span>
                   )}
+                </div>
+                <div className="h-px bg-border" />
+                <div className="flex justify-between">
+                  <span className="text-sm font-semibold text-text-primary">总扣款</span>
+                  <span className="text-base font-mono font-bold text-error">
+                    -{totalDeduction.toFixed(2)} USDT
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm text-text-secondary">实际到账</span>
