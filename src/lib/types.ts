@@ -81,9 +81,9 @@ export interface DiceChooseVO {
   id: number
   multi: string          // 赔率（字符串格式）
   display: string        // 显示名称
-  policy?: {
-    min?: string
-    max?: string
+  policy?: {             // 下注限制策略
+    min: string          // 最小下注金额
+    max: string          // 最大下注金额
   }
 }
 

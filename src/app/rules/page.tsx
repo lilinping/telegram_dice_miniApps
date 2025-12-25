@@ -38,14 +38,14 @@ const betTypeDetailsTemplate = [
       {
         name: '单',
         betId: 'odd',
-        desc: '总点数为奇数',
+        desc: '总点数为奇数（三同号除外）',
         exampleAmount: 100,
         exampleResult: '13点（单）',
       },
       {
         name: '双',
         betId: 'even',
-        desc: '总点数为偶数',
+        desc: '总点数为偶数（三同号除外）',
         exampleAmount: 100,
         exampleResult: '12点（双）',
       },
@@ -174,7 +174,7 @@ const faqs = [
   {
     question: '三同号通杀是什么？',
     answer:
-      '当开出任意三同号（如三个1、三个2等）时，所有大/小投注全部输，这是庄家优势规则。',
+      '当开出任意三同号（如三个1、三个2等）时，所有大/小/单/双投注全部输，这是庄家优势规则。即使三同号的点数符合大小或奇偶条件，这些投注也不会赢。',
   },
 ];
 
@@ -264,6 +264,9 @@ export default function RulesPage() {
               </p>
               <p className="text-sm text-text-secondary">
                 <span className="text-primary-gold">•</span> 投注时间：每局 5 分钟开奖，提前 30 秒封盘
+              </p>
+              <p className="text-sm text-warning">
+                <span className="text-warning">⚠️</span> 三同号（豹子）通杀：开出任意三同号时，大/小/单/双投注全部输
               </p>
             </div>
           </div>

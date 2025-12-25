@@ -55,8 +55,8 @@ const statusConfig = {
   success: { label: '成功', color: 'text-success' },
   pending: { label: '处理中', color: 'text-warning' },
   failed: { label: '失败', color: 'text-error' },
-  manual: { label: '人工审核中', color: 'text-warning' },
-  rejected: { label: '已驳回', color: 'text-error' },
+  manual: { label: '人工审核中', color: 'text-info' },
+  rejected: { label: '已拒绝', color: 'text-error' },
 };
 
 export default function TransactionList() {
@@ -157,8 +157,8 @@ export default function TransactionList() {
                 toAddress: order.toAddress,
                 txId: order.txId,
                   fee: feeNum.toFixed(2),
-                  actualAmount: Math.max(0, money - feeNum).toFixed(2),
-                confirmTime: order.modifyTime,
+                  actualAmount: money.toFixed(2), // 实际到账 = 提现金额（手续费从余额额外扣除）
+                  confirmTime: order.modifyTime,
                   originalStatus: getWithdrawalStatusText(txCode),
               });
               }
@@ -462,7 +462,8 @@ export default function TransactionList() {
                             </span>
                           </div>
                         )}
-                        {tx.txId && (
+                        {/* 只有非人工审核和非拒绝状态才显示交易ID */}
+                        {tx.txId && tx.status !== 'manual' && tx.status !== 'rejected' && (
                           <div className="flex justify-between text-sm">
                             <span className="text-text-secondary">交易ID</span>
                             <span className="text-text-primary font-mono text-xs break-all">

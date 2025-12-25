@@ -14,6 +14,7 @@ import MultiplierSelector from '@/components/game/MultiplierSelector';
 import WinAnimation from '@/components/game/WinAnimation';
 import ToastContainer, { toast } from '@/components/ui/Toast';
 import { useRouter, usePathname } from 'next/navigation';
+import { getBetChooseId } from '@/lib/betMapping';
 
 /**
  * 游戏大厅页面 - 专业赌场版V2.0
@@ -49,7 +50,7 @@ export default function GamePage() {
     selectedChip,
     setSelectedChip,
     bets,
-    placeBet,
+    placeBet: originalPlaceBet,
     clearBets,
     confirmBets,
     multiplier,
@@ -61,7 +62,50 @@ export default function GamePage() {
     winAmount,
     hasWon,
     diceResults,
+    diceOptions,
   } = useGame();
+
+  // 包装下注函数，添加限制校验
+  const placeBet = (betId: string) => {
+    const actualAmount = selectedChip * multiplier;
+    
+    // 获取该下注选项的限制信息
+    const chooseId = getBetChooseId(betId);
+    const option = chooseId ? diceOptions.get(chooseId) : null;
+    
+    if (option && option.policy) {
+      const minBet = parseFloat(option.policy.min);
+      const maxBet = parseFloat(option.policy.max);
+      
+      // 计算该选项当前已下注金额
+      const currentBetAmount = bets[betId] || 0;
+      const totalBetAmount = currentBetAmount + actualAmount;
+      
+      // 单次下注最小限制校验
+      if (actualAmount < minBet) {
+        toast.error(`单次下注不能少于 ${minBet} USDT`);
+        hapticError();
+        return;
+      }
+      
+      // 单次下注最大限制校验
+      if (actualAmount > maxBet) {
+        toast.error(`单次下注不能超过 ${maxBet} USDT`);
+        hapticError();
+        return;
+      }
+      
+      // 累计下注最大限制校验
+      if (totalBetAmount > maxBet) {
+        toast.error(`该选项累计下注不能超过 ${maxBet} USDT，当前已下注 ${currentBetAmount} USDT`);
+        hapticError();
+        return;
+      }
+    }
+    
+    // 调用原始的下注函数
+    originalPlaceBet(betId);
+  };
 
   // 音效和震动反馈
   const {
@@ -329,7 +373,7 @@ export default function GamePage() {
             transition: 'opacity 0.2s ease',
           }}
         >
-          <BetPanel disabled={!canBet} />
+          <BetPanel disabled={!canBet} onPlaceBet={placeBet} diceOptions={diceOptions} />
         </div>
       </div>
 

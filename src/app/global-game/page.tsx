@@ -490,11 +490,45 @@ export default function GlobalGamePage() {
         toast.warning('当前无法下注');
         return;
     }
+    
     // 实际下注金额 = 选择的筹码金额 × 倍投倍数
     const amount = selectedChip * multiplier;
+    
+    // 余额校验
     if (balance < amount) {
         toast.error('余额不足');
         return;
+    }
+    
+    // 获取该下注选项的限制信息
+    const chooseId = getBetChooseId(betId);
+    const option = chooseId ? diceOptions.get(chooseId) : null;
+    
+    if (option && option.policy) {
+      const minBet = parseFloat(option.policy.min);
+      const maxBet = parseFloat(option.policy.max);
+      
+      // 计算该选项当前已下注金额
+      const currentBetAmount = bets[betId] || 0;
+      const totalBetAmount = currentBetAmount + amount;
+      
+      // 单次下注最小限制校验
+      if (amount < minBet) {
+        toast.error(`单次下注不能少于 ${minBet} USDT`);
+        return;
+      }
+      
+      // 单次下注最大限制校验
+      if (amount > maxBet) {
+        toast.error(`单次下注不能超过 ${maxBet} USDT`);
+        return;
+      }
+      
+      // 累计下注最大限制校验
+      if (totalBetAmount > maxBet) {
+        toast.error(`该选项累计下注不能超过 ${maxBet} USDT，当前已下注 ${currentBetAmount} USDT`);
+        return;
+      }
     }
     
     playBetClick();

@@ -242,7 +242,6 @@ export default function WelcomePage() {
         style={{ color: 'rgba(255, 255, 255, 0.4)' }}
       >
         <p>本游戏仅供娱乐，请理性投注</p>
-        <p className="mt-1">Powered by Telegram WebApp</p>
       </div>
     </div>
   );

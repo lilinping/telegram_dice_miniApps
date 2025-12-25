@@ -11,16 +11,20 @@ interface WithdrawalHistoryProps {
 
 /**
  * 获取提币状态显示文本
- * @param txCode 状态码：-1=未确认, 0=成功, 1=失败
+ * @param txCode 状态码：-1=处理中, 0=成功, 1=失败, -2=人工审核中, -3=拒绝
  */
 export function getWithdrawalStatusText(txCode: number): string {
   switch (txCode) {
     case -1:
-      return '待确认';
+      return '处理中';
     case 0:
       return '成功';
     case 1:
       return '失败';
+    case -2:
+      return '人工审核中';
+    case -3:
+      return '已拒绝';
     default:
       return '未知';
   }
@@ -36,6 +40,10 @@ export function getWithdrawalStatusColor(txCode: number): string {
     case 0:
       return 'text-success bg-success/10 border-success/30';
     case 1:
+      return 'text-error bg-error/10 border-error/30';
+    case -2:
+      return 'text-info bg-info/10 border-info/30';
+    case -3:
       return 'text-error bg-error/10 border-error/30';
     default:
       return 'text-text-secondary bg-bg-medium border-border';
@@ -72,7 +80,8 @@ export default function WithdrawalHistory({ userId }: WithdrawalHistoryProps) {
           // 后端可能返回 fee 字段（字符串 "0" 或 "2.00"），优先使用后端返回值
           const backendFeeNum = order.fee !== undefined && order.fee !== null ? parseFloat((order as any).fee as any) : NaN;
           const feeNum = Number.isFinite(backendFeeNum) ? backendFeeNum : 2.0; // fallback to 2.00
-          const actualNum = Math.max(0, moneyNum - feeNum);
+          // 实际到账 = 提现金额（手续费从余额额外扣除，不影响到账金额）
+          const actualNum = moneyNum;
           return {
           ...order,
           amount: order.money,
@@ -102,12 +111,6 @@ export default function WithdrawalHistory({ userId }: WithdrawalHistoryProps) {
   const calculateFee = (amount: number): string => {
     // 统一手续费: 2 USDT
     return '2.00';
-  };
-  
-  // 计算实际到账金额
-  const calculateActualAmount = (amount: number): string => {
-    // 统一手续费: 2 USDT
-    return (amount - 2).toFixed(2);
   };
 
   // 初始加载
@@ -236,7 +239,8 @@ export default function WithdrawalHistory({ userId }: WithdrawalHistoryProps) {
                     {formatAddress(order.toAddress)}
                   </span>
                 </div>
-                {order.txId && (
+                {/* 只有非人工审核和非拒绝状态才显示交易ID */}
+                {order.txId && order.txCode !== -2 && order.txCode !== -3 && (
                   <div className="flex justify-between text-sm">
                     <span className="text-text-secondary">交易ID</span>
                     <span className="font-mono text-xs text-text-primary break-all">
