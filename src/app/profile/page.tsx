@@ -111,7 +111,7 @@ export default function ProfilePage() {
     } else if (item.action === 'support') {
       window.open('https://t.me/jqrkfnnbot', '_blank');
     } else if (item.action === 'about') {
-      alert('骰宝夺宝 V1.0\n© 2025 DiceTreasure\nPowered by Telegram WebApp');
+      alert('骰宝夺宝 V1.0\n© 2025 DiceTreasure');
     }
   };
 
