@@ -444,7 +444,7 @@ export default function ChangePasswordPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-bg-darkest">
-        <TopBar title="修改密码" />
+        <TopBar title="修改密码" showBack />
         <div className="flex items-center justify-center h-[calc(100vh-64px)]">
           <div className="text-text-secondary">加载中...</div>
         </div>
@@ -454,7 +454,7 @@ export default function ChangePasswordPage() {
 
   return (
     <div className="min-h-screen bg-bg-darkest pb-20">
-      <TopBar title={hasPassword ? '修改密码' : '设置密码'} />
+      <TopBar title={hasPassword ? '修改密码' : '设置密码'} showBack />
       <ToastContainer />
 
       <div className="max-w-md mx-auto px-4 py-6">
