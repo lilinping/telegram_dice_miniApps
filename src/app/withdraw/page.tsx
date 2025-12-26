@@ -277,7 +277,7 @@ export default function WithdrawPage() {
         }
         
         // 判断是否人工审核：orderId 为 -1 或 "-1"
-        if (orderId === '-1' || orderId === -1 || !orderId) {
+        if (orderId === '-1' || !orderId) {
           isManualReview = true;
         }
         
