@@ -66,6 +66,10 @@ interface GameContextType {
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
 
+const normalizeAmount = (value: number) => {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
+};
+
 export function GameProvider({ children }: { children: ReactNode }) {
   const { user } = useTelegram();
   const { refreshBalance } = useWallet();
@@ -213,7 +217,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      const actualAmount = selectedChip * multiplier;
+      const actualAmount = normalizeAmount(selectedChip * multiplier);
 
       // 检查该下注选项是否有policy限制
       try {
@@ -224,7 +228,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
             const min = option.policy.min ? parseFloat(String(option.policy.min)) : undefined;
             const max = option.policy.max ? parseFloat(String(option.policy.max)) : undefined;
             const current = bets[betId] || 0;
-            const newTotal = current + actualAmount;
+            const newTotal = normalizeAmount(current + actualAmount);
             if (min !== undefined && newTotal < min) {
               toast.error(`该选项最小下注为 ${min}，当前筹码不足以达成。`);
               return;
@@ -241,7 +245,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
       setBets((prev) => ({
         ...prev,
-        [betId]: (prev[betId] || 0) + actualAmount,
+        [betId]: normalizeAmount((prev[betId] || 0) + actualAmount),
       }));
 
       // 记录到历史栈（用于撤销）
@@ -311,7 +315,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       if (response.success) {
         setBets((prev) => {
           const newBets = { ...prev };
-          const newAmount = (newBets[lastBet.betId] || 0) - lastBet.amount;
+          const newAmount = normalizeAmount((newBets[lastBet.betId] || 0) - lastBet.amount);
 
           if (newAmount <= 0) {
             delete newBets[lastBet.betId];
