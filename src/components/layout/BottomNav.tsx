@@ -122,8 +122,8 @@ const BottomNav: React.FC = () => {
                 >
                   {isActive ? item.activeIcon : item.icon}
                   
-                  {/* 红点通知 (仅在"我的"标签显示) */}
-                  {item.path === '/profile' && unreadCount > 0 && (
+                  {/* 红点通知 (显示在"钱包"标签) */}
+                  {item.path === '/wallet' && unreadCount > 0 && (
                     <span className="absolute -top-1 -right-1 min-w-[10px] h-[10px] rounded-full bg-red-600 border border-bg-darkest" />
                   )}
                 </div>

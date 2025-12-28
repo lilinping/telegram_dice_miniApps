@@ -192,13 +192,18 @@ export default function NotificationPage() {
                       key={notification.id}
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
+                      whileTap={{ scale: 0.98 }}
                       className={clsx(
-                        "rounded-xl p-4 border transition-all duration-300",
+                        "rounded-xl p-4 border transition-all duration-300 cursor-pointer",
                         notification.read 
                           ? "bg-onyx-black/50 border-white/5" 
                           : "bg-onyx-black border-primary-gold/50 shadow-[0_0_15px_rgba(255,215,0,0.1)]"
                       )}
-                      onClick={() => !notification.read && handleMarkRead(notification.id)}
+                      onClick={() => {
+                        if (!notification.read) {
+                          handleMarkRead(notification.id);
+                        }
+                      }}
                     >
                       <div className="flex justify-between items-start mb-2">
                         <div className="flex items-center gap-2 flex-1 mr-2">

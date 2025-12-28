@@ -69,7 +69,29 @@ export function TelegramProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (initializationRef.current) return;
     initializationRef.current = true;
-    initializeTelegram();
+    
+    // 尝试初始化，如果脚本还没加载完成，会进行重试
+    const initWrapper = async () => {
+      let attempts = 0;
+      const maxAttempts = 10; // 最大重试次数 (2秒)
+      
+      const checkAndInit = async () => {
+        if ((window as any).Telegram?.WebApp) {
+          await initializeTelegram();
+        } else if (attempts < maxAttempts) {
+          attempts++;
+          setTimeout(checkAndInit, 200);
+        } else {
+          // 超时后，初始化为模拟用户（非Telegram环境）
+          await initializeTelegram();
+        }
+      };
+      
+      checkAndInit();
+    };
+
+    initWrapper();
+
     // 清理定时器和事件监听
     return () => {
       if (pollTimerRef.current) {
