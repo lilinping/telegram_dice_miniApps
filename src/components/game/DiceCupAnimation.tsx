@@ -612,19 +612,20 @@ if (typeof window !== 'undefined') (window as any).__shakeStartTimeRef = shakeSt
           
           body.wakeUp();
           
-          // === 阶段1: 物理摇盅 (0-75%) ===
-          if (progress < 0.75) {
-            // 力的强度：前60%全力，60-75%逐渐减弱
+          // === 阶段1: 物理摇盅 (0-70%) ===
+          if (progress < 0.7) {
+            // 力的强度：前50%全力，50-70%逐渐减弱
             let forceScale = 1.0;
-            if (progress > 0.6) {
-              forceScale = 1 - (progress - 0.6) / 0.15;
+            if (progress > 0.5) {
+              forceScale = 1 - (progress - 0.5) / 0.2;
             }
             
             // 强向中心的回弹力（增加碰撞机会）
             const distFromCenter = Math.sqrt(body.position.x * body.position.x + body.position.z * body.position.z);
-            const toCenterStrength = Math.max(4, distFromCenter * 2.5); // 距离越远，向心力越大
+            const toCenterStrength = Math.max(3, distFromCenter * 2); // 距离越远，向心力越大
             const toCenterX = -body.position.x * toCenterStrength;
             const toCenterZ = -body.position.z * toCenterStrength;
+            
             // 周期性的力（模拟摇盅的节奏感），放大振幅以增加碰撞能量
             const cyclePhase = shakeFrameRef.current * 0.15;
             const cycleForceX = Math.sin(cyclePhase + i * 2) * 90;
@@ -660,10 +661,10 @@ if (typeof window !== 'undefined') (window as any).__shakeStartTimeRef = shakeSt
             }
           }
           
-          // === 阶段2: 渐进引导 (75-100%) ===
-          if (progress >= 0.75 && currentResults.length === 3) {
+          // === 阶段2: 渐进引导 (70-100%) ===
+          if (progress >= 0.7 && currentResults.length === 3) {
             // 引导进度：从0到1
-            const guideProgress = (progress - 0.75) / 0.25;
+            const guideProgress = (progress - 0.7) / 0.3;
             // 使用 easeOutQuad 缓动，让引导更自然
             const eased = 1 - (1 - guideProgress) * (1 - guideProgress);
             
@@ -730,7 +731,6 @@ if (typeof window !== 'undefined') (window as any).__shakeStartTimeRef = shakeSt
               
               const targetQuat = correctDiceToNumber(body, currentResults[i]);
               // 直接设置朝向，并清零速度
-              // 优先尝试标准校正
               body.quaternion.copy(targetQuat);
               body.velocity.setZero();
               body.angularVelocity.setZero();
@@ -747,46 +747,6 @@ if (typeof window !== 'undefined') (window as any).__shakeStartTimeRef = shakeSt
                 mesh.quaternion.copy(targetQuat as any);
                 // 将 mesh 位置与 body 严格同步
                 mesh.position.set(body.position.x, body.position.y, body.position.z);
-              }
-              
-              // 兜底：验证视觉朝上点数是否与目标一致；若不一致，尝试查找一个能让视觉结果匹配目标的 quaternion
-              try {
-                const finalNumbers = getCurrentDiceNumbers();
-                if (finalNumbers[i] !== currentResults[i]) {
-                  console.warn('🔧 校正后视觉点数与目标不符，尝试基于 yaw 旋转的替代四元数', { index: i, target: currentResults[i], actual: finalNumbers[i] });
-                  const originalQuat = new CANNON.Quaternion();
-                  originalQuat.copy(body.quaternion);
-                  const baseQuat = correctDiceToNumber(body, currentResults[i]);
-                  // 尝试不同的 yaw 偏移（0, 90, 180, 270 deg）
-                  const yaws = [0, Math.PI / 2, Math.PI, (3 * Math.PI) / 2];
-                  let applied = false;
-                  for (const yaw of yaws) {
-                    try {
-                      const delta = new CANNON.Quaternion();
-                      delta.setFromEuler(0, yaw, 0);
-                      // newQuat = delta * baseQuat (先绕Y旋转再应用基准朝向)
-                      const tryQuat = delta.mult(baseQuat);
-                      body.quaternion.copy(tryQuat);
-                      if (mesh) mesh.quaternion.copy(tryQuat as any);
-                      const nums = getCurrentDiceNumbers();
-                      if (nums[i] === currentResults[i]) {
-                        console.log('✅ 基于 yaw 的替代四元数匹配成功', { index: i, yaw, nums });
-                        applied = true;
-                        break;
-                      }
-                    } catch (e) {
-                      // ignore rotation errors and continue
-                    }
-                  }
-                  if (!applied) {
-                    // 恢复原始四元数以避免不可预期的视觉跳变
-                    body.quaternion.copy(originalQuat);
-                    if (mesh) mesh.quaternion.copy(originalQuat as any);
-                    console.warn('❌ 基于 yaw 的替代四元数未能匹配目标，恢复原始四元数');
-                  }
-                }
-              } catch (e) {
-                console.warn('校正后视觉验证失败', e);
               }
             }
             hasCorrectedRef.current = true;
@@ -841,9 +801,20 @@ if (typeof window !== 'undefined') (window as any).__shakeStartTimeRef = shakeSt
           
           isShakingRef.current = false;
           initialQuatsRef.current = [];
-          // 设置骰子已停止状态，触发结果展示
-          setDiceStopped(true);
-          console.log('🎲 摇盅引动画完成，骰子已停止');
+          console.log('🎲 摇盅引动画完成');
+          
+          // 通知外部动画已完成
+          try {
+            (onAnimationComplete as any)?.();
+          } catch (e) {
+            // ignore
+          }
+          // 向全局广播事件
+          try {
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('dice:animationComplete', { detail: { results: diceResultsRef.current } }));
+            }
+          } catch (e) {}
         }
       }
 
@@ -1005,9 +976,6 @@ if (typeof window !== 'undefined') (window as any).__shakeStartTimeRef = shakeSt
       return;
     }
     
-    // 重置骰子停止状态
-    setDiceStopped(false);
-    
     // 初始化摇盅状态
     isShakingRef.current = true;
     shakeFrameRef.current = 0;
@@ -1111,46 +1079,14 @@ if (typeof window !== 'undefined') (window as any).__shakeStartTimeRef = shakeSt
       const mesh = diceMeshesRef.current[i];
       if (!body || !mesh) continue;
       const targetNumber = diceResults[i];
-      // 尝试标准校正并验证视觉结果；若不符则尝试基于 yaw 偏移的替代四元数
-      const originalQuat = new CANNON.Quaternion();
-      originalQuat.copy(body.quaternion);
-      const baseQuat = correctDiceToNumber(body, targetNumber);
+      const targetQuat = correctDiceToNumber(body, targetNumber);
       body.wakeUp();
-      body.quaternion.copy(baseQuat);
-      mesh.quaternion.copy(baseQuat as any);
-      // 清零速度并睡眠
+      body.quaternion.copy(targetQuat);
       body.angularVelocity.setZero();
       body.velocity.setZero();
       body.sleep();
-      // 验证视觉点数
-      const finalNums = getCurrentDiceNumbers();
-      if (finalNums[i] !== targetNumber) {
-        console.warn('🔧 兜底校正后视觉点数与目标不符，尝试基于 yaw 偏移的替代四元数', { index: i, target: targetNumber, actual: finalNums[i] });
-        const yaws = [0, Math.PI / 2, Math.PI, (3 * Math.PI) / 2];
-        let found = false;
-        for (const yaw of yaws) {
-          try {
-            const delta = new CANNON.Quaternion();
-            delta.setFromEuler(0, yaw, 0);
-            const tryQuat = delta.mult(baseQuat);
-            body.quaternion.copy(tryQuat);
-            mesh.quaternion.copy(tryQuat as any);
-            const nums = getCurrentDiceNumbers();
-            if (nums[i] === targetNumber) {
-              console.log('✅ 兜底 yaw 枚举匹配成功', { index: i, yaw, nums });
-              found = true;
-              break;
-            }
-          } catch (e) {
-            // ignore and continue
-          }
-        }
-        if (!found) {
-          body.quaternion.copy(originalQuat);
-          mesh.quaternion.copy(originalQuat as any);
-          console.warn('❌ 兜底 yaw 枚举未能匹配目标，恢复原始四元数');
-        }
-      }
+      mesh.quaternion.copy(targetQuat as any);
+      mesh.position.copy(body.position as any);
     }
     const finalNumbers = getCurrentDiceNumbers();
     console.warn('🧾 兜底后的点数:', finalNumbers, '目标:', diceResults);
