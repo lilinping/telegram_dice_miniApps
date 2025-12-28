@@ -19,6 +19,9 @@ import { getBetChooseId, getChooseBetId } from '@/lib/betMapping';
 // 全局游戏状态
 type GlobalGameState = 'betting' | 'sealed' | 'rolling' | 'settled';
 
+const normalizeAmount = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
+const formatAmount = (value: number) => normalizeAmount(value).toFixed(2);
+
 export default function GlobalGamePage() {
   const router = useRouter();
   const { user } = useTelegram();
@@ -492,7 +495,7 @@ export default function GlobalGamePage() {
     }
     
     // 实际下注金额 = 选择的筹码金额 × 倍投倍数
-    const amount = selectedChip * multiplier;
+    const amount = normalizeAmount(selectedChip * multiplier);
     
     // 余额校验
     if (balance < amount) {
@@ -536,7 +539,7 @@ export default function GlobalGamePage() {
     
     setBets(prev => ({
         ...prev,
-        [betId]: (prev[betId] || 0) + amount
+        [betId]: normalizeAmount((prev[betId] || 0) + amount)
     }));
   };
 
@@ -703,8 +706,10 @@ export default function GlobalGamePage() {
   }, [betsSnapshot]);
 
   // 计算总下注额：未确认的下注 + 已确认的下注
-  const totalBetAmount = Object.values(bets).reduce((sum, amount) => sum + amount, 0) +
-                         Object.values(lastBets).reduce((sum, amount) => sum + amount, 0);
+  const totalBetAmount = normalizeAmount(
+    Object.values(bets).reduce((sum, amount) => sum + amount, 0) +
+    Object.values(lastBets).reduce((sum, amount) => sum + amount, 0)
+  );
   
   // 合并未确认和已确认的下注，用于显示在投注面板
   const displayBets = { ...lastBets, ...bets };
@@ -1030,7 +1035,7 @@ export default function GlobalGamePage() {
               {totalBetAmount > 0 && (
                 <>
                   <span className="text-yellow-300 font-semibold">
-                    投注总额: ${totalBetAmount.toLocaleString()}
+                    投注总额: ${formatAmount(totalBetAmount)}
                   </span>
                   {multiplier > 1 && (
                     <span className="text-orange-400 font-semibold">
@@ -1048,7 +1053,7 @@ export default function GlobalGamePage() {
           <div className="w-full bg-blue-900/50 text-blue-200 text-center py-2 text-xs">
             <div className="flex items-center justify-center gap-2 flex-wrap">
               <span className="text-yellow-300 font-semibold">
-                当前投注: ${totalBetAmount.toLocaleString()}
+                当前投注: ${formatAmount(totalBetAmount)}
               </span>
               {multiplier > 1 && (
                 <span className="text-orange-400 font-semibold">
@@ -1141,7 +1146,7 @@ export default function GlobalGamePage() {
           </div>
           <div className="flex items-center gap-1 flex-shrink-0">
             <span>下注额:</span>
-            <span className="text-yellow-300 font-semibold">${totalBetAmount}</span>
+            <span className="text-yellow-300 font-semibold">${formatAmount(totalBetAmount)}</span>
             {multiplier > 1 && (
               <span className="text-orange-400 font-semibold ml-1">({multiplier}x)</span>
             )}

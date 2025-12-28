@@ -55,6 +55,7 @@ export default function BetCell({
   policyText,
 }: BetCellProps) {
   const hasAmount = amount > 0;
+  const formattedAmount = hasAmount ? (Math.round((amount + Number.EPSILON) * 100) / 100).toFixed(2) : '0.00';
 
   // 筹码飞入动画状态
   const [isAnimating, setIsAnimating] = useState(false);
@@ -386,7 +387,7 @@ export default function BetCell({
             className="text-tiny font-bold font-mono"
             style={{ color: 'var(--gold-bright)' }}
           >
-            ${amount}
+            ${formattedAmount}
           </span>
         </div>
       )}
