@@ -615,7 +615,15 @@ class ApiService {
    * @returns BackendResponse<boolean>
    */
   async markNotificationRead(userId: string, id: number): Promise<BackendResponse<boolean>> {
-    return this.request<boolean>(`/user/notification/mark/read/${userId}/${id}`)
+    try {
+      // 优先尝试 POST（更符合语义，有些后端也要求写操作使用 POST）
+      return await this.request<boolean>(`/user/notification/mark/read/${userId}/${id}`, {
+        method: 'POST'
+      })
+    } catch (e) {
+      // 若后端按文档只接受 GET，则回退为 GET
+      return await this.request<boolean>(`/user/notification/mark/read/${userId}/${id}`)
+    }
   }
 
   /**
