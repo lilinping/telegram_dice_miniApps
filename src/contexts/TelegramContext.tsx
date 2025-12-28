@@ -88,6 +88,20 @@ export function TelegramProvider({ children }: { children: ReactNode }) {
       if (tg) {
         setWebApp(tg);
 
+        // 检测用户切换：如果当前Telegram用户与本地缓存用户不一致，清除缓存
+        const currentUserId = tg.initDataUnsafe?.user?.id;
+        if (currentUserId) {
+          const storedUserId = localStorage.getItem('last_tg_user_id');
+          // 如果存储的用户ID不匹配（或首次运行无记录），清除缓存以防止串号
+          if (storedUserId !== String(currentUserId)) {
+            console.log('🔄 检测到用户切换或首次运行，清除本地缓存', { stored: storedUserId, current: currentUserId });
+            localStorage.clear();
+            sessionStorage.clear();
+          }
+          // 更新存储的用户ID
+          localStorage.setItem('last_tg_user_id', String(currentUserId));
+        }
+
         // 初始化Telegram WebApp
         tg.ready();
         tg.expand();

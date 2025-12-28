@@ -19,6 +19,7 @@ export default function ProfilePage() {
   const [inviteLink, setInviteLink] = useState<string>('');
   const [inviteLoading, setInviteLoading] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [showAboutModal, setShowAboutModal] = useState(false);
   const [copiedAt, setCopiedAt] = useState<number | null>(null);
 
   // 获取用户统计数据
@@ -116,7 +117,7 @@ export default function ProfilePage() {
     } else if (item.action === 'support') {
       window.open('https://t.me/jqrkfnnbot', '_blank');
     } else if (item.action === 'about') {
-      alert('骰宝夺宝 V1.0\n© 2025 DiceTreasure');
+      setShowAboutModal(true);
     }
   };
 
@@ -471,6 +472,30 @@ export default function ProfilePage() {
               确定退出
             </button>
           </div>
+        </div>
+      </Modal>
+
+      {/* 关于我们弹窗 */}
+      <Modal isOpen={showAboutModal} onClose={() => setShowAboutModal(false)} title="关于我们">
+        <div className="text-center py-6 space-y-4">
+          <div className="w-20 h-20 bg-[#FFD700] rounded-2xl mx-auto flex items-center justify-center text-4xl shadow-lg">
+            🎲
+          </div>
+          <div>
+            <h3 className="text-xl font-bold text-white">骰宝夺宝</h3>
+            <p className="text-sm text-[#A0A0A0] mt-1">DiceTreasure</p>
+          </div>
+          <div className="bg-[#1A1A1A] rounded-lg p-4 text-sm text-[#A0A0A0] space-y-2">
+            <p>版本 V1.0.0</p>
+            <p>© 2025 DiceTreasure</p>
+            <p>All Rights Reserved</p>
+          </div>
+          <button
+            onClick={() => setShowAboutModal(false)}
+            className="w-full bg-[#2A2A2A] text-white py-3 rounded-lg font-semibold hover:bg-[#3A3A3A] transition-all"
+          >
+            关闭
+          </button>
         </div>
       </Modal>
 

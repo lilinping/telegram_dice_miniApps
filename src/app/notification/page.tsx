@@ -201,16 +201,18 @@ export default function NotificationPage() {
                       onClick={() => !notification.read && handleMarkRead(notification.id)}
                     >
                       <div className="flex justify-between items-start mb-2">
-                        <h3 className={clsx(
-                          "font-bold text-base",
-                          notification.read ? "text-text-secondary" : "text-white"
-                        )}>
-                          {notification.title}
+                        <div className="flex items-center gap-2 flex-1 mr-2">
                           {!notification.read && (
-                            <span className="ml-2 inline-block w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+                            <span className="flex-shrink-0 w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
                           )}
-                        </h3>
-                        <span className="text-xs text-text-secondary">{formatDate(notification.createTime)}</span>
+                          <h3 className={clsx(
+                            "font-bold text-base line-clamp-1",
+                            notification.read ? "text-text-secondary" : "text-white"
+                          )}>
+                            {notification.title || '系统通知'}
+                          </h3>
+                        </div>
+                        <span className="text-xs text-text-secondary whitespace-nowrap">{formatDate(notification.createTime)}</span>
                       </div>
                       <p className={clsx(
                         "text-sm leading-relaxed",
