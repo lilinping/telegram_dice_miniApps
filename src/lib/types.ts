@@ -467,7 +467,42 @@ export interface InviteStats {
   pendingRewards: number
 }
 
-// ==================== Telegram WebApp类型 ====================
+  // ==================== 消息通知相关类型 ====================
+
+  export interface NotificationEntity {
+    id: number
+    userId: number
+    title: string
+    content: string
+    read: boolean
+    type: string
+    createTime: number
+  }
+
+  export interface PageModelNotification {
+    list: NotificationEntity[]
+    totalCount: number
+    pageIndex: number
+    pageSize: number
+  }
+
+  export interface BonusEntity {
+    id: number
+    bonus: string
+    userId: number
+    type: string // "BE_INVITE_INIT" | "INVITE"
+    reason: string
+    createTime: number
+  }
+
+  export interface PageModelBonus {
+    list: BonusEntity[]
+    totalCount: number
+    pageIndex: number
+    pageSize: number
+  }
+
+  // ==================== Telegram WebApp类型 ====================
 
 export interface TelegramWebAppUser {
   id: number

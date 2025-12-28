@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { motion } from 'framer-motion'
 import clsx from 'clsx'
+import { useNotifications } from '@/hooks/useNotifications'
 
 interface NavItem {
   label: string
@@ -89,6 +90,7 @@ const navItems: NavItem[] = [
 
 const BottomNav: React.FC = () => {
   const pathname = usePathname()
+  const { unreadCount } = useNotifications()
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 bg-bg-dark border-t border-primary-gold/30 safe-bottom">
@@ -119,6 +121,11 @@ const BottomNav: React.FC = () => {
                   )}
                 >
                   {isActive ? item.activeIcon : item.icon}
+                  
+                  {/* 红点通知 (仅在"我的"标签显示) */}
+                  {item.path === '/profile' && unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 min-w-[10px] h-[10px] rounded-full bg-red-600 border border-bg-darkest" />
+                  )}
                 </div>
 
                 {isActive && (

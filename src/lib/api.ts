@@ -18,7 +18,9 @@ import {
   GlobalUserHistoryResponse,
   RebateAmount,
   RebateTurnover,
-  PageModelRebateHistory
+  PageModelRebateHistory,
+  PageModelNotification,
+  PageModelBonus
 } from '@/lib/types'
 
 // 使用Next.js代理避免跨域问题
@@ -578,6 +580,57 @@ class ApiService {
     pageSize: number = 10
   ): Promise<BackendResponse<PageModelRebateHistory>> {
     return this.request<PageModelRebateHistory>(`/account/rebate/history/${userId}/${pageIndex}/${pageSize}`)
+  }
+
+  // ==================== 消息通知相关接口 ====================
+
+  /**
+   * 查看用户未读消息数量
+   * @param userId 用户ID
+   * @returns BackendResponse<number>
+   */
+  async getUnreadNotificationCount(userId: string): Promise<BackendResponse<number>> {
+    return this.request<number>(`/user/notification/unreads/${userId}`)
+  }
+
+  /**
+   * 分页查询用户的通知信息
+   * @param userId 用户ID
+   * @param pageIndex 页码
+   * @param pageSize 每页大小
+   * @returns BackendResponse<PageModelNotification>
+   */
+  async getNotifications(
+    userId: string,
+    pageIndex: number = 1,
+    pageSize: number = 10
+  ): Promise<BackendResponse<PageModelNotification>> {
+    return this.request<PageModelNotification>(`/user/notification/query/${userId}/${pageIndex}/${pageSize}`)
+  }
+
+  /**
+   * 标记为已读
+   * @param userId 用户ID
+   * @param id 通知ID
+   * @returns BackendResponse<boolean>
+   */
+  async markNotificationRead(userId: string, id: number): Promise<BackendResponse<boolean>> {
+    return this.request<boolean>(`/user/notification/mark/read/${userId}/${id}`)
+  }
+
+  /**
+   * 分页查询用户的奖励列表信息
+   * @param userId 用户ID
+   * @param pageIndex 页码
+   * @param pageSize 每页大小
+   * @returns BackendResponse<PageModelBonus>
+   */
+  async getBonusList(
+    userId: string,
+    pageIndex: number = 1,
+    pageSize: number = 10
+  ): Promise<BackendResponse<PageModelBonus>> {
+    return this.request<PageModelBonus>(`/user/bonus/query/${userId}/${pageIndex}/${pageSize}`)
   }
 
 }

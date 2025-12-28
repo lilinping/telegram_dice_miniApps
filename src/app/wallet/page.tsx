@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useWallet } from '@/contexts/WalletContext';
 import { useTelegram } from '@/contexts/TelegramContext';
+import { useNotifications } from '@/hooks/useNotifications';
 import BalanceCard from '@/components/wallet/BalanceCard';
 import TransactionList from '@/components/wallet/TransactionList';
 import RebateCard from '@/components/wallet/RebateCard';
@@ -22,6 +23,7 @@ export default function WalletPage() {
   const router = useRouter();
   const { balance, frozenBalance, bonusBalance, refreshBalance } = useWallet();
   const { user, isInitialized } = useTelegram();
+  const { unreadCount } = useNotifications();
   const [activeTab, setActiveTab] = useState<'transactions' | 'rebate'>('transactions');
 
   // 页面加载时刷新余额（确保用户已初始化）
@@ -47,7 +49,19 @@ export default function WalletPage() {
           <span className="text-xl">←</span>
         </button>
         <h1 className="flex-1 text-center text-lg font-bold text-text-primary">钱包</h1>
-        <div className="w-10" /> {/* 占位平衡布局 */}
+        
+        {/* 消息通知 */}
+        <button
+          onClick={() => router.push('/notification')}
+          className="relative w-10 h-10 flex items-center justify-center rounded-full text-primary-gold hover:bg-bg-medium transition-colors"
+        >
+          <span className="text-xl">🔔</span>
+          {unreadCount > 0 && (
+            <span className="absolute top-1 right-1 min-w-[16px] h-4 px-1 rounded-full bg-red-600 text-[10px] font-bold text-white flex items-center justify-center border border-bg-darkest">
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </span>
+          )}
+        </button>
       </header>
 
       {/* 余额卡片 */}

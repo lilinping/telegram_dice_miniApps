@@ -6,6 +6,7 @@ import { useWallet } from '@/contexts/WalletContext';
 import { useTelegram } from '@/contexts/TelegramContext';
 import { useGameSounds } from '@/hooks/useSound';
 import { useGameHaptics } from '@/hooks/useHaptic';
+import { useNotifications } from '@/hooks/useNotifications';
 import DiceCupDemo from '@/components/game/DiceCupDemo';
 import DiceCupAnimation from '@/components/game/DiceCupAnimation';
 import BetPanel from '@/components/game/BetPanel';
@@ -64,6 +65,8 @@ export default function GamePage() {
     diceResults,
     diceOptions,
   } = useGame();
+
+  const { unreadCount } = useNotifications();
 
   // 包装下注函数，添加限制校验
   const placeBet = (betId: string) => {
@@ -254,6 +257,19 @@ export default function GamePage() {
 
         {/* 右侧：余额 + 充值 */}
         <div className="flex items-center gap-3">
+          {/* 消息通知 */}
+          <button
+            onClick={() => router.push('/notification')}
+            className="relative w-8 h-8 flex items-center justify-center rounded-full bg-onyx-black border border-gold-primary/30 active:scale-95 transition-all"
+          >
+            <span className="text-lg">🔔</span>
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-red-600 text-[10px] font-bold text-white flex items-center justify-center border border-bg-darkest">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
+          </button>
+
           {/* 余额显示 */}
           <button
             onClick={() => router.push('/wallet')}

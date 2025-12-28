@@ -4,6 +4,7 @@ import './globals.css';
 import { TelegramProvider } from '@/contexts/TelegramContext';
 import { GameProvider } from '@/contexts/GameContext';
 import { WalletProvider } from '@/contexts/WalletContext';
+import { NotificationProvider } from '@/contexts/NotificationContext';
 import BottomNavigation from '@/components/layout/BottomNav';
 import DevTelegramInit from '@/components/DevTelegramInit';
 
@@ -56,17 +57,19 @@ export default function RootLayout({
         <DevTelegramInit />
         
         <TelegramProvider>
-          <WalletProvider>
-            <GameProvider>
-              {/* 主内容区域 */}
-              <main className="relative min-h-screen pb-16">
-                {children}
-              </main>
+          <NotificationProvider>
+            <WalletProvider>
+              <GameProvider>
+                {/* 主内容区域 */}
+                <main className="relative min-h-screen pb-16">
+                  {children}
+                </main>
 
-              {/* 底部导航栏 - 固定在底部 */}
-              <BottomNavigation />
-            </GameProvider>
-          </WalletProvider>
+                {/* 底部导航栏 - 固定在底部 */}
+                <BottomNavigation />
+              </GameProvider>
+            </WalletProvider>
+          </NotificationProvider>
         </TelegramProvider>
       </body>
     </html>

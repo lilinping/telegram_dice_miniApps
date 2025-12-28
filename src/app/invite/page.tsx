@@ -1,8 +1,10 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import TopBar from '@/components/layout/TopBar';
 import { motion } from 'framer-motion';
+import { useNotifications } from '@/hooks/useNotifications';
 
 // 邀请记录接口
 interface InviteRecord {
@@ -15,6 +17,8 @@ interface InviteRecord {
 }
 
 export default function InvitePage() {
+  const router = useRouter();
+  const { unreadCount } = useNotifications();
   const [copied, setCopied] = useState(false);
 
   // 邀请数据
@@ -107,7 +111,23 @@ export default function InvitePage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#0A0A0A] to-[#1A1A1A] pb-20">
       {/* 顶部导航 */}
-      <TopBar title="邀请好友" showBack />
+      <TopBar 
+        title="邀请好友" 
+        showBack 
+        rightAction={
+          <button
+            onClick={() => router.push('/notification')}
+            className="relative w-8 h-8 flex items-center justify-center rounded-full text-white hover:text-primary-gold transition-colors"
+          >
+            <span className="text-xl">🔔</span>
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-red-600 text-[10px] font-bold text-white flex items-center justify-center border border-bg-darkest">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
+          </button>
+        }
+      />
 
       {/* 邀请卡片 */}
       <div className="px-5 pt-6 pb-4">
