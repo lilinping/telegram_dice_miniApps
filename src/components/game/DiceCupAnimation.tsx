@@ -801,7 +801,20 @@ if (typeof window !== 'undefined') (window as any).__shakeStartTimeRef = shakeSt
           
           isShakingRef.current = false;
           initialQuatsRef.current = [];
-          console.log('� 摇盅引动画完成');
+          console.log('🎲 摇盅引动画完成');
+          
+          // 通知外部动画已完成
+          try {
+            (onAnimationComplete as any)?.();
+          } catch (e) {
+            // ignore
+          }
+          // 向全局广播事件
+          try {
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('dice:animationComplete', { detail: { results: diceResultsRef.current } }));
+            }
+          } catch (e) {}
         }
       }
 
