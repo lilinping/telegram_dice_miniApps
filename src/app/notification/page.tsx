@@ -12,6 +12,20 @@ import clsx from 'clsx'
 import { motion, AnimatePresence } from 'framer-motion'
 import Modal from '@/components/ui/Modal'
 
+type BackendNotification = NotificationEntity & {
+  message?: string
+  hasRead?: boolean
+  modifyTime?: number
+}
+
+const normalizeNotification = (notification: BackendNotification): NotificationEntity => ({
+  ...notification,
+  title: notification.title || '系统通知',
+  content: notification.content ?? notification.message ?? '',
+  read: notification.read ?? notification.hasRead ?? false,
+  createTime: notification.createTime ?? notification.modifyTime ?? Date.now()
+})
+
 export default function NotificationPage() {
   const router = useRouter()
   const { user } = useTelegram()
@@ -33,11 +47,12 @@ export default function NotificationPage() {
       const res = await apiService.getNotifications(user.id.toString(), page, 20)
       
       if (res.success) {
-        const newList = res.data.list || []
+        const newList = (res.data.list || []) as BackendNotification[]
+        const normalizedList = newList.map(normalizeNotification)
         if (reset) {
-          setNotifications(newList)
+          setNotifications(normalizedList)
         } else {
-          setNotifications(prev => [...prev, ...newList])
+          setNotifications(prev => [...prev, ...normalizedList])
         }
         setHasMore(newList.length >= 20)
         setPageIndex(page + 1)
