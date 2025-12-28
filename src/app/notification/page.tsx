@@ -85,12 +85,18 @@ export default function NotificationPage() {
   const handleMarkRead = async (id: number) => {
     if (!user?.id) return
     try {
-      await apiService.markNotificationRead(user.id.toString(), id)
-      setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n))
-      // 刷新全局未读数量
-      refreshNotifications()
+      const res = await apiService.markNotificationRead(user.id.toString(), id)
+      if (res.success) {
+        setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n))
+        // 刷新全局未读数量
+        refreshNotifications()
+      } else {
+        toast.error(res.message || '标记已读失败')
+        console.warn('Mark notification read failed:', res)
+      }
     } catch (error) {
       console.error('Failed to mark read', error)
+      toast.error('标记已读失败，请稍后再试')
     }
   }
 
