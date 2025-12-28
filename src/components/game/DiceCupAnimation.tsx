@@ -614,10 +614,14 @@ if (typeof window !== 'undefined') (window as any).__shakeStartTimeRef = shakeSt
           
           // === 阶段1: 物理摇盅 (0-70%) ===
           if (progress < 0.7) {
-            // 力的强度：前50%全力，50-70%逐渐减弱
+            // 力的强度：使用平滑的衰减曲线，避免突变
+            // 0-40%: 全力
+            // 40-70%: 平滑衰减
             let forceScale = 1.0;
-            if (progress > 0.5) {
-              forceScale = 1 - (progress - 0.5) / 0.2;
+            if (progress > 0.4) {
+              // 使用 easeOutQuad 平滑衰减
+              const decayProgress = (progress - 0.4) / 0.3;
+              forceScale = 1 - decayProgress * decayProgress;
             }
             
             // 强向中心的回弹力（增加碰撞机会）
@@ -626,21 +630,21 @@ if (typeof window !== 'undefined') (window as any).__shakeStartTimeRef = shakeSt
             const toCenterX = -body.position.x * toCenterStrength;
             const toCenterZ = -body.position.z * toCenterStrength;
             
-            // 周期性的力（模拟摇盅的节奏感），放大振幅以增加碰撞能量
-            const cyclePhase = shakeFrameRef.current * 0.15;
-            const cycleForceX = Math.sin(cyclePhase + i * 2) * 90;
-            const cycleForceZ = Math.cos(cyclePhase + i * 2.5) * 90;
-            const cycleForceY = Math.abs(Math.sin(cyclePhase * 0.7)) * 70 + 40;
+            // 周期性的力（模拟摇盅的节奏感）
+            // 使用较低频率避免速度剧烈波动，同时用 forceScale 控制整体强度
+            const cyclePhase = shakeFrameRef.current * 0.08; // 降低频率，更平滑
+            const cycleForceX = Math.sin(cyclePhase + i * 2) * 70 * forceScale;
+            const cycleForceZ = Math.cos(cyclePhase + i * 2.5) * 70 * forceScale;
+            const cycleForceY = (Math.abs(Math.sin(cyclePhase * 0.5)) * 50 + 30) * forceScale;
             
             // 施加脉冲（冲量）在骰子偏心点以产生扭矩，更接近真实碰撞
-            // 使用受控的脉冲序列（连续小脉冲），而非单次大脉冲，避免过度自转
             const offset = new CANNON.Vec3(
               (Math.random() - 0.5) * 0.35,
               (Math.random() - 0.2) * 0.35,
               (Math.random() - 0.5) * 0.35
             );
-            // 脉冲基准取决于设备与阶段，增大基准提升碰撞感
-            const IMPULSE_BASE = isMobile ? 0.012 : 0.02;
+            // 脉冲基准取决于设备与阶段
+            const IMPULSE_BASE = isMobile ? 0.012 : 0.018;
             const impulseScale = IMPULSE_BASE * forceScale;
             const impulse = new CANNON.Vec3(
               (toCenterX + cycleForceX) * impulseScale,
@@ -649,13 +653,14 @@ if (typeof window !== 'undefined') (window as any).__shakeStartTimeRef = shakeSt
             );
             const worldPoint = body.position.vadd(offset);
             body.applyImpulse(impulse, worldPoint);
+            
             // 小角速度时施加微小脉冲促进正翻，但幅度受限
             const curAng = body.angularVelocity.length();
             if (curAng < 4.5) {
               const tiny = new CANNON.Vec3(
-                (Math.random() - 0.5) * 0.03,
-                (Math.random() - 0.5) * 0.03,
-                (Math.random() - 0.5) * 0.03
+                (Math.random() - 0.5) * 0.025 * forceScale,
+                (Math.random() - 0.5) * 0.025 * forceScale,
+                (Math.random() - 0.5) * 0.025 * forceScale
               );
               body.applyImpulse(tiny, worldPoint);
             }
