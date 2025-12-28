@@ -69,6 +69,8 @@ export default function GlobalGamePage() {
   const lastProcessedRoundRef = useRef<string | null>(null); // 记录已处理的期号
   const countdownEndTriggeredRef = useRef(false); // 标记倒计时结束是否已触发
   const queryResultTimerRef = useRef<NodeJS.Timeout | null>(null); // 查询结果的定时器
+  const pendingWinAmountRef = useRef<number>(0); // 待显示的中奖金额
+  const animationCompleteRef = useRef(false); // 标记动画是否完成
 
   // 引用
   const betPanelWrapperRef = useRef<HTMLDivElement>(null);
@@ -345,12 +347,13 @@ export default function GlobalGamePage() {
     console.log('⏰ 倒计时结束，开始获取开奖结果，期号:', currentRound);
     
     // 时间配置（单位：毫秒）
-    // 摇盅动画约 8 秒（480帧 / 60fps）
-    // 骰子停下后 1 秒显示结果卡片
+    // 骰子停下后 1 秒显示结果卡片（通过 onAnimationComplete 回调触发）
     // 结果展示 3 秒后重置
-    const SHAKE_ANIMATION_TIME = 8000; // 摇盅动画时间
     const RESULT_SHOW_DELAY = 1000;    // 骰子停下后延迟显示结果
     const RESULT_DISPLAY_TIME = 3000;  // 结果展示时间
+    
+    // 重置动画完成标记
+    animationCompleteRef.current = false;
     
     const fetchResult = async () => {
       try {
@@ -380,36 +383,8 @@ export default function GlobalGamePage() {
             console.log('🎲 设置开奖结果，开始摇盅动画:', result.outCome || result.result);
             setDiceResults(result.outCome || result.result || []);
             
-            // 摇盅动画结束后（约3秒），再等1秒显示结果卡片
-            setTimeout(() => {
-              console.log('🎯 骰子停下，准备显示结果');
-              // 设置中奖信息
-              setWinAmount(winValue);
-              setHasWon(winValue > 0);
-              if (winValue > 0) {
-                playWinSmall();
-                hapticWin();
-              }
-              refreshBalance();
-              
-              // 1秒后显示结果卡片
-              setTimeout(() => {
-                console.log('📋 显示结果卡片');
-                setGameState('settled');
-                
-                // 结果展示3秒后重置
-                setTimeout(() => {
-                  setGameState('betting');
-                  setLastBets(bets); // 保存上一局下注
-                  setBets({}); // 清空当前下注
-                  setWinAmount(0);
-                  setHasWon(false);
-                  setDiceResults([]);
-                  // 重置处理标志，准备下一轮
-                  isProcessingResultRef.current = false;
-                }, RESULT_DISPLAY_TIME);
-              }, RESULT_SHOW_DELAY);
-            }, SHAKE_ANIMATION_TIME);
+            // 保存中奖金额，等动画完成后再显示
+            pendingWinAmountRef.current = winValue;
             
             // 成功获取结果，不再重试
             return;
@@ -432,6 +407,48 @@ export default function GlobalGamePage() {
     // 开始获取结果
     fetchResult();
   }, [user, currentRound, bets, playWinSmall, hapticWin, refreshBalance, syncState]);
+
+  // 骰子动画完成回调
+  const handleAnimationComplete = useCallback(() => {
+    console.log('🎯 骰子动画完成回调');
+    
+    // 防止重复触发
+    if (animationCompleteRef.current) {
+      console.log('⚠️ 动画完成回调已触发过，跳过');
+      return;
+    }
+    animationCompleteRef.current = true;
+    
+    const winValue = pendingWinAmountRef.current;
+    
+    // 设置中奖信息
+    setWinAmount(winValue);
+    setHasWon(winValue > 0);
+    if (winValue > 0) {
+      playWinSmall();
+      hapticWin();
+    }
+    refreshBalance();
+    
+    // 1秒后显示结果卡片
+    setTimeout(() => {
+      console.log('📋 显示结果卡片');
+      setGameState('settled');
+      
+      // 结果展示3秒后重置
+      setTimeout(() => {
+        setGameState('betting');
+        setLastBets(bets); // 保存上一局下注
+        setBets({}); // 清空当前下注
+        setWinAmount(0);
+        setHasWon(false);
+        setDiceResults([]);
+        // 重置处理标志，准备下一轮
+        isProcessingResultRef.current = false;
+        pendingWinAmountRef.current = 0;
+      }, 3000); // RESULT_DISPLAY_TIME
+    }, 1000); // RESULT_SHOW_DELAY
+  }, [bets, playWinSmall, hapticWin, refreshBalance]);
 
   // 倒计时逻辑
   useEffect(() => {
@@ -1239,6 +1256,7 @@ export default function GlobalGamePage() {
             hasWon={hasWon} 
             diceResults={diceResults} 
             gameState={gameState === 'settled' ? 'settled' : 'rolling'}
+            onAnimationComplete={handleAnimationComplete}
           />
         </div>
       )}
