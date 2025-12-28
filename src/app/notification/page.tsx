@@ -10,6 +10,7 @@ import { useNotifications } from '@/hooks/useNotifications'
 import ToastContainer, { toast } from '@/components/ui/Toast'
 import clsx from 'clsx'
 import { motion, AnimatePresence } from 'framer-motion'
+import Modal from '@/components/ui/Modal'
 
 export default function NotificationPage() {
   const router = useRouter()
@@ -21,6 +22,7 @@ export default function NotificationPage() {
   const [loading, setLoading] = useState(false)
   const [pageIndex, setPageIndex] = useState(1)
   const [hasMore, setHasMore] = useState(true)
+  const [selectedNotification, setSelectedNotification] = useState<NotificationEntity | null>(null)
 
   const fetchNotifications = async (reset = false) => {
     if (!user?.id) return
@@ -83,13 +85,15 @@ export default function NotificationPage() {
   }, [activeTab, user?.id])
 
   const handleMarkRead = async (id: number) => {
-    if (!user?.id) return
+    if (!user?.id) return false
     try {
       const res = await apiService.markNotificationRead(user.id.toString(), id)
       if (res.success) {
         setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n))
+        setSelectedNotification(prev => (prev && prev.id === id ? { ...prev, read: true } : prev))
         // 刷新全局未读数量
         refreshNotifications()
+        return true
       } else {
         toast.error(res.message || '标记已读失败')
         console.warn('Mark notification read failed:', res)
@@ -97,6 +101,14 @@ export default function NotificationPage() {
     } catch (error) {
       console.error('Failed to mark read', error)
       toast.error('标记已读失败，请稍后再试')
+    }
+    return false
+  }
+
+  const handleNotificationClick = async (notification: NotificationEntity) => {
+    setSelectedNotification(notification)
+    if (!notification.read) {
+      await handleMarkRead(notification.id)
     }
   }
 
@@ -205,11 +217,7 @@ export default function NotificationPage() {
                           ? "bg-onyx-black/50 border-white/5" 
                           : "bg-onyx-black border-primary-gold/50 shadow-[0_0_15px_rgba(255,215,0,0.1)]"
                       )}
-                      onClick={() => {
-                        if (!notification.read) {
-                          handleMarkRead(notification.id);
-                        }
-                      }}
+                      onClick={() => handleNotificationClick(notification)}
                     >
                       <div className="flex justify-between items-start mb-2">
                         <div className="flex items-center gap-2 flex-1 mr-2">
@@ -253,6 +261,23 @@ export default function NotificationPage() {
           )}
         </div>
       </div>
+
+      <Modal
+        isOpen={!!selectedNotification}
+        onClose={() => setSelectedNotification(null)}
+        title={selectedNotification?.title || '系统通知'}
+      >
+        {selectedNotification && (
+          <div className="space-y-4 text-sm text-text-primary">
+            <div className="text-xs text-text-secondary">
+              {formatDate(selectedNotification.createTime)}
+            </div>
+            <div className="whitespace-pre-wrap leading-relaxed">
+              {selectedNotification.content}
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   )
 }
