@@ -1170,10 +1170,10 @@ if (typeof window !== 'undefined') (window as any).__shakeStartTimeRef = shakeSt
     }
   }, [diceResults]);
 
-  // 根据游戏状态触发动画（只监听 gameState，不监听 diceResults）
+  // 根据游戏状态触发动画（仅依赖 gameState，避免 diceResults 更新时重复摇盅）
   useEffect(() => {
     console.log('🎮 DiceCupAnimation gameState 变化:', gameState);
-    
+
     if (gameState === 'rolling') {
       console.log('🎲 开始 rolling 状态，准备摇盅动画');
       // 重置校正标志，不管摇盅状态
@@ -1234,16 +1234,22 @@ if (typeof window !== 'undefined') (window as any).__shakeStartTimeRef = shakeSt
       }
     } else if (gameState === 'settled' || gameState === 'revealing') {
       // 兜底：如果进入 settled/revealing 状态但骰子还没停止，强制设置
+      // 在单独的效果中处理兜底逻辑，避免依赖导致重新摇盅
+    }
+  }, [gameState]);
+
+  // Settled / Revealing 兜底：确保骰子已停止且姿态正确
+  useEffect(() => {
+    if (gameState === 'settled' || gameState === 'revealing') {
       if (!diceStopped && diceResults.length === 3) {
-        console.log('🛠️ 进入 settled/revealing 状态，强制设置骰子结果');
-        forceSetDiceToResults('进入 settled/revealing 状态');
+        console.log('🛠️ settled/revealing 状态兜底校正骰子');
+        forceSetDiceToResults('settled/revealing ensure stop');
       } else if (!diceStopped && diceResults.length !== 3) {
-        // 如果没有结果，也要标记骰子已停止
-        console.warn('⚠️ 进入 settled/revealing 状态但没有有效结果');
+        console.warn('⚠️ settled/revealing 状态没有有效结果，标记已停止');
         setDiceStopped(true);
       }
     }
-  }, [gameState, diceStopped, diceResults]); // 监听 gameState, diceStopped 和 diceResults
+  }, [gameState, diceResults, diceStopped]);
 
   // 将 chooseId 转换为可读文本
   const getBetLabel = (chooseId: number): string => {

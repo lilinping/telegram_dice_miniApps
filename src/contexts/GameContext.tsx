@@ -390,23 +390,34 @@ export function GameProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      // 提交所有下注到后端
-      const betPromises = Object.entries(bets).map(([betId, amount]) => {
+      const betEntries = Object.entries(bets);
+      if (betEntries.length === 0) {
+        toast.warning('请先选择投注项');
+        return false;
+      }
+
+      const mappedBets = betEntries.map(([betId, amount]) => {
         const chooseId = getBetChooseId(betId);
         if (chooseId === null) {
           throw new Error(`无效的下注选项: ${betId}`);
         }
-        console.log(`下注: ${betId} -> chooseId: ${chooseId}, 金额: ${amount}`);
-        return apiService.placeBet(currentGameId, chooseId, String(amount));
+        return { chooseId, bet: String(amount), betId };
       });
 
-      const results = await Promise.all(betPromises);
-      const allSuccess = results.every(r => r.success);
+      let submitSuccess = false;
+      if (mappedBets.length === 1) {
+        const { chooseId, bet } = mappedBets[0];
+        const res = await apiService.placeBet(currentGameId, chooseId, bet);
+        submitSuccess = !!res.success;
+      } else {
+        const multiPayload = mappedBets.map(({ chooseId, bet }) => ({ chooseId, bet: Number(bet) }));
+        const res = await apiService.placeMultiBet(currentGameId, multiPayload);
+        submitSuccess = !!res.success;
+      }
 
-      if (!allSuccess) {
-        console.error('部分下注失败');
-        const failedResults = results.filter(r => !r.success);
-        failedResults.forEach(r => console.error('下注失败:', r));
+      if (!submitSuccess) {
+        console.error('批量下注失败');
+        toast.error('下注失败，请稍后重试');
         return false;
       }
 

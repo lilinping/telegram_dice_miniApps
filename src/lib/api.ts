@@ -137,6 +137,19 @@ class ApiService {
   }
 
   /**
+   * 批量下注（个人模式）
+   */
+  async placeMultiBet(
+    gameId: string,
+    betItems: { chooseId: number; bet: number }[]
+  ): Promise<BackendResponse<boolean>> {
+    return this.request<boolean>(`/dice/multiBet/${gameId}`, {
+      method: 'POST',
+      body: JSON.stringify({ bets: betItems }),
+    })
+  }
+
+  /**
    * 查询游戏信息
    * @param gameId 游戏ID
    * @returns BackendResponse<DiceEntity>
@@ -506,6 +519,20 @@ class ApiService {
    */
   async placeGlobalBet(userId: string, number: string, chooseId: number, bet: number): Promise<BackendResponse<boolean>> {
     return this.request<boolean>(`/dice/global/bet/${userId}/${number}/${chooseId}/${bet}`)
+  }
+
+  /**
+   * 批量下注全局骰宝
+   */
+  async placeGlobalMultiBet(
+    userId: string,
+    number: string,
+    betItems: { chooseId: number; bet: number }[]
+  ): Promise<BackendResponse<boolean>> {
+    return this.request<boolean>(`/dice/global/multiBet/${userId}/${number}`, {
+      method: 'POST',
+      body: JSON.stringify({ bets: betItems }),
+    })
   }
 
   /**

@@ -325,19 +325,35 @@ export default function GamePage() {
               <span className="text-xl">🌐</span>
             </button>
 
-          {/* 规则按钮 */}
-          <button
-            onClick={() => router.push('/rules')}
-            className="w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-95"
-            style={{
-              background: 'rgba(42, 42, 42, 0.8)',
-              backdropFilter: 'blur(8px)',
-              border: '1px solid rgba(212, 175, 55, 0.3)',
-              color: 'var(--gold-primary)',
-            }}
-          >
-            <span className="text-xl">❓</span>
-          </button>
+            {/* 查看历史 */}
+            <button
+              onClick={() => router.push('/history')}
+              className="w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-95"
+              style={{
+                background: 'rgba(42, 42, 42, 0.8)',
+                backdropFilter: 'blur(8px)',
+                border: '1px solid rgba(212, 175, 55, 0.3)',
+                color: 'var(--gold-primary)',
+              }}
+              aria-label="查看个人历史"
+            >
+              <span className="text-xl">📜</span>
+            </button>
+
+            {/* 规则按钮 */}
+            <button
+              onClick={() => router.push('/rules')}
+              className="w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-95"
+              style={{
+                background: 'rgba(42, 42, 42, 0.8)',
+                backdropFilter: 'blur(8px)',
+                border: '1px solid rgba(212, 175, 55, 0.3)',
+                color: 'var(--gold-primary)',
+              }}
+              aria-label="玩法说明"
+            >
+              <span className="text-xl">❓</span>
+            </button>
 
           {/* 设置按钮 - 音效和震动开关 */}
           <button

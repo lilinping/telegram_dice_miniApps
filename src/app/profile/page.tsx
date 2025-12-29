@@ -6,12 +6,15 @@ import TopBar from '@/components/layout/TopBar';
 import Modal from '@/components/ui/Modal';
 import { motion } from 'framer-motion';
 import { useTelegram } from '@/contexts/TelegramContext';
+import { useWallet } from '@/contexts/WalletContext';
 import { apiService } from '@/lib/api';
 import { DiceStatisticEntity } from '@/lib/types';
+import { getVipLevelByDeposit, vipLevels as vipLevelConfig } from '@/config/vipLevels';
 
 export default function ProfilePage() {
   const router = useRouter();
   const { user } = useTelegram();
+  const { depositAmount } = useWallet();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [statistics, setStatistics] = useState<DiceStatisticEntity | null>(null);
   const [loading, setLoading] = useState(true);
@@ -53,38 +56,39 @@ export default function ProfilePage() {
 
   // 计算用户数据
   const isPremiumUser = user?.isPremium || false;
-  
+  const vipLevels = vipLevelConfig;
+  const walletVipLevel = getVipLevelByDeposit(depositAmount);
+  const currentVip = (isPremiumUser && walletVipLevel.level < 1
+    ? vipLevels.find(level => level.level === 1) || walletVipLevel
+    : walletVipLevel) || vipLevels[0];
+
   const userData = {
     avatar: user?.photoUrl || 'https://i.pravatar.cc/150?img=33',
     username: user?.firstName || user?.username || 'Player',
     telegramId: user?.username ? `@${user.username}` : '',
     userId: `UID: ${user?.id || '0'}`,
-    vipLevel: isPremiumUser ? 1 : 0, // 根据Telegram Premium状态设置VIP等级
+    vipLevel: currentVip.level,
     totalBet: statistics ? parseFloat(statistics.totalBet) : 0,
     totalWin: statistics ? parseFloat(statistics.winBet) : 0,
     winRate: statistics && statistics.totalCount > 0 
       ? ((statistics.winCount / statistics.totalCount) * 100).toFixed(1) 
       : '0.0',
     inviteCount: inviteCount ?? 0,
+    depositTotal: depositAmount || 0,
   };
 
-  // VIP等级配置
-  const vipLevels = [
-    { level: 0, name: '普通用户', color: '#808080', icon: '👤' },
-    { level: 1, name: 'VIP会员', color: '#FFD700', icon: '⭐' },
-    { level: 2, name: '白银', color: '#C0C0C0', icon: '🥈' },
-    { level: 3, name: '黄金', color: '#FFD700', icon: '🥇' },
-    { level: 4, name: '铂金', color: '#E5E4E2', icon: '💎' },
-    { level: 5, name: '钻石', color: '#B9F2FF', icon: '💠' },
-  ];
-
-  const currentVip = vipLevels[userData.vipLevel];
-  
   // VIP充值链接
   const vipUpgradeUrl = 'https://t.me/dhtpay_bot?start=premium';
 
   // 功能菜单
   const menuItems = [
+    {
+      icon: '📘',
+      title: '玩法说明',
+      subtitle: '了解投注规则与赔率',
+      route: '/rules',
+      color: '#FBBF24',
+    },
     {
       icon: '⚙️',
       title: '设置',

@@ -58,7 +58,7 @@ export default function WelcomePage() {
     // 当进度达到100%且Telegram已授权时，跳转到游戏大厅
     if (progress >= 100 && !telegramLoading) {
       const timer = setTimeout(() => {
-        router.push('/game');
+        router.push('/global-game');
       }, 800);
 
       return () => clearTimeout(timer);
