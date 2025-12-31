@@ -31,6 +31,7 @@ export default function GlobalGamePage() {
   const [gameState, setGameState] = useState<GlobalGameState>('betting');
   const [currentRound, setCurrentRound] = useState<string>('Loading...');
   const currentRoundRef = useRef<string>('Loading...'); // 使用 ref 存储当前期号，避免闭包问题
+  const gameStateRef = useRef<GlobalGameState>('betting');
   const [countdown, setCountdown] = useState(300); // 5分钟
   const [bets, setBets] = useState<Record<string, number>>({});
   const [selectedChip, setSelectedChip] = useState(1);
@@ -69,6 +70,7 @@ export default function GlobalGamePage() {
   const lastProcessedRoundRef = useRef<string | null>(null); // 记录已处理的期号
   const countdownEndTriggeredRef = useRef(false); // 标记倒计时结束是否已触发
   const queryResultTimerRef = useRef<NodeJS.Timeout | null>(null); // 查询结果的定时器
+  const syncRetryTimerRef = useRef<NodeJS.Timeout | null>(null);   // FINISHED 状态下重试同步
   const pendingWinAmountRef = useRef<number>(0); // 待显示的中奖金额
   const animationCompleteRef = useRef(false); // 标记动画是否完成
 
@@ -161,6 +163,11 @@ export default function GlobalGamePage() {
     }
     syncStateCalledRef.current = true;
 
+    if (syncRetryTimerRef.current) {
+      clearTimeout(syncRetryTimerRef.current);
+      syncRetryTimerRef.current = null;
+    }
+
     try {
       const response = await apiService.getGlobalLatestResults();
 
@@ -203,12 +210,20 @@ export default function GlobalGamePage() {
         // 如果状态是 FINISHED，但不应该在这里处理，应该在倒计时结束后处理
         // 这里只更新最近结果和历史记录
         if (latest.status === 'FINISHED') {
-          // 只更新最近结果，不在这里获取开奖结果
-          // 开奖结果应该在倒计时结束后获取
+          // 处于开奖结算阶段，保持倒计时为0，并定时重试直到出现新一期
+          setCountdown(0);
+          if (!syncRetryTimerRef.current) {
+            syncRetryTimerRef.current = setTimeout(() => {
+              syncRetryTimerRef.current = null;
+              syncState();
+            }, 2000);
+          }
         } else {
           // 获取当前期号
           const currentRoundNumber = latest.number.toString();
-          const isNewRound = currentRoundNumber !== currentRound;
+          const currentRoundSnapshot = currentRoundRef.current;
+          const isNewRound = currentRoundNumber !== currentRoundSnapshot;
+          const isRollingOrSettled = gameStateRef.current === 'rolling' || gameStateRef.current === 'settled';
 
           // 确保 currentRoundRef 始终是最新的期号（即使不是新的一期也要更新）
           if (currentRoundRef.current !== currentRoundNumber) {
@@ -216,7 +231,7 @@ export default function GlobalGamePage() {
           }
 
           // 如果是新的一期，更新期号
-          if (isNewRound && gameState !== 'rolling' && gameState !== 'settled') {
+          if (isNewRound && !isRollingOrSettled) {
             setCurrentRound(currentRoundNumber);
             currentRoundRef.current = currentRoundNumber; // 同时更新 ref
             betsLoadedRef.current = false; // 重置加载标记
@@ -312,16 +327,16 @@ export default function GlobalGamePage() {
           }
 
           // 只有在非结算状态下更新倒计时和状态
-          if (gameState !== 'rolling' && gameState !== 'settled') {
+          if (!isRollingOrSettled) {
             setCountdown(Math.floor(remaining));
 
             if (remaining <= 30 && remaining > 0) {
-              if (gameState !== 'sealed') setGameState('sealed');
+              if (gameStateRef.current !== 'sealed') setGameState('sealed');
               countdownEndTriggeredRef.current = false;
             } else if (remaining <= 0) {
               // 倒计时结束，等待 FINISHED 状态
             } else {
-              if (gameState !== 'betting') setGameState('betting');
+              if (gameStateRef.current !== 'betting') setGameState('betting');
               countdownEndTriggeredRef.current = false;
             }
           }
@@ -333,7 +348,7 @@ export default function GlobalGamePage() {
       // 请求完成后重置标记，允许下次调用
       syncStateCalledRef.current = false;
     }
-  }, [gameState, currentRound, user, rememberedChip, rememberedMultiplier, rememberedBets]);
+  }, [user, rememberedChip, rememberedMultiplier, rememberedBets]);
 
   // 倒计时结束后的处理函数
   const handleCountdownEnd = useCallback(async () => {
@@ -383,9 +398,32 @@ export default function GlobalGamePage() {
               console.error('Failed to get my result', e);
             }
 
-            // 立即设置 diceResults，让摇盅动画开始引导
-            console.log('🎲 设置开奖结果，开始摇盅动画:', result.outCome || result.result);
-            setDiceResults(result.outCome || result.result || []);
+            // 检查并设置 diceResults
+            let diceResult: number[] = [];
+            if (result.outCome && Array.isArray(result.outCome) && result.outCome.length === 3) {
+              diceResult = result.outCome;
+              console.log('🎲 使用 outCome 字段:', diceResult);
+            } else if (result.result && Array.isArray(result.result) && result.result.length === 3) {
+              diceResult = result.result;
+              console.log('🎲 使用 result 字段:', diceResult);
+            } else {
+              console.error('❌ 无效的开奖结果数据:', {
+                outCome: result.outCome,
+                result: result.result,
+                outComeType: typeof result.outCome,
+                resultType: typeof result.result,
+                outComeLength: Array.isArray(result.outCome) ? result.outCome.length : 'not array',
+                resultLength: Array.isArray(result.result) ? result.result.length : 'not array'
+              });
+              diceResult = [];
+            }
+
+            console.log('🎲 设置开奖结果，开始摇盅动画:', diceResult);
+            console.log('🔄 全局模式：设置 diceResults 状态为:', diceResult, '当前 gameState:', gameState);
+            
+            // 立即设置 gameState 为 rolling 并设置 diceResults，触发摇盅动画
+            setGameState('rolling');
+            setDiceResults(diceResult);
 
             // 保存中奖金额，等动画完成后再显示
             pendingWinAmountRef.current = winValue;
@@ -452,9 +490,12 @@ export default function GlobalGamePage() {
         pendingWinAmountRef.current = 0;
         countdownEndTriggeredRef.current = false;
         lastProcessedRoundRef.current = currentRoundRef.current;
+
+        // 重新同步服务器状态，确保倒计时和期号更新
+        void syncState();
       }, 3000); // RESULT_DISPLAY_TIME
     }, 1000); // RESULT_SHOW_DELAY
-  }, [bets, playWinSmall, hapticWin, refreshBalance]);
+  }, [bets, playWinSmall, hapticWin, refreshBalance, syncState]);
 
   // 倒计时逻辑
   useEffect(() => {
@@ -491,7 +532,8 @@ export default function GlobalGamePage() {
 
           if (lastProcessedValue !== currentRoundValue && currentRoundValue !== 'Loading...') {
             countdownEndTriggeredRef.current = true; // 标记已触发
-            setGameState('rolling');
+            // 不要立即设置 gameState 为 rolling，等获取到结果后再设置
+            // setGameState('rolling');
             // 倒计时结束后，获取开奖结果（只请求一次）
             handleCountdownEnd();
           }
@@ -507,8 +549,42 @@ export default function GlobalGamePage() {
         clearTimeout(queryResultTimerRef.current);
         queryResultTimerRef.current = null;
       }
+      if (syncRetryTimerRef.current) {
+        clearTimeout(syncRetryTimerRef.current);
+        syncRetryTimerRef.current = null;
+      }
     };
   }, [syncState, handleCountdownEnd]);
+
+  useEffect(() => {
+    gameStateRef.current = gameState;
+  }, [gameState]);
+
+  // 页面重新可见或获得焦点时，强制同步一次，避免倒计时停在 00:00
+  useEffect(() => {
+    const handleResume = () => {
+      if (document.visibilityState !== 'visible') return;
+
+      console.log('👀 页面重新可见，重新同步全局状态');
+      countdownEndTriggeredRef.current = false;
+      syncState();
+      loadLastRoundResult();
+    };
+
+    const handleFocus = () => {
+      console.log('👀 窗口获得焦点，重新同步全局状态');
+      countdownEndTriggeredRef.current = false;
+      syncState();
+    };
+
+    document.addEventListener('visibilitychange', handleResume);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleResume);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [syncState, loadLastRoundResult]);
 
   // 下注逻辑
   const placeBet = (betId: string) => {
