@@ -52,6 +52,8 @@ export default function WithdrawPage() {
   const [sendingCode, setSendingCode] = useState(false);
   const [codeSent, setCodeSent] = useState(false);
   const [countdown, setCountdown] = useState(0);
+  const [hasPassword, setHasPassword] = useState(false);
+  const [hasEmail, setHasEmail] = useState(false);
 
   const loadAddresses = async (forceRefresh: boolean = false) => {
     if (!userId) return;
@@ -149,15 +151,19 @@ export default function WithdrawPage() {
       
       // 检查用户是否设置了密码
       const hasPasswordRes = await apiService.hasSetPassword(String(userId));
-      const hasPassword = hasPasswordRes.success && hasPasswordRes.data === true;
+      const hasPasswordValue = hasPasswordRes.success && hasPasswordRes.data === true;
       
       // 检查用户是否设置了邮箱
       const hasEmailRes = await apiService.hasSetEmail(String(userId));
-      const hasEmail = hasEmailRes.success && hasEmailRes.data === true;
+      const hasEmailValue = hasEmailRes.success && hasEmailRes.data === true;
       
-      console.log('🔐 验证状态:', { hasPassword, hasEmail });
+      console.log('🔐 验证状态:', { hasPassword: hasPasswordValue, hasEmail: hasEmailValue });
       
-      if (!hasPassword && !hasEmail) {
+      // 保存状态，用于切换验证方式
+      setHasPassword(hasPasswordValue);
+      setHasEmail(hasEmailValue);
+      
+      if (!hasPasswordValue && !hasEmailValue) {
         // 两者都没设置，提示用户设置
         toast.error('请先设置密码或邮箱');
         setTimeout(() => {
@@ -166,8 +172,8 @@ export default function WithdrawPage() {
         return;
       }
       
-      // 优先使用密码验证
-      if (hasPassword) {
+      // 优先使用密码验证，但用户可以切换
+      if (hasPasswordValue) {
         setVerificationType('password');
         setVerificationPassword('');
       } else {
@@ -959,7 +965,7 @@ export default function WithdrawPage() {
             {/* 标题 */}
             <div className="bg-gradient-to-r from-primary-gold to-primary-dark-gold py-4 px-6">
               <h3 className="text-lg font-bold text-bg-darkest">
-                {verificationType === 'password' ? '密码验证' : '邮箱验证'}
+                身份验证
               </h3>
             </div>
             
@@ -968,6 +974,45 @@ export default function WithdrawPage() {
               <p className="text-sm text-text-secondary">
                 为了保护您的资产安全，添加提现地址需要验证身份
               </p>
+              
+              {/* 验证方式切换 */}
+              {hasPassword && hasEmail && (
+                <div className="flex gap-2 p-1 bg-bg-medium rounded-lg">
+                  <button
+                    onClick={() => {
+                      setVerificationType('password');
+                      setVerificationPassword('');
+                      setError('');
+                    }}
+                    className={cn(
+                      'flex-1 py-2 px-4 rounded-md text-sm font-semibold transition-all',
+                      verificationType === 'password'
+                        ? 'bg-primary-gold text-bg-darkest'
+                        : 'text-text-secondary hover:text-text-primary'
+                    )}
+                  >
+                    密码验证
+                  </button>
+                  <button
+                    onClick={() => {
+                      setVerificationType('email');
+                      setVerificationCode('');
+                      setVerificationEmail('');
+                      setCodeSent(false);
+                      setCountdown(0);
+                      setError('');
+                    }}
+                    className={cn(
+                      'flex-1 py-2 px-4 rounded-md text-sm font-semibold transition-all',
+                      verificationType === 'email'
+                        ? 'bg-primary-gold text-bg-darkest'
+                        : 'text-text-secondary hover:text-text-primary'
+                    )}
+                  >
+                    邮箱验证
+                  </button>
+                </div>
+              )}
               
               {verificationType === 'password' ? (
                 // 密码验证
@@ -1036,6 +1081,8 @@ export default function WithdrawPage() {
                     setVerificationPassword('');
                     setVerificationCode('');
                     setVerificationEmail('');
+                    setCodeSent(false);
+                    setCountdown(0);
                     setError('');
                   }}
                   className="flex-1 h-12 bg-bg-medium text-text-primary font-semibold rounded-lg hover:bg-bg-dark transition-all"
