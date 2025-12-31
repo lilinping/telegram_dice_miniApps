@@ -4,7 +4,7 @@ import { createContext, useContext, useState, ReactNode, useCallback, useEffect,
 import { apiService } from '@/lib/api';
 import { useTelegram } from './TelegramContext';
 import { useWallet } from './WalletContext';
-import { DiceEntity, DiceChooseVO } from '@/lib/types';
+import { DiceEntity, DiceChooseVO, StopPeriod } from '@/lib/types';
 import { getBetChooseId } from '@/lib/betMapping';
 import { toast } from '@/components/ui/Toast';
 
@@ -59,6 +59,12 @@ interface GameContextType {
   winAmount: number;
   hasWon: boolean;
 
+  // 停盘控制
+  stopPeriods: StopPeriod[];
+  currentStopPeriod: StopPeriod | null;
+  isBettingBlocked: boolean;
+  refreshStopPeriods: (force?: boolean) => Promise<void>;
+
   // 游戏控制
   startNewGame: () => Promise<void>;
   endCurrentGame: () => Promise<void>;
@@ -69,6 +75,34 @@ const GameContext = createContext<GameContextType | undefined>(undefined);
 const normalizeAmount = (value: number) => {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 };
+
+type NormalizedStopPeriod = StopPeriod & {
+  startTimestamp: number | null;
+  endTimestamp: number | null;
+};
+
+const parseTimestamp = (value?: number | string | null): number | null => {
+  if (value === undefined || value === null) return null;
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) return null;
+    return value > 1e12 ? value : value * 1000;
+  }
+  const numeric = Number(value);
+  if (!Number.isNaN(numeric)) {
+    return numeric > 1e12 ? numeric : numeric * 1000;
+  }
+  const parsed = Date.parse(String(value));
+  return Number.isNaN(parsed) ? null : parsed;
+};
+
+const normalizeStopPeriod = (period: StopPeriod): NormalizedStopPeriod => ({
+  ...period,
+  startTimestamp: parseTimestamp(period.startTime ?? null),
+  endTimestamp: parseTimestamp(period.endTime ?? null),
+});
+
+const STOP_PERIOD_FETCH_CACHE_MS = 60 * 1000;
+const STOP_PERIOD_CHECK_INTERVAL_MS = 30 * 1000;
 
 export function GameProvider({ children }: { children: ReactNode }) {
   const { user } = useTelegram();
@@ -95,6 +129,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
   // 上一局下注记录
   const [lastBets, setLastBets] = useState<Record<string, number>>({});
 
+  // 停盘状态
+  const [stopPeriods, setStopPeriods] = useState<StopPeriod[]>([]);
+  const [currentStopPeriod, setCurrentStopPeriod] = useState<StopPeriod | null>(null);
+  const [isBettingBlocked, setIsBettingBlocked] = useState(false);
+
   // 记住用户的选择（筹码、倍数和下注区域）- 从 localStorage 恢复
   const [rememberedChip, setRememberedChip] = useState<number | null>(() => {
     if (typeof window === 'undefined') return 1;
@@ -115,6 +154,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
   // 防止Strict Mode重复调用
   const diceOptionsLoadedRef = useRef(false);
   const startingGameRef = useRef(false);
+  const normalizedStopPeriodsRef = useRef<NormalizedStopPeriod[]>([]);
+  const stopPeriodCheckTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const stopPeriodDailyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastStopFetchRef = useRef(0);
+  const refreshStopPeriodsRef = useRef<((force?: boolean) => Promise<void>) | null>(null);
 
   // 加载骰宝选项对照表
   const loadDiceOptions = useCallback(async () => {
@@ -140,6 +184,131 @@ export function GameProvider({ children }: { children: ReactNode }) {
     diceOptionsLoadedRef.current = true;
     loadDiceOptions();
   }, [loadDiceOptions]);
+
+  const evaluateStopPeriods = useCallback((currentFromApi?: StopPeriod | null) => {
+    let effective: StopPeriod | null = currentFromApi || null;
+    const now = Date.now();
+
+    if (!effective) {
+      for (const period of normalizedStopPeriodsRef.current) {
+        const start = period.startTimestamp;
+        const end = period.endTimestamp;
+        if (start === null || end === null) continue;
+        if (now >= start && now <= end) {
+          effective = period;
+          break;
+        }
+      }
+    }
+
+    setCurrentStopPeriod(effective || null);
+    setIsBettingBlocked(!!effective);
+  }, []);
+
+  const refreshStopPeriods = useCallback(async (force: boolean = false) => {
+    const now = Date.now();
+    if (!force && now - lastStopFetchRef.current < STOP_PERIOD_FETCH_CACHE_MS) {
+      return;
+    }
+
+    lastStopFetchRef.current = now;
+
+    try {
+      const [listRes, currentRes] = await Promise.all([
+        apiService.getStopTimes(),
+        apiService.getCurrentStopPeriod(),
+      ]);
+
+      if (listRes.success && Array.isArray(listRes.data)) {
+        setStopPeriods(listRes.data);
+        normalizedStopPeriodsRef.current = listRes.data.map(normalizeStopPeriod);
+      }
+
+      const currentPeriod = currentRes.success ? currentRes.data ?? null : null;
+      evaluateStopPeriods(currentPeriod);
+    } catch (error) {
+      console.error('刷新停盘时间失败:', error);
+      evaluateStopPeriods();
+    }
+  }, [evaluateStopPeriods]);
+
+  useEffect(() => {
+    refreshStopPeriodsRef.current = refreshStopPeriods;
+    return () => {
+      refreshStopPeriodsRef.current = null;
+    };
+  }, [refreshStopPeriods]);
+
+  // 只在组件挂载时或 user 变化时刷新停盘时间（避免重复请求）
+  useEffect(() => {
+    // 只有当 user 存在时才刷新
+    if (user) {
+      refreshStopPeriods(true);
+    }
+  }, [user?.id]); // 只依赖 user.id，避免 user 对象变化导致重复请求
+
+  useEffect(() => {
+    if (stopPeriodCheckTimerRef.current) {
+      clearInterval(stopPeriodCheckTimerRef.current);
+    }
+
+    const timer = setInterval(() => {
+      evaluateStopPeriods();
+    }, STOP_PERIOD_CHECK_INTERVAL_MS);
+
+    stopPeriodCheckTimerRef.current = timer;
+    evaluateStopPeriods();
+
+    return () => {
+      if (stopPeriodCheckTimerRef.current) {
+        clearInterval(stopPeriodCheckTimerRef.current);
+        stopPeriodCheckTimerRef.current = null;
+      }
+    };
+  }, [evaluateStopPeriods]);
+
+  useEffect(() => {
+    const scheduleNextFetch = () => {
+      if (stopPeriodDailyTimerRef.current) {
+        clearTimeout(stopPeriodDailyTimerRef.current);
+      }
+
+      const now = new Date();
+      const next = new Date(now);
+      next.setDate(now.getDate() + 1);
+      next.setHours(0, 0, 5, 0);
+      const delay = Math.max(60 * 1000, next.getTime() - now.getTime());
+
+      stopPeriodDailyTimerRef.current = setTimeout(async () => {
+        try {
+          await refreshStopPeriodsRef.current?.(true);
+        } finally {
+          scheduleNextFetch();
+        }
+      }, delay);
+    };
+
+    scheduleNextFetch();
+
+    return () => {
+      if (stopPeriodDailyTimerRef.current) {
+        clearTimeout(stopPeriodDailyTimerRef.current);
+        stopPeriodDailyTimerRef.current = null;
+      }
+    };
+  }, []);
+
+  const getStopPeriodToastMessage = useCallback(() => {
+    if (currentStopPeriod?.desc) {
+      return currentStopPeriod.desc;
+    }
+    const start = parseTimestamp(currentStopPeriod?.startTime ?? null);
+    const end = parseTimestamp(currentStopPeriod?.endTime ?? null);
+    if (start && end) {
+      return `当前停盘 (${new Date(start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - ${new Date(end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})`;
+    }
+    return '当前处于停盘时间，暂时无法下注';
+  }, [currentStopPeriod]);
 
   // 开始新游戏
   const startNewGame = useCallback(async () => {
@@ -213,6 +382,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
   // 下注（考虑倍投）
   const placeBet = useCallback(
     (betId: string) => {
+      if (isBettingBlocked) {
+        toast.error(getStopPeriodToastMessage());
+        return;
+      }
+
       if (gameState !== 'betting' || countdown === 0) {
         return;
       }
@@ -251,7 +425,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       // 记录到历史栈（用于撤销）
       setBetHistory((prev) => [...prev, { betId, amount: actualAmount }]);
     },
-    [gameState, countdown, selectedChip, multiplier]
+    [gameState, countdown, selectedChip, multiplier, isBettingBlocked, getStopPeriodToastMessage]
   );
 
   // 清空下注
@@ -363,6 +537,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   // 确认下注
   const confirmBets = useCallback(async () => {
+    if (isBettingBlocked) {
+      toast.error(getStopPeriodToastMessage());
+      return false;
+    }
+
     if (!currentGameId || !user) {
       console.error('游戏未开始或用户未登录');
       return false;
@@ -539,7 +718,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       console.error('确认下注失败:', error);
       return false;
     }
-  }, [bets, currentGameId, user, endCurrentGame, startNewGame, refreshBalance, selectedChip, multiplier]);
+  }, [bets, currentGameId, user, endCurrentGame, startNewGame, refreshBalance, selectedChip, multiplier, isBettingBlocked, getStopPeriodToastMessage]);
 
   // 自动开始第一局游戏
   useEffect(() => {
@@ -576,6 +755,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
         setDiceResults,
         winAmount,
         hasWon,
+        stopPeriods,
+        currentStopPeriod,
+        isBettingBlocked,
+        refreshStopPeriods,
         startNewGame,
         endCurrentGame,
       }}
