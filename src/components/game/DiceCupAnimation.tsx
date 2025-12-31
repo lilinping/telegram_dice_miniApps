@@ -1199,9 +1199,9 @@ if (typeof window !== 'undefined') (window as any).__shakeStartTimeRef = shakeSt
     // 引导由 animate 函数中的摇盅结束逻辑统一触发，避免重复执行
   }, [diceResults]);
 
-  // 根据游戏状态触发动画（仅依赖 gameState，避免 diceResults 更新时重复摇盅）
+  // 根据游戏状态触发动画
   useEffect(() => {
-    console.log('🎮 DiceCupAnimation gameState 变化:', gameState, 'diceResults:', diceResults);
+    console.log('🎮 DiceCupAnimation gameState/diceResults 变化:', gameState, 'diceResults:', diceResults);
 
     if (gameState === 'rolling') {
       console.log('🎲 开始 rolling 状态，准备摇盅动画');
@@ -1209,6 +1209,12 @@ if (typeof window !== 'undefined') (window as any).__shakeStartTimeRef = shakeSt
       // 只有当 diceResults 有有效数据时才开始摇盅
       if (!diceResults || diceResults.length !== 3) {
         console.log('⏳ diceResults 尚未准备好，等待数据...');
+        return;
+      }
+      
+      // 如果已经在摇盅中，不要重复启动
+      if (isShakingRef.current) {
+        console.log('⚠️ 已经在摇盅中，跳过重复启动');
         return;
       }
 
@@ -1272,7 +1278,7 @@ if (typeof window !== 'undefined') (window as any).__shakeStartTimeRef = shakeSt
       // 兜底：如果进入 settled/revealing 状态但骰子还没停止，强制设置
       // 在单独的效果中处理兜底逻辑，避免依赖导致重新摇盅
     }
-  }, [gameState]);
+  }, [gameState, diceResults]); // 添加 diceResults 依赖，确保数据准备好后能触发摇盅
 
   // Settled / Revealing 兜底：确保骰子已停止且姿态正确
   useEffect(() => {
