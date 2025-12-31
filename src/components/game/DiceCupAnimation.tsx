@@ -33,10 +33,23 @@ export default function DiceCupAnimation({
   gameState: propGameState,
   onAnimationComplete,
 }: DiceCupAnimationProps) {
-  const { gameState: contextGameState, diceResults: contextDiceResults } = useGame();
+  // 尝试获取 context，如果不存在则使用默认值
+  let contextGameState: 'betting' | 'rolling' | 'revealing' | 'settled' = 'betting';
+  let contextDiceResults: number[] = [];
+  
+  try {
+    const gameContext = useGame();
+    contextGameState = gameContext.gameState;
+    contextDiceResults = gameContext.diceResults;
+  } catch (e) {
+    // 如果没有 GameProvider，使用默认值
+    console.log('🎲 DiceCupAnimation: 未找到 GameContext，使用 props');
+  }
+  
   // 优先使用外部传入的 gameState，否则使用 context 中的
   const gameState = propGameState || contextGameState;
   const diceResults = propDiceResults || contextDiceResults;
+  
   // 输出来源调试：说明当前使用的是 prop 还是 context 的结果
   try {
     console.log('🎲 DiceCupAnimation 初始化 - propDiceResults:', propDiceResults, 'contextDiceResults:', contextDiceResults, 'resolved:', diceResults, 'gameState:', gameState);
