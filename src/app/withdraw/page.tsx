@@ -42,6 +42,16 @@ export default function WithdrawPage() {
   const [showSuccess, setShowSuccess] = useState(false);
   const [successOrderId, setSuccessOrderId] = useState<string>('');
   const [successStatus, setSuccessStatus] = useState<string>('');
+  
+  // 验证弹框状态
+  const [showVerification, setShowVerification] = useState(false);
+  const [verificationType, setVerificationType] = useState<'password' | 'email'>('password');
+  const [verificationPassword, setVerificationPassword] = useState<string>('');
+  const [verificationCode, setVerificationCode] = useState<string>('');
+  const [verificationEmail, setVerificationEmail] = useState<string>('');
+  const [sendingCode, setSendingCode] = useState(false);
+  const [codeSent, setCodeSent] = useState(false);
+  const [countdown, setCountdown] = useState(0);
 
   const loadAddresses = async (forceRefresh: boolean = false) => {
     if (!userId) return;
@@ -92,6 +102,14 @@ export default function WithdrawPage() {
     checkFreeWithdrawal();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
+  
+  // 验证码倒计时
+  useEffect(() => {
+    if (countdown > 0) {
+      const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [countdown]);
 
   // 实时验证地址
   const handleAddressChange = (value: string) => {
@@ -111,7 +129,7 @@ export default function WithdrawPage() {
     }
   };
 
-  // 添加新地址
+  // 添加新地址 - 先检查验证方式
   const handleAddAddress = async () => {
     // 检查地址数量限制
     if (addresses.length >= 20) {
@@ -128,12 +146,116 @@ export default function WithdrawPage() {
     try {
       setLoading(true);
       setError('');
-      const result = await apiService.createAddress(String(userId), newAddress.trim());
+      
+      // 检查用户是否设置了密码
+      const hasPasswordRes = await apiService.hasSetPassword(String(userId));
+      const hasPassword = hasPasswordRes.success && hasPasswordRes.data === true;
+      
+      // 检查用户是否设置了邮箱
+      const hasEmailRes = await apiService.hasSetEmail(String(userId));
+      const hasEmail = hasEmailRes.success && hasEmailRes.data === true;
+      
+      console.log('🔐 验证状态:', { hasPassword, hasEmail });
+      
+      if (!hasPassword && !hasEmail) {
+        // 两者都没设置，提示用户设置
+        toast.error('请先设置密码或邮箱');
+        setTimeout(() => {
+          router.push('/settings/password');
+        }, 1500);
+        return;
+      }
+      
+      // 优先使用密码验证
+      if (hasPassword) {
+        setVerificationType('password');
+        setVerificationPassword('');
+      } else {
+        setVerificationType('email');
+        setVerificationCode('');
+        setVerificationEmail('');
+        setCodeSent(false);
+      }
+      
+      setShowVerification(true);
+    } catch (err) {
+      console.error('检查验证方式失败:', err);
+      setError('检查验证方式失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // 发送邮箱验证码
+  const handleSendCode = async () => {
+    if (!verificationEmail || !verificationEmail.includes('@')) {
+      toast.error('请输入有效的邮箱地址');
+      return;
+    }
+    
+    try {
+      setSendingCode(true);
+      const result = await apiService.sendCodeForCreateEmail(String(userId), verificationEmail);
       
       if (result.success) {
+        toast.success('验证码已发送');
+        setCodeSent(true);
+        setCountdown(60);
+      } else {
+        toast.error(result.message || '发送验证码失败');
+      }
+    } catch (err) {
+      console.error('发送验证码失败:', err);
+      toast.error('发送验证码失败');
+    } finally {
+      setSendingCode(false);
+    }
+  };
+  
+  // 提交验证并添加地址
+  const handleSubmitVerification = async () => {
+    if (verificationType === 'password') {
+      if (!verificationPassword) {
+        toast.error('请输入密码');
+        return;
+      }
+    } else {
+      if (!verificationCode) {
+        toast.error('请输入验证码');
+        return;
+      }
+    }
+    
+    try {
+      setLoading(true);
+      setError('');
+      
+      let result;
+      if (verificationType === 'password') {
+        // 使用密码验证添加地址
+        result = await apiService.createAddressWithPassword(
+          String(userId),
+          newAddress.trim(),
+          verificationPassword
+        );
+      } else {
+        // 使用邮箱验证码添加地址
+        result = await apiService.createAddressWithCode(
+          String(userId),
+          newAddress.trim(),
+          verificationCode
+        );
+      }
+      
+      if (result.success) {
+        toast.success('地址添加成功');
         setNewAddress('');
         setAddressValidationError('');
         setShowAddAddress(false);
+        setShowVerification(false);
+        setVerificationPassword('');
+        setVerificationCode('');
+        setVerificationEmail('');
         // 强制刷新地址列表
         await loadAddresses(true);
       } else {
@@ -825,6 +947,109 @@ export default function WithdrawPage() {
               >
                 确定
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* 验证弹框 */}
+      {showVerification && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-bg-dark border border-border rounded-2xl w-[90%] max-w-md overflow-hidden shadow-2xl">
+            {/* 标题 */}
+            <div className="bg-gradient-to-r from-primary-gold to-primary-dark-gold py-4 px-6">
+              <h3 className="text-lg font-bold text-bg-darkest">
+                {verificationType === 'password' ? '密码验证' : '邮箱验证'}
+              </h3>
+            </div>
+            
+            {/* 内容 */}
+            <div className="p-6 space-y-4">
+              <p className="text-sm text-text-secondary">
+                为了保护您的资产安全，添加提现地址需要验证身份
+              </p>
+              
+              {verificationType === 'password' ? (
+                // 密码验证
+                <div>
+                  <label className="block text-sm font-medium text-text-primary mb-2">
+                    请输入密码
+                  </label>
+                  <input
+                    type="password"
+                    value={verificationPassword}
+                    onChange={(e) => setVerificationPassword(e.target.value)}
+                    placeholder="请输入您的密码"
+                    className="w-full h-12 bg-bg-medium border-2 border-border rounded-lg px-4 text-base text-text-primary placeholder:text-text-disabled focus:border-primary-gold focus:outline-none focus:ring-2 focus:ring-primary-gold/20 transition-all"
+                  />
+                </div>
+              ) : (
+                // 邮箱验证码
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-text-primary mb-2">
+                      邮箱地址
+                    </label>
+                    <input
+                      type="email"
+                      value={verificationEmail}
+                      onChange={(e) => setVerificationEmail(e.target.value)}
+                      placeholder="请输入邮箱地址"
+                      disabled={codeSent}
+                      className="w-full h-12 bg-bg-medium border-2 border-border rounded-lg px-4 text-base text-text-primary placeholder:text-text-disabled focus:border-primary-gold focus:outline-none focus:ring-2 focus:ring-primary-gold/20 transition-all disabled:opacity-50"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-text-primary mb-2">
+                      验证码
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={verificationCode}
+                        onChange={(e) => setVerificationCode(e.target.value)}
+                        placeholder="请输入验证码"
+                        className="flex-1 h-12 bg-bg-medium border-2 border-border rounded-lg px-4 text-base text-text-primary placeholder:text-text-disabled focus:border-primary-gold focus:outline-none focus:ring-2 focus:ring-primary-gold/20 transition-all"
+                      />
+                      <button
+                        onClick={handleSendCode}
+                        disabled={sendingCode || countdown > 0 || !verificationEmail}
+                        className="px-4 h-12 bg-primary-gold text-bg-darkest font-semibold rounded-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all whitespace-nowrap"
+                      >
+                        {sendingCode ? '发送中...' : countdown > 0 ? `${countdown}s` : '发送验证码'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {error && (
+                <p className="text-sm text-error">{error}</p>
+              )}
+              
+              {/* 按钮 */}
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => {
+                    setShowVerification(false);
+                    setVerificationPassword('');
+                    setVerificationCode('');
+                    setVerificationEmail('');
+                    setError('');
+                  }}
+                  className="flex-1 h-12 bg-bg-medium text-text-primary font-semibold rounded-lg hover:bg-bg-dark transition-all"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={handleSubmitVerification}
+                  disabled={loading || (verificationType === 'password' ? !verificationPassword : !verificationCode)}
+                  className="flex-1 h-12 bg-gradient-to-r from-primary-gold to-primary-dark-gold text-bg-darkest font-bold rounded-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                >
+                  {loading ? '验证中...' : '确认'}
+                </button>
+              </div>
             </div>
           </div>
         </div>

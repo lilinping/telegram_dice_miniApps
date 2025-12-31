@@ -20,7 +20,8 @@ import {
   RebateTurnover,
   PageModelRebateHistory,
   PageModelNotification,
-  PageModelBonus
+  PageModelBonus,
+  StopPeriod
 } from '@/lib/types'
 
 // 使用Next.js代理避免跨域问题
@@ -218,6 +219,20 @@ class ApiService {
     return this.request<boolean>(`/dice/revertAll/${gameId}`)
   }
 
+  /**
+   * 获取停盘时间段列表
+   */
+  async getStopTimes(): Promise<BackendResponse<StopPeriod[]>> {
+    return this.request<StopPeriod[]>(`/dice/showStopTimes`)
+  }
+
+  /**
+   * 查询当前是否处于停盘时间段
+   */
+  async getCurrentStopPeriod(): Promise<BackendResponse<StopPeriod | null>> {
+    return this.request<StopPeriod | null>(`/dice/showCurrentStopPeriod`)
+  }
+
   // ==================== 账户相关接口 ====================
 
   /**
@@ -258,6 +273,32 @@ class ApiService {
    */
   async createAddress(userId: string, address: string): Promise<BackendResponse<boolean>> {
     return this.request<boolean>(`/address/create/${userId}/${address}`, {
+      method: 'POST'
+    })
+  }
+  
+  /**
+   * 创建地址（使用密码验证）
+   * @param userId 用户ID
+   * @param address 钱包地址
+   * @param password 密码
+   * @returns BackendResponse<boolean>
+   */
+  async createAddressWithPassword(userId: string, address: string, password: string): Promise<BackendResponse<boolean>> {
+    return this.request<boolean>(`/address/createByPwd/${userId}/${address}/${password}`, {
+      method: 'POST'
+    })
+  }
+  
+  /**
+   * 创建地址（使用邮箱验证码）
+   * @param userId 用户ID
+   * @param address 钱包地址
+   * @param code 验证码
+   * @returns BackendResponse<boolean>
+   */
+  async createAddressWithCode(userId: string, address: string, code: string): Promise<BackendResponse<boolean>> {
+    return this.request<boolean>(`/address/create/${userId}/${address}/${code}`, {
       method: 'POST'
     })
   }
