@@ -39,11 +39,7 @@ export default function DiceCupAnimation({
   const diceResults = propDiceResults || contextDiceResults;
   // 输出来源调试：说明当前使用的是 prop 还是 context 的结果
   try {
-    console.log('🎲 DiceCupAnimation 使用的 diceResults 来源:', propDiceResults ? 'propDiceResults' : 'contextDiceResults', {
-      propDiceResults,
-      contextDiceResults,
-      resolved: diceResults,
-    });
+    console.log('🎲 DiceCupAnimation 初始化 - propDiceResults:', propDiceResults, 'contextDiceResults:', contextDiceResults, 'resolved:', diceResults, 'gameState:', gameState);
   } catch (e) {
     // ignore logging errors
   }
@@ -729,12 +725,16 @@ if (typeof window !== 'undefined') (window as any).__shakeStartTimeRef = shakeSt
           
           // 最终校正与稳定：确保骰子完全停在目标点数并消除微小平移漂移
           if (currentResults.length === 3) {
+            console.log('🎯 开始最终校正，目标结果:', currentResults);
             for (let i = 0; i < diceCount && i < currentResults.length; i++) {
               const body = diceBodiesRef.current[i];
               const mesh = diceMeshesRef.current[i];
               if (!body) continue;
-              
-              const targetQuat = correctDiceToNumber(body, currentResults[i]);
+
+              const targetNumber = currentResults[i];
+              console.log(`🎲 校正骰子 ${i}: 目标点数 ${targetNumber}`);
+
+              const targetQuat = correctDiceToNumber(body, targetNumber);
               // 直接设置朝向，并清零速度
               body.quaternion.copy(targetQuat);
               body.velocity.setZero();
@@ -747,17 +747,29 @@ if (typeof window !== 'undefined') (window as any).__shakeStartTimeRef = shakeSt
               body.position.y = Math.round(body.position.y * 1000) / 1000;
               body.position.z = Math.round(body.position.z * 1000) / 1000;
               body.sleep();
-              
+
               if (mesh) {
                 mesh.quaternion.copy(targetQuat as any);
                 // 将 mesh 位置与 body 严格同步
                 mesh.position.set(body.position.x, body.position.y, body.position.z);
               }
+
+              // 验证校正结果
+              const correctedNumbers = getCurrentDiceNumbers();
+              console.log(`✅ 骰子 ${i} 校正完成，检测结果:`, correctedNumbers);
+              if (correctedNumbers[i] !== targetNumber) {
+                console.error(`❌ 骰子 ${i} 校正失败! 期望: ${targetNumber}, 实际: ${correctedNumbers[i]}`);
+              }
             }
             hasCorrectedRef.current = true;
             // 标记本地状态：骰子已停止（用于在组件内显示结果面板）
             try { setDiceStopped(true); } catch (e) {}
-            console.log('✅ 骰子已自然停止到目标点数并已稳定:', currentResults);
+            const finalNumbers = getCurrentDiceNumbers();
+            console.log('✅ 骰子已自然停止到目标点数并已稳定:', {
+              target: currentResults,
+              final: finalNumbers,
+              match: JSON.stringify(finalNumbers) === JSON.stringify(currentResults)
+            });
             // 如果父组件提供了回调，通知外部动画已完成
             try {
               (onAnimationComplete as any)?.();
@@ -975,7 +987,7 @@ if (typeof window !== 'undefined') (window as any).__shakeStartTimeRef = shakeSt
 
   // 摇盅动画 - 初始化摇盅状态，实际动画在 animate 函数中执行
   const shakeDice = () => {
-    console.log('🎲 shakeDice 被调用, isShaking:', isShakingRef.current);
+    console.log('🎲 shakeDice 被调用, isShaking:', isShakingRef.current, 'diceResultsRef.current:', diceResultsRef.current, 'propDiceResults:', propDiceResults);
     if (isShakingRef.current || !glassCoverRef.current || !worldRef.current) {
       console.log('⚠️ shakeDice 提前返回');
       return;
@@ -1037,15 +1049,16 @@ if (typeof window !== 'undefined') (window as any).__shakeStartTimeRef = shakeSt
   const getCurrentDiceNumbers = (): number[] => {
     const results: number[] = [];
     const upVector = new CANNON.Vec3(0, 1, 0);
-    
+
     // 只检测前3个骰子（应该只有3个）
     const diceCount = Math.min(diceBodiesRef.current.length, 3);
-    
+
     for (let i = 0; i < diceCount; i++) {
       const body = diceBodiesRef.current[i];
       if (!body) continue;
-      // 六个面的法向量（根据 demo 的映射）
-      // 新映射：与 bodies.ts 的映射一致
+
+      // 六个面的法向量（与纹理映射和correctDiceToNumber函数一致）
+      // 纹理映射：+X:1, -X:6, +Y:2, -Y:5, +Z:3, -Z:4
       const faces = [
         { normal: new CANNON.Vec3(1, 0, 0), val: 1 },   // +X = 1点
         { normal: new CANNON.Vec3(-1, 0, 0), val: 6 },  // -X = 6点
@@ -1054,31 +1067,36 @@ if (typeof window !== 'undefined') (window as any).__shakeStartTimeRef = shakeSt
         { normal: new CANNON.Vec3(0, 0, 1), val: 3 },   // +Z = 3点
         { normal: new CANNON.Vec3(0, 0, -1), val: 4 },  // -Z = 4点
       ];
-      
+
       let maxDot = -1;
       let upNumber = 1;
-      
+
       faces.forEach(({ normal, val }) => {
         const worldNormal = new CANNON.Vec3();
         body.quaternion.vmult(normal, worldNormal);
         const dot = worldNormal.dot(upVector);
-        
+
         if (dot > maxDot) {
           maxDot = dot;
           upNumber = val;
         }
       });
-      
+
       results.push(upNumber);
     }
-    
+
     return results;
   };
 
   // 兜底强制设置骰子到目标点数（用于超时/settled 仍未对齐的情况）
   const forceSetDiceToResults = (reason: string) => {
     const diceCount = Math.min(diceBodiesRef.current.length, 3);
-    console.warn(`🛠️ 兜底强制设置骰子（原因: ${reason}）`, diceResults);
+    const currentNumbers = getCurrentDiceNumbers();
+    console.warn(`🛠️ 兜底强制设置骰子（原因: ${reason}）`, {
+      current: currentNumbers,
+      target: diceResults,
+      match: JSON.stringify(currentNumbers) === JSON.stringify(diceResults)
+    });
     for (let i = 0; i < diceCount && i < diceResults.length; i++) {
       const body = diceBodiesRef.current[i];
       const mesh = diceMeshesRef.current[i];
@@ -1094,7 +1112,7 @@ if (typeof window !== 'undefined') (window as any).__shakeStartTimeRef = shakeSt
       mesh.position.copy(body.position as any);
     }
     const finalNumbers = getCurrentDiceNumbers();
-    console.warn('🧾 兜底后的点数:', finalNumbers, '目标:', diceResults);
+    console.warn('🧾 兜底后的点数:', finalNumbers, '目标:', diceResults, '是否匹配:', JSON.stringify(finalNumbers) === JSON.stringify(diceResults));
     hasCorrectedRef.current = true;
     isCorrectingRef.current = false;
     correctionFrameCountRef.current = 0;
@@ -1152,30 +1170,48 @@ if (typeof window !== 'undefined') (window as any).__shakeStartTimeRef = shakeSt
   useEffect(() => {
     // 更新 ref，解决 animate 函数中的闭包问题
     diceResultsRef.current = diceResults;
-    
+
     // 当 diceResults 更新且有结果时，记录 key
     if (diceResults.length === 3) {
       const key = diceResults.join(',');
-      if (lastResultsKeyRef.current !== key) {
-        console.log('🆕 检测到新一局结果，记录 key:', diceResults);
+      const isNewResult = lastResultsKeyRef.current !== key;
+
+      if (isNewResult) {
+        console.log('🆕 检测到新一局结果，记录 key:', diceResults, '之前:', lastResultsKeyRef.current);
         lastResultsKeyRef.current = key;
-        // 只重置校正完成标志，不重置校正中标志
-        // 这样如果正在校正中，不会被打断
+
+        // 重置校正标志，让摇盅动画自然引导到目标结果
+        // 不要在这里立即校正，让 animate 函数中的引导逻辑处理
         hasCorrectedRef.current = false;
+        isCorrectingRef.current = false;
+        initialQuatsRef.current = [];
       }
-      
-      console.log('🔍 diceResults 已更新:', { diceResults, isShaking: isShakingRef.current, isCorrectingRef: isCorrectingRef.current });
-      // 注意：不在这里触发 correctDiceToResults()
-      // 引导由 animate 函数中的摇盅结束逻辑统一触发，避免重复执行
     }
+
+    console.log('🔍 diceResults 已更新:', {
+      diceResults,
+      isShaking: isShakingRef.current,
+      isCorrecting: isCorrectingRef.current,
+      hasCorrected: hasCorrectedRef.current,
+      currentRef: diceResultsRef.current
+    });
+    // 注意：不在这里触发 correctDiceToResults()
+    // 引导由 animate 函数中的摇盅结束逻辑统一触发，避免重复执行
   }, [diceResults]);
 
   // 根据游戏状态触发动画（仅依赖 gameState，避免 diceResults 更新时重复摇盅）
   useEffect(() => {
-    console.log('🎮 DiceCupAnimation gameState 变化:', gameState);
+    console.log('🎮 DiceCupAnimation gameState 变化:', gameState, 'diceResults:', diceResults);
 
     if (gameState === 'rolling') {
       console.log('🎲 开始 rolling 状态，准备摇盅动画');
+
+      // 只有当 diceResults 有有效数据时才开始摇盅
+      if (!diceResults || diceResults.length !== 3) {
+        console.log('⏳ diceResults 尚未准备好，等待数据...');
+        return;
+      }
+
       // 重置校正标志，不管摇盅状态
       hasCorrectedRef.current = false;
       isCorrectingRef.current = false;
@@ -1184,7 +1220,7 @@ if (typeof window !== 'undefined') (window as any).__shakeStartTimeRef = shakeSt
       initialVelocitiesRef.current = [];
       // 清空旧结果 key，等待新结果
       lastResultsKeyRef.current = null;
-      
+
       // 确保骰子被唤醒（如果它们处于 sleep 状态）
       const diceCount = Math.min(diceBodiesRef.current.length, 3);
       for (let i = 0; i < diceCount; i++) {
@@ -1202,7 +1238,7 @@ if (typeof window !== 'undefined') (window as any).__shakeStartTimeRef = shakeSt
       }
 
       // 立即开始摇盅
-      console.log('🎲 调用 shakeDice()');
+      console.log('🎲 调用 shakeDice()，目标结果:', diceResults);
       shakeDice();
       return;
     } else if (gameState === 'betting') {
