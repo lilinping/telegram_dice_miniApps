@@ -105,6 +105,14 @@ export interface DiceEntity {
   createTime: string
 }
 
+// 停盘时间段
+export interface StopPeriod {
+  id?: number
+  startTime: number | string
+  endTime: number | string
+  desc?: string
+}
+
 // ==================== 全局骰宝相关类型 ====================
 
 // 全局开奖结果

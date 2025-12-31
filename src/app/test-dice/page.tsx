@@ -14,6 +14,7 @@ import { WalletProvider } from '@/contexts/WalletContext';
 export default function TestDicePage() {
   const [testResults, setTestResults] = useState<number[]>([4, 5, 6]);
   const [isFullscreen, setIsFullscreen] = useState(true);
+  const [gameState, setGameState] = useState<'betting' | 'rolling' | 'settled'>('betting');
 
   const handleRandomTest = () => {
     const random = [
@@ -23,6 +24,20 @@ export default function TestDicePage() {
     ];
     setTestResults(random);
     console.log('🎲 测试结果:', random);
+  };
+
+  const startAnimation = () => {
+    console.log('🎯 开始测试动画，目标结果:', testResults);
+    setGameState('rolling');
+  };
+
+  const handleAnimationComplete = () => {
+    console.log('✅ 动画完成');
+    setGameState('settled');
+  };
+
+  const resetAnimation = () => {
+    setGameState('betting');
   };
 
   return (
@@ -73,15 +88,47 @@ export default function TestDicePage() {
                     cursor: 'pointer',
                     fontWeight: 'bold',
                     color: '#000',
+                    marginRight: '8px',
                   }}
                 >
                   随机测试
+                </button>
+                <button
+                  onClick={startAnimation}
+                  disabled={gameState === 'rolling'}
+                  style={{
+                    padding: '8px 16px',
+                    background: gameState === 'rolling' ? '#666' : '#4CAF50',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: gameState === 'rolling' ? 'not-allowed' : 'pointer',
+                    fontWeight: 'bold',
+                    color: '#fff',
+                    marginRight: '8px',
+                  }}
+                >
+                  开始动画
+                </button>
+                <button
+                  onClick={resetAnimation}
+                  style={{
+                    padding: '8px 16px',
+                    background: '#2196F3',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontWeight: 'bold',
+                    color: '#fff',
+                  }}
+                >
+                  重置
                 </button>
               </div>
 
               <div style={{ fontSize: '12px', color: '#888' }}>
                 <div>当前结果: {testResults.join(', ')}</div>
                 <div>总点数: {testResults.reduce((a, b) => a + b, 0)}</div>
+                <div>游戏状态: {gameState}</div>
               </div>
 
               <div style={{ marginTop: '10px', fontSize: '11px', color: '#666' }}>
@@ -93,10 +140,12 @@ export default function TestDicePage() {
             </div>
 
             {/* 骰子动画 */}
-            <DiceCupAnimation 
+            <DiceCupAnimation
               diceResults={testResults}
+              gameState={gameState}
               winAmount={100}
               hasWon={true}
+              onAnimationComplete={handleAnimationComplete}
             />
           </div>
         </GameProvider>

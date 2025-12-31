@@ -64,6 +64,9 @@ export default function GamePage() {
     hasWon,
     diceResults,
     diceOptions,
+    currentStopPeriod,
+    isBettingBlocked,
+    refreshStopPeriods,
   } = useGame();
 
   const { unreadCount } = useNotifications();
@@ -144,12 +147,21 @@ export default function GamePage() {
 
   const [showRules, setShowRules] = useState(false);
   const [showTrend, setShowTrend] = useState(false);
+  const [showSettingsPanel, setShowSettingsPanel] = useState(false);
 
   const betPanelWrapperRef = useRef<HTMLDivElement>(null);
   const betPanelContentRef = useRef<HTMLDivElement>(null);
+  const lastStopStateRef = useRef(isBettingBlocked);
   const [betPanelScale, setBetPanelScale] = useState<number | null>(null);
 
   const betsSnapshot = JSON.stringify(bets);
+
+  useEffect(() => {
+    if (isBettingBlocked && !lastStopStateRef.current) {
+      toast.warning(stopPeriodMessage());
+    }
+    lastStopStateRef.current = isBettingBlocked;
+  }, [isBettingBlocked]);
 
   useLayoutEffect(() => {
     const updateScale = () => {
@@ -192,6 +204,10 @@ export default function GamePage() {
 
   // 处理确认下注
   const handleConfirmBet = async () => {
+    if (isBettingBlocked) {
+      toast.warning(stopPeriodMessage());
+      return;
+    }
     // 验证下注金额
     if (totalBetAmount === 0) {
       toast.warning('请先选择投注项');
@@ -227,7 +243,7 @@ export default function GamePage() {
   };
 
   // 判断是否可以下注
-  const canBet = gameState === 'betting';
+  const canBet = gameState === 'betting' && !isBettingBlocked;
 
   return (
     <div className="flex flex-col h-screen overflow-hidden" style={{ background: 'var(--rich-black)' }}>
@@ -299,6 +315,22 @@ export default function GamePage() {
         </div>
       </header>
 
+      {/* 停盘提示 */}
+      {isBettingBlocked && (
+        <div className="px-3 py-2 bg-red-900/60 border-t border-b border-red-500/40 text-sm text-red-100 flex items-center justify-between">
+          <div className="flex flex-col">
+            <span className="font-semibold tracking-wide">停盘中</span>
+            <span>{stopPeriodMessage()}</span>
+          </div>
+          <button
+            onClick={() => refreshStopPeriods(true)}
+            className="px-3 py-1 rounded-lg text-xs font-bold border border-red-300/50 text-red-50"
+          >
+            重新检查
+          </button>
+        </div>
+      )}
+
       {/* 3D骰盅展示区 - 优化高度，在开奖时隐藏 */}
       {gameState === 'betting' && (
         <div
@@ -357,14 +389,7 @@ export default function GamePage() {
 
           {/* 设置按钮 - 音效和震动开关 */}
           <button
-            onClick={() => {
-              // 显示设置面板
-              const message = `音效: ${soundEnabled ? '开启' : '关闭'}\n震动: ${hapticEnabled ? '开启' : '关闭'}`;
-              if (confirm(`${message}\n\n点击确定切换设置`)) {
-                toggleSound();
-                toggleHaptic();
-              }
-            }}
+            onClick={() => setShowSettingsPanel(true)}
             className="w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-95"
             style={{
               background: 'rgba(42, 42, 42, 0.8)',
@@ -376,6 +401,89 @@ export default function GamePage() {
             <span className="text-lg">{soundEnabled || hapticEnabled ? '🔊' : '🔇'}</span>
           </button>
         </div>
+        </div>
+      )}
+
+      {showSettingsPanel && (
+        <div
+          className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 backdrop-blur-sm px-6"
+          onClick={() => setShowSettingsPanel(false)}
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl shadow-2xl border border-gold-primary/40"
+            style={{
+              background: 'linear-gradient(165deg, rgba(12,12,12,0.95) 0%, rgba(24,24,24,0.98) 100%)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-5 py-4 border-b border-white/5">
+              <div>
+                <p className="text-xs uppercase tracking-[0.2em] text-white/50">偏好设置</p>
+                <h3 className="text-lg font-semibold text-gold-primary">音效与震动</h3>
+              </div>
+              <button
+                className="w-8 h-8 rounded-full bg-white/5 text-white/70 hover:bg-white/10 transition"
+                onClick={() => setShowSettingsPanel(false)}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="px-5 py-4 space-y-4">
+              {[{
+                label: '音效反馈',
+                description: '下注与开奖提醒',
+                enabled: soundEnabled,
+                onToggle: toggleSound,
+                icon: '🎵',
+              }, {
+                label: '震动反馈',
+                description: '触觉振动提示',
+                enabled: hapticEnabled,
+                onToggle: toggleHaptic,
+                icon: '📳',
+              }].map((item) => (
+                <div
+                  key={item.label}
+                  className="flex items-center justify-between rounded-xl px-4 py-3 border"
+                  style={{
+                    borderColor: item.enabled ? 'rgba(255,215,94,0.4)' : 'rgba(255,255,255,0.08)',
+                    background: item.enabled ? 'rgba(255,215,94,0.08)' : 'rgba(255,255,255,0.03)',
+                  }}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl" aria-hidden="true">{item.icon}</span>
+                    <div className="flex flex-col">
+                      <span className="text-sm font-semibold text-white">{item.label}</span>
+                      <span className="text-xs text-white/60">{item.description}</span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={item.onToggle}
+                    className="px-3 py-1.5 rounded-full text-xs font-semibold transition-all"
+                    style={{
+                      background: item.enabled
+                        ? 'linear-gradient(135deg, var(--gold-primary) 0%, var(--gold-dark) 100%)'
+                        : 'rgba(255,255,255,0.08)',
+                      color: item.enabled ? '#1c1405' : 'rgba(255,255,255,0.7)',
+                      border: item.enabled ? '1px solid rgba(255,215,94,0.6)' : '1px solid rgba(255,255,255,0.1)',
+                    }}
+                  >
+                    {item.enabled ? '已开启' : '已关闭'}
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <div className="px-5 py-4 border-t border-white/5 flex justify-end gap-3">
+              <button
+                className="px-4 py-2 rounded-full text-sm text-white/70 hover:text-white"
+                onClick={() => setShowSettingsPanel(false)}
+              >
+                关闭
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

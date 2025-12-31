@@ -111,7 +111,7 @@ export function getDiceUpNumber(body: CANNON.Body): number {
 /**
  * 校正骰子到指定点数
  * 平滑过渡到目标旋转
- * 
+ *
  * 面映射（与 DiceCupAnimation 一致）：
  * +X:1, -X:6, +Y:2, -Y:5, +Z:3, -Z:4
  */
