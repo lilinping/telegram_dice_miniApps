@@ -859,7 +859,7 @@ export default function GlobalGamePage() {
       overflowX: 'hidden'
     }}>
       {/* 右侧浮动按钮组 - 优化小屏幕布局 */}
-      <div className="fixed top-40 right-1 z-40 flex flex-col items-center gap-3 max-[400px]:top-20 max-[400px]:right-0.5 max-[400px]:gap-2">
+      <div className="fixed top-40 right-1 z-40 flex flex-col items-center gap-3">
         {[{
           label: '切换到个人模式',
           icon: '🎲',

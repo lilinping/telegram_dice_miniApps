@@ -283,7 +283,7 @@ export default function BetPanel({ disabled = false, bets: propBets, onPlaceBet,
       </div>
 
       {/* 第四排：点数4-10 */}
-      <div className="grid max-[400px]:gap-[2px] mx-2" style={{ 
+      <div className="grid" style={{ 
         gridTemplateColumns: 'repeat(7, 1fr)',
         gap: '4px',
         justifyItems: 'stretch', 
@@ -307,12 +307,7 @@ export default function BetPanel({ disabled = false, bets: propBets, onPlaceBet,
       </div>
 
       {/* 第五排：点数11-17 */}
-      <div className="grid max-[400px]:gap-[2px] mx-2" style={{ 
-        gridTemplateColumns: 'repeat(7, 1fr)',
-        gap: '4px',
-        justifyItems: 'stretch', 
-        alignItems: 'stretch',
-      }}>
+      <div className="grid grid-cols-7 gap-1 max-[400px]:gap-0.5 justify-items-stretch items-stretch">
         {betTypes.numbersHigh.map((bet) => (
           <BetCell
             key={bet.id}
