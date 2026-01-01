@@ -302,12 +302,7 @@ export default function BetPanel({ disabled = false, bets: propBets, onPlaceBet,
       </div>
 
       {/* 第五排：点数11-17 */}
-      <div className="grid" style={{ 
-        gridTemplateColumns: 'repeat(7, 1fr)',
-        gap: '4px',
-        justifyItems: 'stretch', 
-        alignItems: 'stretch',
-      }}>
+      <div className="grid grid-cols-7 gap-1 justify-items-stretch items-stretch" >
         {betTypes.numbersHigh.map((bet) => (
           <BetCell
             key={bet.id}
