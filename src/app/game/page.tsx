@@ -67,6 +67,7 @@ export default function GamePage() {
     currentStopPeriod,
     isBettingBlocked,
     refreshStopPeriods,
+    getStopPeriodToastMessage,
   } = useGame();
 
   const { unreadCount } = useNotifications();
@@ -158,10 +159,10 @@ export default function GamePage() {
 
   useEffect(() => {
     if (isBettingBlocked && !lastStopStateRef.current) {
-      toast.warning(stopPeriodMessage());
+      toast.warning(getStopPeriodToastMessage());
     }
     lastStopStateRef.current = isBettingBlocked;
-  }, [isBettingBlocked]);
+  }, [isBettingBlocked, getStopPeriodToastMessage]);
 
   useLayoutEffect(() => {
     const updateScale = () => {
@@ -205,7 +206,7 @@ export default function GamePage() {
   // 处理确认下注
   const handleConfirmBet = async () => {
     if (isBettingBlocked) {
-      toast.warning(stopPeriodMessage());
+      toast.warning(getStopPeriodToastMessage());
       return;
     }
     // 验证下注金额
@@ -320,7 +321,7 @@ export default function GamePage() {
         <div className="px-3 py-2 bg-red-900/60 border-t border-b border-red-500/40 text-sm text-red-100 flex items-center justify-between">
           <div className="flex flex-col">
             <span className="font-semibold tracking-wide">停盘中</span>
-            <span>{stopPeriodMessage()}</span>
+            <span>{getStopPeriodToastMessage()}</span>
           </div>
           <button
             onClick={() => refreshStopPeriods(true)}

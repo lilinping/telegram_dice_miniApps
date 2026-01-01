@@ -64,6 +64,7 @@ interface GameContextType {
   currentStopPeriod: StopPeriod | null;
   isBettingBlocked: boolean;
   refreshStopPeriods: (force?: boolean) => Promise<void>;
+  getStopPeriodToastMessage: () => string;
 
   // 游戏控制
   startNewGame: () => Promise<void>;
@@ -759,6 +760,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         currentStopPeriod,
         isBettingBlocked,
         refreshStopPeriods,
+        getStopPeriodToastMessage,
         startNewGame,
         endCurrentGame,
       }}

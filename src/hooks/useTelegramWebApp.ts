@@ -94,7 +94,7 @@ export function useTelegramWebApp(config: TelegramWebAppConfig = {}) {
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('orientationchange', handleResize);
     };
-  }, [minHeight, backgroundColor, headerColor, enableClosingConfirmation]);
+  }, [minHeight, backgroundColor, headerColor, enableClosingConfirmation, config]);
 
   return {
     isConfigured: configAppliedRef.current,
