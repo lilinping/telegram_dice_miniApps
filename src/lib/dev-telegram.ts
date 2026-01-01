@@ -65,6 +65,7 @@ export function setupDevTelegram() {
       isExpanded: true,
       viewportHeight: Math.max(window.innerHeight, 600), // 最小高度 600px
       viewportStableHeight: Math.max(window.innerHeight, 600),
+      viewportWidth: Math.max(window.innerWidth, 414), // 最小宽度 414px
       headerColor: '#1a1a1a',
       backgroundColor: '#1a1a1a',
       isClosingConfirmationEnabled: false,
@@ -106,24 +107,30 @@ export function setupDevTelegram() {
       },
       ready() { 
         console.log('📱 Telegram WebApp ready (mock)');
-        // 模拟设置视口高度
+        // 模拟设置视口尺寸
         this.viewportHeight = Math.max(window.innerHeight, 600);
         this.viewportStableHeight = this.viewportHeight;
+        this.viewportWidth = Math.max(window.innerWidth, 414);
         this.isExpanded = true;
         
         // 设置 CSS 变量
         document.documentElement.style.setProperty('--tg-viewport-height', `${this.viewportHeight}px`);
+        document.documentElement.style.setProperty('--tg-viewport-width', `${this.viewportWidth}px`);
         document.body.style.minHeight = `${this.viewportHeight}px`;
+        document.body.style.minWidth = `${this.viewportWidth}px`;
       },
       expand() {
         console.log('📱 Telegram WebApp expand (mock)');
         this.isExpanded = true;
         this.viewportHeight = Math.max(window.innerHeight, 600);
         this.viewportStableHeight = this.viewportHeight;
+        this.viewportWidth = Math.max(window.innerWidth, 414);
         
         // 更新 CSS 变量
         document.documentElement.style.setProperty('--tg-viewport-height', `${this.viewportHeight}px`);
+        document.documentElement.style.setProperty('--tg-viewport-width', `${this.viewportWidth}px`);
         document.body.style.minHeight = `${this.viewportHeight}px`;
+        document.body.style.minWidth = `${this.viewportWidth}px`;
         
         // 触发视口变化事件
         const webApp = this;
@@ -132,6 +139,7 @@ export function setupDevTelegram() {
             webApp._triggerEvent('viewportChanged', {
               height: this.viewportHeight,
               stableHeight: this.viewportStableHeight,
+              width: this.viewportWidth,
               isExpanded: this.isExpanded
             });
           }, 100);
@@ -153,6 +161,28 @@ export function setupDevTelegram() {
             webApp._triggerEvent('viewportChanged', {
               height: this.viewportHeight,
               stableHeight: this.viewportStableHeight,
+              width: this.viewportWidth,
+              isExpanded: this.isExpanded
+            });
+          }, 50);
+        }
+      },
+      setViewportWidth(width: number) {
+        console.log('📱 设置视口宽度:', width);
+        this.viewportWidth = width;
+        
+        // 更新 CSS 变量和 body 样式
+        document.documentElement.style.setProperty('--tg-viewport-width', `${width}px`);
+        document.body.style.minWidth = `${width}px`;
+        
+        // 触发视口变化事件
+        const webApp = this;
+        if (webApp._triggerEvent && typeof webApp._triggerEvent === 'function') {
+          setTimeout(() => {
+            webApp._triggerEvent('viewportChanged', {
+              height: this.viewportHeight,
+              stableHeight: this.viewportStableHeight,
+              width: this.viewportWidth,
               isExpanded: this.isExpanded
             });
           }, 50);

@@ -20,6 +20,7 @@ export function debugTelegramWebApp() {
     // 视口信息
     viewportHeight: tg.viewportHeight,
     viewportStableHeight: tg.viewportStableHeight,
+    viewportWidth: tg.viewportWidth,
     isExpanded: tg.isExpanded,
     
     // 主题信息
@@ -35,6 +36,7 @@ export function debugTelegramWebApp() {
       ready: typeof tg.ready === 'function',
       expand: typeof tg.expand === 'function',
       setViewportHeight: typeof tg.setViewportHeight === 'function',
+      setViewportWidth: typeof tg.setViewportWidth === 'function',
       setBackgroundColor: typeof tg.setBackgroundColor === 'function',
       setHeaderColor: typeof tg.setHeaderColor === 'function',
       onEvent: typeof tg.onEvent === 'function',
@@ -53,11 +55,13 @@ export function debugTelegramWebApp() {
     cssVariables: {
       tgViewportHeight: getComputedStyle(document.documentElement).getPropertyValue('--tg-viewport-height'),
       tgViewportStableHeight: getComputedStyle(document.documentElement).getPropertyValue('--tg-viewport-stable-height'),
+      tgViewportWidth: getComputedStyle(document.documentElement).getPropertyValue('--tg-viewport-width'),
     },
     
     // Body 样式
     bodyStyles: {
       minHeight: document.body.style.minHeight,
+      minWidth: document.body.style.minWidth,
       backgroundColor: document.body.style.backgroundColor,
     }
   };
@@ -96,6 +100,17 @@ export function testTelegramWebAppConfig() {
     }, 100);
   } else {
     console.log('❌ setViewportHeight() 方法不可用');
+  }
+
+  // 测试设置视口宽度
+  if (typeof tg.setViewportWidth === 'function') {
+    console.log('✅ 测试 setViewportWidth(450)');
+    tg.setViewportWidth(450);
+    setTimeout(() => {
+      console.log('📏 设置后的视口宽度:', tg.viewportWidth);
+    }, 100);
+  } else {
+    console.log('❌ setViewportWidth() 方法不可用');
   }
 
   // 测试设置背景颜色

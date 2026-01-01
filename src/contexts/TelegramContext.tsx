@@ -44,6 +44,7 @@ export function TelegramProvider({ children }: { children: ReactNode }) {
   // 应用 Telegram WebApp 配置
   useTelegramWebApp({
     minHeight: 600,
+    minWidth: 414,
     backgroundColor: '#0A0A0A',
     headerColor: '#1a1a1a',
     enableClosingConfirmation: false,

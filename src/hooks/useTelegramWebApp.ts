@@ -7,6 +7,7 @@ import { useEffect, useRef, useCallback } from 'react';
 
 interface TelegramWebAppConfig {
   minHeight?: number;
+  minWidth?: number;
   backgroundColor?: string;
   headerColor?: string;
   enableClosingConfirmation?: boolean;
@@ -15,6 +16,7 @@ interface TelegramWebAppConfig {
 export function useTelegramWebApp(config: TelegramWebAppConfig = {}) {
   const {
     minHeight = 600,
+    minWidth = 414,
     backgroundColor = '#0A0A0A',
     headerColor = '#1a1a1a',
     enableClosingConfirmation = false,
@@ -88,8 +90,9 @@ export function useTelegramWebApp(config: TelegramWebAppConfig = {}) {
         tg.BackButton.hide();
       }
 
-      // 6. 尝试设置视口高度（如果支持）
+      // 6. 尝试设置视口尺寸（如果支持）
       const targetHeight = Math.max(window.innerHeight, minHeight);
+      const targetWidth = Math.max(window.innerWidth, minWidth);
       
       // 方法1: 使用 setViewportHeight（如果存在）
       if (typeof tg.setViewportHeight === 'function') {
@@ -102,6 +105,17 @@ export function useTelegramWebApp(config: TelegramWebAppConfig = {}) {
         tg.viewportHeight = targetHeight;
         tg.viewportStableHeight = targetHeight;
         console.log('📏 直接设置视口高度属性:', targetHeight);
+      }
+
+      // 方法3: 尝试设置宽度（如果支持）
+      if (typeof tg.setViewportWidth === 'function') {
+        tg.setViewportWidth(targetWidth);
+        console.log('📏 使用 setViewportWidth 设置宽度:', targetWidth);
+      }
+      
+      if (tg.viewportWidth !== undefined) {
+        tg.viewportWidth = targetWidth;
+        console.log('📏 直接设置视口宽度属性:', targetWidth);
       }
 
       // 7. 强制触发视口更新事件
@@ -119,9 +133,17 @@ export function useTelegramWebApp(config: TelegramWebAppConfig = {}) {
       // 8. 设置 CSS 变量作为备用方案
       document.documentElement.style.setProperty('--tg-viewport-height', `${targetHeight}px`);
       document.documentElement.style.setProperty('--tg-viewport-stable-height', `${targetHeight}px`);
+      document.documentElement.style.setProperty('--tg-viewport-width', `${targetWidth}px`);
       
-      // 9. 强制设置 body 最小高度
+      // 9. 强制设置 body 最小尺寸
       document.body.style.minHeight = `${targetHeight}px`;
+      document.body.style.minWidth = `${targetWidth}px`;
+      
+      // 10. 设置容器最小宽度，确保内容不会过窄
+      const mainElement = document.querySelector('main');
+      if (mainElement) {
+        (mainElement as HTMLElement).style.minWidth = `${targetWidth}px`;
+      }
       
       console.log('✅ Telegram WebApp 配置完成');
       return true;
@@ -160,8 +182,9 @@ export function useTelegramWebApp(config: TelegramWebAppConfig = {}) {
       const tg = (window as any).Telegram?.WebApp;
       if (tg) {
         const targetHeight = Math.max(window.innerHeight, minHeight);
+        const targetWidth = Math.max(window.innerWidth, minWidth);
         
-        // 尝试多种方法设置高度
+        // 尝试多种方法设置尺寸
         if (typeof tg.setViewportHeight === 'function') {
           tg.setViewportHeight(targetHeight);
         }
@@ -170,11 +193,26 @@ export function useTelegramWebApp(config: TelegramWebAppConfig = {}) {
           tg.viewportStableHeight = targetHeight;
         }
         
+        if (typeof tg.setViewportWidth === 'function') {
+          tg.setViewportWidth(targetWidth);
+        }
+        if (tg.viewportWidth !== undefined) {
+          tg.viewportWidth = targetWidth;
+        }
+        
         // 更新 CSS 变量
         document.documentElement.style.setProperty('--tg-viewport-height', `${targetHeight}px`);
+        document.documentElement.style.setProperty('--tg-viewport-width', `${targetWidth}px`);
         document.body.style.minHeight = `${targetHeight}px`;
+        document.body.style.minWidth = `${targetWidth}px`;
         
-        console.log('📏 窗口大小变化，重新设置视口高度:', targetHeight);
+        // 更新主容器
+        const mainElement = document.querySelector('main');
+        if (mainElement) {
+          (mainElement as HTMLElement).style.minWidth = `${targetWidth}px`;
+        }
+        
+        console.log('📏 窗口大小变化，重新设置视口尺寸:', { height: targetHeight, width: targetWidth });
       }
     };
 
@@ -199,7 +237,7 @@ export function useTelegramWebApp(config: TelegramWebAppConfig = {}) {
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('orientationchange', handleResize);
     };
-  }, [applyConfig, minHeight]);
+  }, [applyConfig, minHeight, minWidth]);
 
   return {
     isConfigured: configAppliedRef.current,
