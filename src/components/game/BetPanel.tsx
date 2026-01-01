@@ -124,10 +124,10 @@ export default function BetPanel({ disabled = false, bets: propBets, onPlaceBet,
   };
 
   return (
-    <div className="px-2 py-1 space-y-1 max-[400px]:px-1">
+    <div className="px-2 py-1 space-y-1 max-[400px]:pl-1 pr-14">
       {/* 第一排：小 / 单 / 任意三 / 双 / 大 （浅色瓷片风格） */}
       <div
-        className="grid gap-1 max-[400px]:gap-0.5"
+        className="grid gap-1"
         style={{
           gridTemplateColumns: '1.35fr 0.75fr 1.45fr 0.75fr 1.35fr',
         }}
@@ -155,7 +155,7 @@ export default function BetPanel({ disabled = false, bets: propBets, onPlaceBet,
       </div>
 
       {/* 第二排：双骰（对子）- 可下注 */}
-      <div className="grid gap-1 max-[400px]:gap-0.5"
+      <div className="grid gap-1∂ß"
         style={{
           gridTemplateColumns: 'repeat(6, 1fr)',
         }}

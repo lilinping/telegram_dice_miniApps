@@ -858,8 +858,8 @@ export default function GlobalGamePage() {
       background: 'radial-gradient(circle at 50% 35%, #0d5a30 0%, #0b3f24 45%, #09261c 100%)',
       overflowX: 'hidden'
     }}>
-      {/* 右侧浮动按钮组 */}
-      <div className="fixed top-40 right-1 z-40 flex flex-col items-center gap-3">
+      {/* 右侧浮动按钮组 - 优化小屏幕布局 */}
+      <div className="fixed top-40 right-1 z-40 flex flex-col items-center gap-3 max-[400px]:top-20 max-[400px]:right-0.5 max-[400px]:gap-2">
         {[{
           label: '切换到个人模式',
           icon: '🎲',
@@ -877,13 +877,13 @@ export default function GlobalGamePage() {
             key={action.label}
             onClick={action.onClick}
             aria-label={action.label}
-            className="w-10 h-10 rounded-full border border-[#ffcc4d]/40 shadow-lg active:scale-95 transition-all flex items-center justify-center"
+            className="w-10 h-10 rounded-full border border-[#ffcc4d]/40 shadow-lg active:scale-95 transition-all flex items-center justify-center max-[400px]:w-8 max-[400px]:h-8"
             style={{
               background: 'radial-gradient(circle, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.9) 100%)',
               boxShadow: '0 6px 16px rgba(0,0,0,0.35)',
             }}
           >
-            <span className="text-2xl" role="img" aria-hidden="true">
+            <span className="text-2xl max-[400px]:text-lg" role="img" aria-hidden="true">
               {action.icon}
             </span>
           </button>
@@ -1211,7 +1211,7 @@ export default function GlobalGamePage() {
       {/* 投注面板 */}
       <div
         ref={betPanelWrapperRef}
-        className="flex-1 overflow-hidden"
+        className="flex-1 overflow-hidden max-[400px]:pr-10"
         style={{
           paddingBottom: '8px',
           paddingLeft: '4px',
