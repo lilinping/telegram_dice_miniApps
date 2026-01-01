@@ -124,7 +124,7 @@ export default function BetPanel({ disabled = false, bets: propBets, onPlaceBet,
   };
 
   return (
-    <div className="px-2 py-1 space-y-1 max-[400px]:pl-1 pr-14">
+    <div className="px-2 py-1 space-y-1 max-[400px]:pl-1 pr-10">
       {/* 第一排：小 / 单 / 任意三 / 双 / 大 （浅色瓷片风格） */}
       <div
         className="grid gap-1"
@@ -283,60 +283,55 @@ export default function BetPanel({ disabled = false, bets: propBets, onPlaceBet,
       </div>
 
       {/* 第四排：点数4-10 */}
-      <div>
-        <div className="grid max-[400px]:gap-[2px]" style={{ 
-          gridTemplateColumns: 'repeat(7, 1fr)',
-          gap: '4px',
-          justifyItems: 'stretch', 
-          alignItems: 'stretch',
-        }}>
-          {betTypes.numbersLow.map((bet) => (
-            <BetCell
-              key={bet.id}
-              id={bet.id}
-              name={bet.name}
-              odds={getOdds(bet.id)}
-              amount={bets[bet.id] || 0}
-              onClick={() => placeBet(bet.id)}
-              disabled={disabled}
-              type="points"
-              size="small"
-              theme={theme}
-              policyText={getPolicyText(bet.id)}
-            />
-          ))}
-        </div>
+      <div className="grid max-[400px]:gap-[2px]" style={{ 
+        gridTemplateColumns: 'repeat(7, 1fr)',
+        gap: '4px',
+        justifyItems: 'stretch', 
+        alignItems: 'stretch',
+      }}>
+        {betTypes.numbersLow.map((bet) => (
+          <BetCell
+            key={bet.id}
+            id={bet.id}
+            name={bet.name}
+            odds={getOdds(bet.id)}
+            amount={bets[bet.id] || 0}
+            onClick={() => placeBet(bet.id)}
+            disabled={disabled}
+            type="points"
+            size="small"
+            theme={theme}
+            policyText={getPolicyText(bet.id)}
+          />
+        ))}
       </div>
 
       {/* 第五排：点数11-17 */}
-      <div>
-        <div className="grid max-[400px]:gap-[2px]" style={{ 
-          gridTemplateColumns: 'repeat(7, 1fr)',
-          gap: '4px',
-          justifyItems: 'stretch', 
-          alignItems: 'stretch',
-        }}>
-          {betTypes.numbersHigh.map((bet) => (
-            <BetCell
-              key={bet.id}
-              id={bet.id}
-              name={bet.name}
-              odds={getOdds(bet.id)}
-              amount={bets[bet.id] || 0}
-              onClick={() => placeBet(bet.id)}
-              disabled={disabled}
-              type="points"
-              size="small"
-              theme={theme}
-              policyText={getPolicyText(bet.id)}
-            />
-          ))}
-        </div>
+      <div className="grid max-[400px]:gap-[2px]" style={{ 
+        gridTemplateColumns: 'repeat(7, 1fr)',
+        gap: '4px',
+        justifyItems: 'stretch', 
+        alignItems: 'stretch',
+      }}>
+        {betTypes.numbersHigh.map((bet) => (
+          <BetCell
+            key={bet.id}
+            id={bet.id}
+            name={bet.name}
+            odds={getOdds(bet.id)}
+            amount={bets[bet.id] || 0}
+            onClick={() => placeBet(bet.id)}
+            disabled={disabled}
+            type="points"
+            size="small"
+            theme={theme}
+            policyText={getPolicyText(bet.id)}
+          />
+        ))}
       </div>
 
       {/* 第六排：两骰组合（3行5列）- 显示骰子图案 */}
-      <div>
-        <div className="grid grid-cols-5 gap-1 max-[400px]:gap-0.5">
+      <div className="grid grid-cols-5 gap-1 max-[400px]:gap-0.5">
           {betTypes.pairs.map((bet) => {
             const odds = getOdds(bet.id);
             return (
@@ -388,12 +383,10 @@ export default function BetPanel({ disabled = false, bets: propBets, onPlaceBet,
               </button>
             );
           })}
-        </div>
       </div>
 
       {/* 第七排：单骰号1-6 - 显示骰子图案（2行3列） */}
-      <div>
-        <div className="grid grid-cols-3 gap-1 max-[400px]:gap-0.5">
+      <div className="grid grid-cols-3 gap-1 max-[400px]:gap-0.5">
           {betTypes.single.map((bet) => {
             // 中文数字映射
             const chineseNumbers = ['一', '二', '三', '四', '五', '六']
@@ -453,7 +446,6 @@ export default function BetPanel({ disabled = false, bets: propBets, onPlaceBet,
             </button>
             );
           })}
-        </div>
       </div>
 
       {/* 底部说明 */}
