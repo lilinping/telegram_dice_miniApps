@@ -283,7 +283,7 @@ export default function BetPanel({ disabled = false, bets: propBets, onPlaceBet,
       </div>
 
       {/* 第四排：点数4-10 */}
-      <div className="grid max-[400px]:gap-[2px]" style={{ 
+      <div className="grid max-[400px]:gap-[2px] mx-2" style={{ 
         gridTemplateColumns: 'repeat(7, 1fr)',
         gap: '4px',
         justifyItems: 'stretch', 
@@ -307,7 +307,7 @@ export default function BetPanel({ disabled = false, bets: propBets, onPlaceBet,
       </div>
 
       {/* 第五排：点数11-17 */}
-      <div className="grid max-[400px]:gap-[2px]" style={{ 
+      <div className="grid max-[400px]:gap-[2px] mx-2" style={{ 
         gridTemplateColumns: 'repeat(7, 1fr)',
         gap: '4px',
         justifyItems: 'stretch', 
