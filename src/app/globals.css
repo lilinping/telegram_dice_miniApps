@@ -505,6 +505,30 @@
     }
   }
 
+  @media (max-width: 400px) {
+    /* 下注区域优化 - 宽度小于400px */
+    .bet-panel-compact {
+      padding-left: 4px;
+      padding-right: 4px;
+    }
+    
+    .bet-button-compact {
+      padding: 2px;
+      min-height: 48px;
+    }
+    
+    .bet-button-pairs-compact {
+      padding: 2px;
+      min-height: 36px;
+    }
+    
+    .bet-button-single-compact {
+      padding: 4px 8px;
+      min-height: 40px;
+      gap: 4px;
+    }
+  }
+
   @media (max-width: 360px) {
     /* 超小屏幕设备优化 */
     .mobile-ultra-compact {
