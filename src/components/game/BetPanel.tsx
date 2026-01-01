@@ -155,7 +155,7 @@ export default function BetPanel({ disabled = false, bets: propBets, onPlaceBet,
       </div>
 
       {/* 第二排：双骰（对子）- 可下注 */}
-      <div className="grid gap-1∂ß"
+      <div className="grid gap-1"
         style={{
           gridTemplateColumns: 'repeat(6, 1fr)',
         }}
@@ -283,12 +283,7 @@ export default function BetPanel({ disabled = false, bets: propBets, onPlaceBet,
       </div>
 
       {/* 第四排：点数4-10 */}
-      <div className="grid" style={{ 
-        gridTemplateColumns: 'repeat(7, 1fr)',
-        gap: '4px',
-        justifyItems: 'stretch', 
-        alignItems: 'stretch',
-      }}>
+      <div className="grid grid-cols-7 gap-1 justify-items-stretch items-stretch">
         {betTypes.numbersLow.map((bet) => (
           <BetCell
             key={bet.id}
@@ -307,7 +302,12 @@ export default function BetPanel({ disabled = false, bets: propBets, onPlaceBet,
       </div>
 
       {/* 第五排：点数11-17 */}
-      <div className="grid grid-cols-7 gap-1 max-[400px]:gap-0.5 justify-items-stretch items-stretch">
+      <div className="grid" style={{ 
+        gridTemplateColumns: 'repeat(7, 1fr)',
+        gap: '4px',
+        justifyItems: 'stretch', 
+        alignItems: 'stretch',
+      }}>
         {betTypes.numbersHigh.map((bet) => (
           <BetCell
             key={bet.id}

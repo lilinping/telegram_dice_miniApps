@@ -110,7 +110,7 @@ export default function BetCell({
 
   // 尺寸样式
   const sizeStyles = {
-    small: 'min-w-[55px] max-[400px]:min-w-[38px] min-h-[60px] p-sm text-tiny',
+    small: 'min-w-[55px] max-[400px]:min-w-[30px] min-h-[60px] p-sm text-tiny',
     medium: 'min-w-[65px] min-h-[75px] p-sm',
     large: 'min-w-[110px] min-h-[100px] p-md',
   };
