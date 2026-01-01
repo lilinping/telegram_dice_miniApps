@@ -56,8 +56,8 @@ export function setupDevTelegram() {
         secondary_bg_color: '#2a2a2a',
       },
       isExpanded: true,
-      viewportHeight: window.innerHeight,
-      viewportStableHeight: window.innerHeight,
+      viewportHeight: Math.max(window.innerHeight, 600), // 最小高度 600px
+      viewportStableHeight: Math.max(window.innerHeight, 600),
       headerColor: '#1a1a1a',
       backgroundColor: '#1a1a1a',
       isClosingConfirmationEnabled: false,
@@ -97,8 +97,32 @@ export function setupDevTelegram() {
         notificationOccurred(type: 'error' | 'success' | 'warning') {},
         selectionChanged() {},
       },
-      ready() { console.log('📱 Telegram WebApp ready (mock)'); },
-      expand() {},
+      ready() { 
+        console.log('📱 Telegram WebApp ready (mock)');
+        // 模拟设置视口高度
+        this.viewportHeight = Math.max(window.innerHeight, 600);
+        this.viewportStableHeight = this.viewportHeight;
+      },
+      expand() {
+        console.log('📱 Telegram WebApp expand (mock)');
+        this.isExpanded = true;
+        this.viewportHeight = Math.max(window.innerHeight, 600);
+        this.viewportStableHeight = this.viewportHeight;
+      },
+      setViewportHeight(height: number) {
+        console.log('📱 设置视口高度:', height);
+        this.viewportHeight = height;
+        this.viewportStableHeight = height;
+      },
+      setBackgroundColor(color: string) {
+        console.log('📱 设置背景颜色:', color);
+        this.backgroundColor = color;
+        document.body.style.backgroundColor = color;
+      },
+      setHeaderColor(color: string) {
+        console.log('📱 设置头部颜色:', color);
+        this.headerColor = color;
+      },
       close() {},
       enableClosingConfirmation() {},
       disableClosingConfirmation() {},

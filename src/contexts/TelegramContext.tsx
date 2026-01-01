@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState, useRef, ReactNode } from 'react';
 import { apiService } from '@/lib/api';
 import { BackendUser } from '@/lib/types';
+import { useTelegramWebApp } from '@/hooks/useTelegramWebApp';
 
 interface TelegramUser {
   id: number;
@@ -39,6 +40,14 @@ export function TelegramProvider({ children }: { children: ReactNode }) {
   const initializationRef = useRef(false);
   const lastUserIdRef = useRef<number | null>(null);
   const pollTimerRef = useRef<number | null>(null);
+  
+  // 应用 Telegram WebApp 配置
+  useTelegramWebApp({
+    minHeight: 600,
+    backgroundColor: '#0A0A0A',
+    headerColor: '#1a1a1a',
+    enableClosingConfirmation: false,
+  });
   // 检查 Telegram WebApp 中当前用户是否变化（可在多账号/切换场景使用）
   const checkTelegramUser = () => {
     try {

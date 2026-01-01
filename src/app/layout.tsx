@@ -32,7 +32,7 @@ export const metadata: Metadata = {
   title: '骰宝夺宝 | DiceTreasure - Telegram骰宝游戏',
   description: 'Telegram生态内首款移动优先、高沉浸感的实时骰宝游戏，融合即时动画、社交互动与加密货币支付',
   keywords: '骰宝,Sic Bo,Telegram游戏,加密货币,USDT,TON,区块链游戏',
-  viewport: 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no',
+  viewport: 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover',
   themeColor: '#8B0000',
   manifest: '/manifest.json',
   icons: {
@@ -60,8 +60,8 @@ export default function RootLayout({
           <NotificationProvider>
             <WalletProvider>
               <GameProvider>
-                {/* 主内容区域 */}
-                <main className="relative min-h-screen pb-16">
+                {/* 主内容区域 - 添加 Telegram WebApp 视口类 */}
+                <main className="tg-viewport relative min-h-screen pb-16">
                   {children}
                 </main>
 
