@@ -1,3 +1,5 @@
+import { exposeTelegramDebugTools } from '@/utils/telegramDebug';
+
 /**
  * 开发环境 Telegram WebApp 模拟工具
  * 用于在本地开发时模拟 Telegram 环境
@@ -11,6 +13,8 @@ export function setupDevTelegram() {
   // 如果已经有 Telegram WebApp，不需要模拟
   if (window.Telegram?.WebApp) {
     console.log('✅ Telegram WebApp 已存在');
+    // 但仍然暴露调试工具
+    exposeTelegramDebugTools();
     return;
   }
 
@@ -36,6 +40,9 @@ export function setupDevTelegram() {
 
   // 保存到 localStorage
   localStorage.setItem('telegram_init_data', mockInitData);
+
+  // 创建事件处理器存储
+  const eventHandlers: { [key: string]: Function[] } = {};
 
   // 创建模拟的 Telegram WebApp 对象
   // 使用 as any 避免类型检查问题
@@ -102,22 +109,69 @@ export function setupDevTelegram() {
         // 模拟设置视口高度
         this.viewportHeight = Math.max(window.innerHeight, 600);
         this.viewportStableHeight = this.viewportHeight;
+        this.isExpanded = true;
+        
+        // 设置 CSS 变量
+        document.documentElement.style.setProperty('--tg-viewport-height', `${this.viewportHeight}px`);
+        document.body.style.minHeight = `${this.viewportHeight}px`;
       },
       expand() {
         console.log('📱 Telegram WebApp expand (mock)');
         this.isExpanded = true;
         this.viewportHeight = Math.max(window.innerHeight, 600);
         this.viewportStableHeight = this.viewportHeight;
+        
+        // 更新 CSS 变量
+        document.documentElement.style.setProperty('--tg-viewport-height', `${this.viewportHeight}px`);
+        document.body.style.minHeight = `${this.viewportHeight}px`;
+        
+        // 触发视口变化事件
+        const webApp = this;
+        if (webApp._triggerEvent && typeof webApp._triggerEvent === 'function') {
+          setTimeout(() => {
+            webApp._triggerEvent('viewportChanged', {
+              height: this.viewportHeight,
+              stableHeight: this.viewportStableHeight,
+              isExpanded: this.isExpanded
+            });
+          }, 100);
+        }
       },
       setViewportHeight(height: number) {
         console.log('📱 设置视口高度:', height);
         this.viewportHeight = height;
         this.viewportStableHeight = height;
+        
+        // 更新 CSS 变量和 body 样式
+        document.documentElement.style.setProperty('--tg-viewport-height', `${height}px`);
+        document.body.style.minHeight = `${height}px`;
+        
+        // 触发视口变化事件
+        const webApp = this;
+        if (webApp._triggerEvent && typeof webApp._triggerEvent === 'function') {
+          setTimeout(() => {
+            webApp._triggerEvent('viewportChanged', {
+              height: this.viewportHeight,
+              stableHeight: this.viewportStableHeight,
+              isExpanded: this.isExpanded
+            });
+          }, 50);
+        }
       },
       setBackgroundColor(color: string) {
         console.log('📱 设置背景颜色:', color);
         this.backgroundColor = color;
+        this.themeParams.bg_color = color;
+        this.themeParams.secondary_bg_color = color;
         document.body.style.backgroundColor = color;
+        
+        // 触发主题变化事件
+        const webApp = this;
+        if (webApp._triggerEvent && typeof webApp._triggerEvent === 'function') {
+          setTimeout(() => {
+            webApp._triggerEvent('themeChanged');
+          }, 50);
+        }
       },
       setHeaderColor(color: string) {
         console.log('📱 设置头部颜色:', color);
@@ -126,8 +180,33 @@ export function setupDevTelegram() {
       close() {},
       enableClosingConfirmation() {},
       disableClosingConfirmation() {},
-      onEvent(eventType: string, eventHandler: () => void) {},
-      offEvent(eventType: string, eventHandler: () => void) {},
+      onEvent(eventType: string, eventHandler: (data?: any) => void) {
+        if (!eventHandlers[eventType]) {
+          eventHandlers[eventType] = [];
+        }
+        eventHandlers[eventType].push(eventHandler);
+        console.log('📱 注册事件监听器:', eventType);
+      },
+      offEvent(eventType: string, eventHandler: (data?: any) => void) {
+        if (eventHandlers[eventType]) {
+          const index = eventHandlers[eventType].indexOf(eventHandler);
+          if (index > -1) {
+            eventHandlers[eventType].splice(index, 1);
+          }
+        }
+      },
+      // 内部方法：触发事件
+      _triggerEvent(eventType: string, data?: any) {
+        if (eventHandlers[eventType]) {
+          eventHandlers[eventType].forEach((handler: any) => {
+            try {
+              handler(data);
+            } catch (e) {
+              console.error('事件处理器错误:', e);
+            }
+          });
+        }
+      },
       sendData(data: string) {},
       openLink(url: string, options?: { try_instant_view?: boolean }) {},
       openTelegramLink(url: string) {},
@@ -162,4 +241,13 @@ export function setupDevTelegram() {
   console.log('✅ Telegram WebApp 模拟完成');
   console.log('👤 模拟用户:', mockUser);
   console.log('🔑 initData:', mockInitData.substring(0, 50) + '...');
+  
+  // 暴露调试工具
+  exposeTelegramDebugTools();
+  
+  // 自动运行一次调试信息
+  setTimeout(() => {
+    console.log('🔍 自动运行调试信息:');
+    (window as any).debugTelegramWebApp?.();
+  }, 1000);
 }
