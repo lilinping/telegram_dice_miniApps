@@ -3,15 +3,15 @@ const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
   
-  // 禁用自动尾部斜杠处理
-  trailingSlash: false,
-  skipTrailingSlashRedirect: true,
-
-  // 优化图片加载
+  // 静态导出配置
+  output: 'export',
+  trailingSlash: true,
   images: {
-    domains: ['images.unsplash.com', 'cdn.pixabay.com', 'images.pexels.com'],
-    formats: ['image/webp', 'image/avif'],
+    unoptimized: true,
   },
+  
+  // 禁用自动尾部斜杠处理
+  skipTrailingSlashRedirect: true,
 
   // 移动端优先优化
   compiler: {
@@ -36,9 +36,6 @@ const nextConfig = {
       },
     ]
   },
-
-  // API 代理现在通过 API Routes 实现 (src/app/api/backend/[...path]/route.ts)
-  // 不再需要 rewrites 配置
 
   // Telegram WebApp环境变量
   env: {

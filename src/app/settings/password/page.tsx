@@ -64,24 +64,37 @@ export default function ChangePasswordPage() {
       }
 
       try {
+        // 设置超时时间
+        const timeout = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('请求超时')), 10000)
+        );
+
         // 同时检查密码和邮箱状态
-        const [passwordResponse, emailResponse, accountResponse] = await Promise.all([
-          apiService.hasSetPassword(targetUserId),
-          apiService.hasSetEmail(targetUserId),
-          apiService.queryAccount(targetUserId)
-        ]);
+        const [passwordResponse, emailResponse, accountResponse] = await Promise.race([
+          Promise.all([
+            apiService.hasSetPassword(targetUserId),
+            apiService.hasSetEmail(targetUserId),
+            apiService.queryAccount(targetUserId)
+          ]),
+          timeout
+        ]) as any;
         
         if (passwordResponse.success) {
           setHasPassword(passwordResponse.data);
           setMode(passwordResponse.data ? 'reset' : 'set');
         } else {
-          toast.error('检查密码状态失败');
+          console.warn('检查密码状态失败:', passwordResponse.message);
+          // 默认假设未设置密码
+          setHasPassword(false);
+          setMode('set');
         }
         
         if (emailResponse.success) {
           setHasEmail(emailResponse.data);
         } else {
-          toast.error('检查邮箱状态失败');
+          console.warn('检查邮箱状态失败:', emailResponse.message);
+          // 默认假设未设置邮箱
+          setHasEmail(false);
         }
 
         // 获取当前邮箱地址（从账户信息中）
@@ -92,7 +105,16 @@ export default function ChangePasswordPage() {
         }
       } catch (error) {
         console.error('检查状态失败:', error);
-        toast.error('检查状态失败');
+        // 网络错误时使用默认值，不阻塞用户操作
+        setHasPassword(false);
+        setHasEmail(false);
+        setMode('set');
+        
+        if (error instanceof Error && error.message === '请求超时') {
+          toast.error('网络连接超时，请检查网络连接');
+        } else {
+          toast.error('无法连接到服务器，请稍后重试');
+        }
       } finally {
         setLoading(false);
       }
