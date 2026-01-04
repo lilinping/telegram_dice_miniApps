@@ -6,7 +6,7 @@
 
 ### 1. 解压静态文件
 ```bash
-tar -xzf static-20260103-103308.tar.gz
+tar -xzf static-20260104-151447.tar.gz
 ```
 
 ### 2. 部署到 Web 服务器

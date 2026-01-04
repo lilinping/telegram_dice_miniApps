@@ -55,13 +55,35 @@ export default function ChangePasswordPage() {
   const [emailCodeCountdown, setEmailCodeCountdown] = useState(0);
   const [submitting, setSubmitting] = useState(false);
 
+  // 初始化时设置一个超时，确保页面不会无限加载
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (loading) {
+        console.log('Force ending loading state after 5 seconds');
+        setLoading(false);
+        setHasPassword(false);
+        setHasEmail(false);
+        setMode('set');
+      }
+    }, 5000);
+
+    return () => clearTimeout(timer);
+  }, [loading]);
+
   // 检查是否已设置密码和邮箱
   useEffect(() => {
     const checkStatus = async () => {
+      // 如果没有targetUserId，设置默认状态并结束加载
       if (!targetUserId) {
+        console.log('No targetUserId, setting default state');
+        setHasPassword(false);
+        setHasEmail(false);
+        setMode('set');
         setLoading(false);
         return;
       }
+
+      console.log('Checking status for userId:', targetUserId);
 
       try {
         // 设置超时时间
@@ -78,6 +100,8 @@ export default function ChangePasswordPage() {
           ]),
           timeout
         ]) as any;
+        
+        console.log('API responses:', { passwordResponse, emailResponse, accountResponse });
         
         if (passwordResponse.success) {
           setHasPassword(passwordResponse.data);
@@ -120,9 +144,8 @@ export default function ChangePasswordPage() {
       }
     };
 
-    if (targetUserId) {
-      checkStatus();
-    }
+    // 总是执行检查，不管targetUserId是否存在
+    checkStatus();
   }, [targetUserId]);
 
   // 验证码倒计时
