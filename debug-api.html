@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API 连接测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #0A0A0A;
+            color: #fff;
+        }
+        .test-section {
+            background: #1a1a1a;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            border: 1px solid #333;
+        }
+        button {
+            background: #FFD700;
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            opacity: 0.9;
+        }
+        .result {
+            background: #2a2a2a;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .success { border-left: 4px solid #4CAF50; }
+        .error { border-left: 4px solid #f44336; }
+        input {
+            background: #2a2a2a;
+            color: #fff;
+            border: 1px solid #555;
+            padding: 8px;
+            border-radius: 4px;
+            margin: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>API 连接测试工具</h1>
+    
+    <div class="test-section">
+        <h3>基础配置</h3>
+        <label>API 地址: </label>
+        <input type="text" id="apiUrl" value="http://46.250.168.177:8079" style="width: 300px;">
+        <br>
+        <label>用户ID: </label>
+        <input type="text" id="userId" value="6784471903" style="width: 150px;">
+        <button onclick="testConnection()">测试连接</button>
+    </div>
+
+    <div class="test-section">
+        <h3>API 测试</h3>
+        <button onclick="testHasSetPassword()">检查密码状态</button>
+        <button onclick="testHasSetEmail()">检查邮箱状态</button>
+        <button onclick="testQueryAccount()">查询账户信息</button>
+        <button onclick="testAllAPIs()">测试所有API</button>
+    </div>
+
+    <div class="test-section">
+        <h3>测试结果</h3>
+        <div id="results"></div>
+    </div>
+
+    <script>
+        function log(message, type = 'info') {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `result ${type}`;
+            div.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            results.appendChild(div);
+            results.scrollTop = results.scrollHeight;
+        }
+
+        async function makeRequest(endpoint, options = {}) {
+            const apiUrl = document.getElementById('apiUrl').value;
+            const url = `${apiUrl}${endpoint}`;
+            
+            log(`发送请求: ${options.method || 'GET'} ${url}`);
+            
+            try {
+                const response = await fetch(url, {
+                    method: options.method || 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...options.headers
+                    },
+                    mode: 'cors',
+                    ...options
+                });
+
+                log(`响应状态: ${response.status} ${response.statusText}`);
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`HTTP ${response.status}: ${errorText}`);
+                }
+
+                const data = await response.json();
+                log(`响应数据: ${JSON.stringify(data, null, 2)}`, 'success');
+                return data;
+            } catch (error) {
+                log(`请求失败: ${error.message}`, 'error');
+                throw error;
+            }
+        }
+
+        async function testConnection() {
+            log('开始测试基础连接...');
+            try {
+                const response = await fetch(document.getElementById('apiUrl').value, {
+                    method: 'HEAD',
+                    mode: 'cors'
+                });
+                log(`连接测试成功: ${response.status}`, 'success');
+            } catch (error) {
+                log(`连接测试失败: ${error.message}`, 'error');
+            }
+        }
+
+        async function testHasSetPassword() {
+            const userId = document.getElementById('userId').value;
+            if (!userId) {
+                log('请输入用户ID', 'error');
+                return;
+            }
+            
+            try {
+                await makeRequest(`/account/hasSetPassword/${userId}`);
+            } catch (error) {
+                // 错误已经在 makeRequest 中记录
+            }
+        }
+
+        async function testHasSetEmail() {
+            const userId = document.getElementById('userId').value;
+            if (!userId) {
+                log('请输入用户ID', 'error');
+                return;
+            }
+            
+            try {
+                await makeRequest(`/account/hasSetEmail/${userId}`);
+            } catch (error) {
+                // 错误已经在 makeRequest 中记录
+            }
+        }
+
+        async function testQueryAccount() {
+            const userId = document.getElementById('userId').value;
+            if (!userId) {
+                log('请输入用户ID', 'error');
+                return;
+            }
+            
+            try {
+                await makeRequest(`/account/query/${userId}`);
+            } catch (error) {
+                // 错误已经在 makeRequest 中记录
+            }
+        }
+
+        async function testAllAPIs() {
+            log('开始测试所有相关API...');
+            await testConnection();
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            await testHasSetPassword();
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            await testHasSetEmail();
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            await testQueryAccount();
+            log('所有API测试完成');
+        }
+
+        // 页面加载时自动测试连接
+        window.onload = function() {
+            log('页面加载完成，开始自动测试...');
+            testConnection();
+        };
+    </script>
+</body>
+</html>
