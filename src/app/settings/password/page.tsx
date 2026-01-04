@@ -34,8 +34,15 @@ export default function ChangePasswordPage() {
   const [mode, setMode] = useState<'set' | 'reset' | 'code' | 'recover'>('set'); // set: 设置初始密码, reset: 使用旧密码, code: 使用验证码, recover: 恢复账号
   const [showAddEmail, setShowAddEmail] = useState(false); // 是否显示添加邮箱表单
   
-  // UID输入
-  const [targetUserId, setTargetUserId] = useState<string>(userId ? String(userId) : '');
+  // UID输入 - 当user加载完成后自动设置
+  const [targetUserId, setTargetUserId] = useState<string>('');
+  
+  // 当user加载完成后，自动设置targetUserId
+  useEffect(() => {
+    if (userId && !targetUserId) {
+      setTargetUserId(String(userId));
+    }
+  }, [userId, targetUserId]);
   
   // 表单数据
   const [oldPassword, setOldPassword] = useState('');
@@ -55,35 +62,16 @@ export default function ChangePasswordPage() {
   const [emailCodeCountdown, setEmailCodeCountdown] = useState(0);
   const [submitting, setSubmitting] = useState(false);
 
-  // 初始化时设置一个超时，确保页面不会无限加载
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (loading) {
-        console.log('Force ending loading state after 5 seconds');
-        setLoading(false);
-        setHasPassword(false);
-        setHasEmail(false);
-        setMode('set');
-      }
-    }, 5000);
-
-    return () => clearTimeout(timer);
-  }, [loading]);
-
   // 检查是否已设置密码和邮箱
   useEffect(() => {
     const checkStatus = async () => {
-      // 如果没有targetUserId，设置默认状态并结束加载
+      // 如果没有targetUserId，直接返回，等待用户ID加载
       if (!targetUserId) {
-        console.log('No targetUserId, setting default state');
-        setHasPassword(false);
-        setHasEmail(false);
-        setMode('set');
-        setLoading(false);
         return;
       }
 
       console.log('Checking status for userId:', targetUserId);
+      setLoading(true);
 
       try {
         // 设置超时时间
@@ -144,7 +132,6 @@ export default function ChangePasswordPage() {
       }
     };
 
-    // 总是执行检查，不管targetUserId是否存在
     checkStatus();
   }, [targetUserId]);
 
