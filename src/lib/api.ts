@@ -24,8 +24,8 @@ import {
   StopPeriod
 } from '@/lib/types'
 
-// 静态部署：直接调用后端API
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://your-backend-api.com'
+// API配置：所有接口都使用 /api/backend 前缀
+const API_BASE_URL = '/api/backend'
 
 class ApiService {
   private baseUrl: string

@@ -2,20 +2,16 @@
 
 ## 部署方式
 
-这是一个纯静态的 React 应用，可以直接部署到任何静态文件服务器。
+这是一个 React 应用，支持两种部署方式：
 
-### 1. 解压静态文件
+### 方式一：静态部署 + Nginx代理（推荐）
+
+#### 1. 解压静态文件
 ```bash
 tar -xzf static-20260105-100753.tar.gz
 ```
 
-### 2. 部署到 Web 服务器
-
-#### 方式一：Nginx（推荐）
-将 `out/` 目录内容复制到 nginx 的 web 根目录：
-```bash
-cp -r out/* /var/www/html/
-```
+#### 2. 配置 Nginx 代理
 
 **重要的 Nginx 配置**：
 ```nginx
@@ -25,25 +21,46 @@ server {
     root /var/www/html;
     index index.html;
 
-    # 支持 SPA 路由
+    # 静态文件
     location / {
         try_files $uri $uri/ $uri.html /index.html;
     }
 
-    # 静态资源缓存和正确的 MIME 类型
+    # API代理 - 关键配置
+    location /api/backend/ {
+        # 移除 /api/backend 前缀，转发到后端
+        rewrite ^/api/backend/(.*)$ /$1 break;
+        
+        # 代理到后端服务器
+        proxy_pass http://46.250.168.177:8079;
+        
+        # 代理头设置
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        
+        # 转发所有头信息（包括 initData）
+        proxy_pass_request_headers on;
+        
+        # CORS 设置
+        add_header Access-Control-Allow-Origin *;
+        add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS";
+        add_header Access-Control-Allow-Headers "Content-Type, initData, Authorization";
+        
+        # 处理 OPTIONS 请求
+        if ($request_method = 'OPTIONS') {
+            add_header Access-Control-Allow-Origin *;
+            add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS";
+            add_header Access-Control-Allow-Headers "Content-Type, initData, Authorization";
+            return 204;
+        }
+    }
+
+    # 静态资源缓存
     location /_next/static/ {
         expires 1y;
         add_header Cache-Control "public, immutable";
-        
-        # 确保 JS 文件有正确的 MIME 类型
-        location ~* \.js$ {
-            add_header Content-Type application/javascript;
-        }
-        
-        # 确保 CSS 文件有正确的 MIME 类型
-        location ~* \.css$ {
-            add_header Content-Type text/css;
-        }
     }
 
     # 字体文件
@@ -53,6 +70,25 @@ server {
         add_header Access-Control-Allow-Origin "*";
     }
 }
+```
+
+### 方式二：Next.js 服务器部署
+
+如果你想使用完整的 Next.js 服务器（支持API路由）：
+
+#### 1. 安装依赖并构建
+```bash
+npm install
+npm run build
+npm start
+```
+
+#### 2. 使用 PM2 管理进程
+```bash
+npm install -g pm2
+pm2 start npm --name "dice-app" -- start
+pm2 save
+pm2 startup
 ```
 
 #### 方式二：Apache
