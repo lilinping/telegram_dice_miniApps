@@ -37,7 +37,8 @@ async function handleRequest(
 ) {
   try {
     const path = params.path.join('/')
-    const url = `${BACKEND_URL}/${path}`
+    // 重要：保持 /api/backend 前缀，因为后端服务器需要这个路径
+    const url = `${BACKEND_URL}/api/backend/${path}`
     
     // 获取查询参数
     const searchParams = request.nextUrl.searchParams
