@@ -23,12 +23,11 @@ export default function InviteCard({ className }: { className?: string }) {
   const loadInviteCount = async () => {
     if (!user) return;
     try {
-      const resp = await fetch(`/api/backend/account/invite/count/${user.id}`, { method: 'GET' });
-      const res = await resp.json();
-      if (res && (res.success || res.code === 200)) {
-        setCount(Number(res.data) || 0);
+      const response = await apiService.getInviteCount(String(user.id));
+      if (response.success) {
+        setCount(Number(response.data) || 0);
       } else {
-        console.warn('Failed to load invite count', res);
+        console.warn('Failed to load invite count', response.message);
       }
     } catch (e) {
       console.error('loadInviteCount error', e);
@@ -40,10 +39,9 @@ export default function InviteCard({ className }: { className?: string }) {
     setLoading(true);
     setGenerateStatus('idle');
     try {
-      const resp = await fetch(`/api/backend/account/invite/generate/${user.id}`, { method: 'GET' });
-      const res = await resp.json();
-      if (res && (res.success || res.code === 200) && res.data) {
-        const link = String(res.data);
+      const response = await apiService.generateInviteLink(String(user.id));
+      if (response.success && response.data) {
+        const link = String(response.data);
         setInviteLink(link);
         await loadInviteCount();
         // 打开预览弹窗并加载被邀请用户列表
@@ -55,7 +53,7 @@ export default function InviteCard({ className }: { className?: string }) {
       } else {
         // 显示失败原因
         // eslint-disable-next-line no-alert
-        alert(res?.message || '生成邀请链接失败');
+        alert(response?.message || '生成邀请链接失败');
         setGenerateStatus('error');
       }
     } catch (e) {

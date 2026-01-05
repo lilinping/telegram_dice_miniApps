@@ -174,12 +174,11 @@ export default function ProfilePage() {
   const loadInviteCount = async () => {
     if (!user?.id) return;
     try {
-      const resp = await fetch(`/api/backend/account/invite/count/${user.id}`, { method: 'GET' });
-      const res = await resp.json();
-      if (res && (res.success || res.code === 200)) {
-        setInviteCount(Number(res.data) || 0);
+      const response = await apiService.getInviteCount(String(user.id));
+      if (response.success) {
+        setInviteCount(Number(response.data) || 0);
       } else {
-        console.warn('加载邀请数失败', res);
+        console.warn('加载邀请数失败', response.message);
       }
     } catch (e) {
       console.error('loadInviteCount error', e);
@@ -190,18 +189,17 @@ export default function ProfilePage() {
     if (!user?.id) return;
     setInviteLoading(true);
     try {
-      const resp = await fetch(`/api/backend/account/invite/generate/${user.id}`, { method: 'GET' });
-      const res = await resp.json();
-      if (res && (res.success || res.code === 200) && res.data) {
-        const link = String(res.data);
+      const response = await apiService.generateInviteLink(String(user.id));
+      if (response.success && response.data) {
+        const link = String(response.data);
         setInviteLink(link);
         await loadInviteCount();
         // 打开本地 Modal 显示链接（不要依赖 Telegram showPopup）
         setShowInviteModal(true);
       } else {
-        console.warn('生成邀请链接失败', res);
+        console.warn('生成邀请链接失败', response.message);
         // eslint-disable-next-line no-alert
-        alert(res?.message || '生成邀请链接失败');
+        alert(response?.message || '生成邀请链接失败');
       }
     } catch (e) {
       console.error('generateInviteLink error', e);

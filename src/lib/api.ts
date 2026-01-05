@@ -706,6 +706,26 @@ class ApiService {
     return this.request<PageModelBonus>(`/user/bonus/query/${userId}/${pageIndex}/${pageSize}`)
   }
 
+  // ==================== 邀请相关接口 ====================
+
+  /**
+   * 获取邀请人数
+   * @param userId 用户ID
+   * @returns BackendResponse<number>
+   */
+  async getInviteCount(userId: string): Promise<BackendResponse<number>> {
+    return this.request<number>(`/account/invite/count/${userId}`)
+  }
+
+  /**
+   * 生成邀请链接
+   * @param userId 用户ID
+   * @returns BackendResponse<string>
+   */
+  async generateInviteLink(userId: string): Promise<BackendResponse<string>> {
+    return this.request<string>(`/account/invite/generate/${userId}`)
+  }
+
 }
 
 // 导出单例实例

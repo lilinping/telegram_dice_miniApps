@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { apiService } from '@/lib/api';
 
 export default function TestAPIPage() {
   const [result, setResult] = useState<string>('');
@@ -11,20 +12,12 @@ export default function TestAPIPage() {
     setResult('测试中...');
 
     try {
-      // 测试 GET 请求
-      const response = await fetch('/api/backend/dice/display', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'initData': 'mock_init_data_for_testing',
-        },
-      });
-
-      const data = await response.text();
+      // 测试 getDiceDisplay API
+      const response = await apiService.getDiceDisplay();
       
       setResult(`
-状态码: ${response.status}
-响应: ${data}
+状态码: ${response.success ? '200' : '错误'}
+响应: ${JSON.stringify(response, null, 2)}
       `);
     } catch (error) {
       setResult(`错误: ${error instanceof Error ? error.message : '未知错误'}`);
