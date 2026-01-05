@@ -24,8 +24,10 @@ import {
   StopPeriod
 } from '@/lib/types'
 
-// API配置：静态部署时直接调用后端完整地址
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://46.250.168.177:8079'
+// API 基础地址配置
+// 生产环境：使用代理路径 /api/backend
+// 开发环境：可以直接调用后端 API 或使用代理
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '/api/backend'
 
 class ApiService {
   private baseUrl: string
@@ -106,7 +108,7 @@ class ApiService {
    * @returns BackendResponse<boolean>
    */
   async initUser(user: BackendUser): Promise<BackendResponse<boolean>> {
-    return this.request<boolean>('/api/backend/user/init/', {
+    return this.request<boolean>('/user/init/', {
       method: 'POST',
       body: JSON.stringify(user),
     })
@@ -120,7 +122,7 @@ class ApiService {
    * @returns BackendResponse<string> - 返回gameId
    */
   async startGame(userId: string): Promise<BackendResponse<string>> {
-    return this.request<string>(`/api/backend/dice/start/${userId}`)
+    return this.request<string>(`/dice/start/${userId}`)
   }
 
   /**
@@ -131,7 +133,7 @@ class ApiService {
    * @returns BackendResponse<boolean>
    */
   async placeBet(gameId: string, chooseId: number, bet: string): Promise<BackendResponse<boolean>> {
-    return this.request<boolean>(`/api/backend/dice/bet/${gameId}/${chooseId}/${bet}`)
+    return this.request<boolean>(`/dice/bet/${gameId}/${chooseId}/${bet}`)
   }
 
   /**
@@ -141,7 +143,7 @@ class ApiService {
     gameId: string,
     betItems: { chooseId: number; bet: number }[]
   ): Promise<BackendResponse<boolean>> {
-    return this.request<boolean>(`/api/backend/dice/multiBet/${gameId}`, {
+    return this.request<boolean>(`/dice/multiBet/${gameId}`, {
       method: 'POST',
       body: JSON.stringify({ bets: betItems }),
     })
@@ -153,7 +155,7 @@ class ApiService {
    * @returns BackendResponse<DiceEntity>
    */
   async queryGame(gameId: string): Promise<BackendResponse<DiceEntity>> {
-    return this.request<DiceEntity>(`/api/backend/dice/query/${gameId}`)
+    return this.request<DiceEntity>(`/dice/query/${gameId}`)
   }
 
   /**
@@ -162,7 +164,7 @@ class ApiService {
    * @returns BackendResponse<boolean>
    */
   async endGame(gameId: string): Promise<BackendResponse<boolean>> {
-    return this.request<boolean>(`/api/backend/dice/end/${gameId}`)
+    return this.request<boolean>(`/dice/end/${gameId}`)
   }
 
   /**
@@ -177,7 +179,7 @@ class ApiService {
     pageIndex: number = 1,
     pageSize: number = 10
   ): Promise<BackendResponse<PageModelDiceEntity>> {
-    return this.request<PageModelDiceEntity>(`/api/backend/dice/history/${userId}/${pageIndex}/${pageSize}`)
+    return this.request<PageModelDiceEntity>(`/dice/history/${userId}/${pageIndex}/${pageSize}`)
   }
 
   /**
@@ -186,7 +188,7 @@ class ApiService {
    * @returns BackendResponse<DiceStatisticEntity>
    */
   async getUserStatistics(userId: string): Promise<BackendResponse<DiceStatisticEntity>> {
-    return this.request<DiceStatisticEntity>(`/api/backend/dice/statistics/${userId}`)
+    return this.request<DiceStatisticEntity>(`/dice/statistics/${userId}`)
   }
 
   /**
@@ -194,7 +196,7 @@ class ApiService {
    * @returns BackendResponse<Map<number, DiceChooseVO>>
    */
   async getDiceDisplay(): Promise<BackendResponse<Map<number, DiceChooseVO>>> {
-    return this.request<Map<number, DiceChooseVO>>('/api/backend/dice/display')
+    return this.request<Map<number, DiceChooseVO>>('/dice/display')
   }
 
   /**
@@ -204,7 +206,7 @@ class ApiService {
    * @returns BackendResponse<boolean>
    */
   async revertBet(gameId: string, chooseId: number): Promise<BackendResponse<boolean>> {
-    return this.request<boolean>(`/api/backend/dice/revert/${gameId}/${chooseId}`)
+    return this.request<boolean>(`/dice/revert/${gameId}/${chooseId}`)
   }
 
   /**
@@ -213,21 +215,21 @@ class ApiService {
    * @returns BackendResponse<boolean>
    */
   async revertAllBets(gameId: string): Promise<BackendResponse<boolean>> {
-    return this.request<boolean>(`/api/backend/dice/revertAll/${gameId}`)
+    return this.request<boolean>(`/dice/revertAll/${gameId}`)
   }
 
   /**
    * 获取停盘时间段列表
    */
   async getStopTimes(): Promise<BackendResponse<StopPeriod[]>> {
-    return this.request<StopPeriod[]>(`/api/backend/dice/showStopTimes`)
+    return this.request<StopPeriod[]>(`/dice/showStopTimes`)
   }
 
   /**
    * 查询当前是否处于停盘时间段
    */
   async getCurrentStopPeriod(): Promise<BackendResponse<StopPeriod | null>> {
-    return this.request<StopPeriod | null>(`/api/backend/dice/showCurrentStopPeriod`)
+    return this.request<StopPeriod | null>(`/dice/showCurrentStopPeriod`)
   }
 
   // ==================== 账户相关接口 ====================
@@ -238,7 +240,7 @@ class ApiService {
    * @returns BackendResponse<AccountModel>
    */
   async queryAccount(userId: string): Promise<BackendResponse<AccountModel>> {
-    return this.request<AccountModel>(`/api/backend/account/query/${userId}`)
+    return this.request<AccountModel>(`/account/query/${userId}`)
   }
 
   /**
@@ -248,7 +250,7 @@ class ApiService {
    * @returns BackendResponse<boolean>
    */
   async rechargeAccount(userId: string, money: string): Promise<BackendResponse<boolean>> {
-    return this.request<boolean>(`/api/backend/account/recharge/${userId}/${money}`)
+    return this.request<boolean>(`/account/recharge/${userId}/${money}`)
   }
 
   // ==================== 地址管理相关接口 ====================
@@ -259,7 +261,7 @@ class ApiService {
    * @returns BackendResponse<AddressEntity[]>
    */
   async getAddressList(userId: string): Promise<BackendResponse<AddressEntity[]>> {
-    return this.request<AddressEntity[]>(`/api/backend/address/list/${userId}`)
+    return this.request<AddressEntity[]>(`/address/list/${userId}`)
   }
 
   /**
@@ -269,7 +271,7 @@ class ApiService {
    * @returns BackendResponse<boolean>
    */
   async createAddress(userId: string, address: string): Promise<BackendResponse<boolean>> {
-    return this.request<boolean>(`/api/backend/address/create/${userId}/${address}`, {
+    return this.request<boolean>(`/address/create/${userId}/${address}`, {
       method: 'POST'
     })
   }
@@ -282,7 +284,7 @@ class ApiService {
    * @returns BackendResponse<boolean>
    */
   async createAddressWithPassword(userId: string, address: string, password: string): Promise<BackendResponse<boolean>> {
-    return this.request<boolean>(`/api/backend/address/createByPwd/${userId}/${address}/${password}`, {
+    return this.request<boolean>(`/address/createByPwd/${userId}/${address}/${password}`, {
       method: 'POST'
     })
   }
@@ -295,7 +297,7 @@ class ApiService {
    * @returns BackendResponse<boolean>
    */
   async createAddressWithCode(userId: string, address: string, code: string): Promise<BackendResponse<boolean>> {
-    return this.request<boolean>(`/api/backend/address/create/${userId}/${address}/${code}`, {
+    return this.request<boolean>(`/address/create/${userId}/${address}/${code}`, {
       method: 'POST'
     })
   }
@@ -307,7 +309,7 @@ class ApiService {
    * @returns BackendResponse<boolean>
    */
   async deleteAddress(addressId: number, userId: string): Promise<BackendResponse<boolean>> {
-    return this.request<boolean>(`/api/backend/address/delete/${addressId}/${userId}`, {
+    return this.request<boolean>(`/address/delete/${addressId}/${userId}`, {
       method: 'DELETE'
     })
   }
@@ -319,7 +321,7 @@ class ApiService {
    * @returns BackendResponse<boolean>
    */
   async setDefaultAddress(addressId: number, userId: string): Promise<BackendResponse<boolean>> {
-    return this.request<boolean>(`/api/backend/address/set/default/${addressId}/${userId}`, {
+    return this.request<boolean>(`/address/set/default/${addressId}/${userId}`, {
       method: 'POST'
     })
   }
@@ -332,7 +334,7 @@ class ApiService {
    * @returns BackendResponse<boolean> - true: 免手续费, false: 不免手续费
    */
   async checkFreeWithdrawal(userId: string): Promise<BackendResponse<boolean>> {
-    return this.request<boolean>(`/api/backend/account/take/free/usdt/${userId}`, {
+    return this.request<boolean>(`/account/take/free/usdt/${userId}`, {
       method: 'POST'
     })
   }
@@ -344,7 +346,7 @@ class ApiService {
    * @returns BackendResponse<WithdrawalOrderResponse>
    */
   async withdrawUsdt(userId: string, amount: string): Promise<BackendResponse<WithdrawalOrderResponse>> {
-    return this.request<WithdrawalOrderResponse>(`/api/backend/account/take/usdt/${userId}/${amount}`, {
+    return this.request<WithdrawalOrderResponse>(`/account/take/usdt/${userId}/${amount}`, {
       method: 'POST'
     })
   }
@@ -361,7 +363,7 @@ class ApiService {
     pageIndex: number = 1,
     pageSize: number = 10
   ): Promise<BackendResponse<PageModel<WithdrawalOrder>>> {
-    return this.request<PageModel<WithdrawalOrder>>(`/api/backend/account/take/history/usdt/${userId}/${pageIndex}/${pageSize}`)
+    return this.request<PageModel<WithdrawalOrder>>(`/account/take/history/usdt/${userId}/${pageIndex}/${pageSize}`)
   }
 
   // ==================== 账户密码相关接口 ====================
@@ -372,7 +374,7 @@ class ApiService {
    * @returns BackendResponse<boolean>
    */
   async hasSetPassword(userId: string): Promise<BackendResponse<boolean>> {
-    return this.request<boolean>(`/api/backend/account/hasSetPassword/${userId}`)
+    return this.request<boolean>(`/account/hasSetPassword/${userId}`)
   }
 
   /**
@@ -381,7 +383,7 @@ class ApiService {
    * @returns BackendResponse<boolean>
    */
   async hasSetEmail(userId: string): Promise<BackendResponse<boolean>> {
-    return this.request<boolean>(`/api/backend/account/hasSetEmail/${userId}`)
+    return this.request<boolean>(`/account/hasSetEmail/${userId}`)
   }
 
   /**
@@ -391,7 +393,7 @@ class ApiService {
    * @returns BackendResponse<boolean>
    */
   async sendCodeForCreateEmail(userId: string, email: string): Promise<BackendResponse<boolean>> {
-    return this.request<boolean>(`/api/backend/account/sendCode/createEmail/${userId}/${email}`)
+    return this.request<boolean>(`/account/sendCode/createEmail/${userId}/${email}`)
   }
 
   /**
@@ -400,7 +402,7 @@ class ApiService {
    * @returns BackendResponse<boolean>
    */
   async sendCodeForUpdateEmail(userId: string): Promise<BackendResponse<boolean>> {
-    return this.request<boolean>(`/api/backend/account/sendCode/updateEmail/${userId}`)
+    return this.request<boolean>(`/account/sendCode/updateEmail/${userId}`)
   }
 
   /**
@@ -411,7 +413,7 @@ class ApiService {
    * @returns BackendResponse<boolean>
    */
   async createEmail(userId: string, email: string, code: string): Promise<BackendResponse<boolean>> {
-    return this.request<boolean>(`/api/backend/account/mail/createEmail/${userId}/${email}/${code}`)
+    return this.request<boolean>(`/account/mail/createEmail/${userId}/${email}/${code}`)
   }
 
   /**
@@ -422,7 +424,7 @@ class ApiService {
    * @returns BackendResponse<boolean>
    */
   async updateEmail(userId: string, newEmail: string, code: string): Promise<BackendResponse<boolean>> {
-    return this.request<boolean>(`/api/backend/account/mail/updateEmail/${userId}/${newEmail}/${code}`)
+    return this.request<boolean>(`/account/mail/updateEmail/${userId}/${newEmail}/${code}`)
   }
 
   /**
@@ -432,7 +434,7 @@ class ApiService {
    * @returns BackendResponse<boolean>
    */
   async setPassword(userId: string, password: string): Promise<BackendResponse<boolean>> {
-    return this.request<boolean>(`/api/backend/account/setpassword/${userId}/${password}`)
+    return this.request<boolean>(`/account/setpassword/${userId}/${password}`)
   }
 
   /**
@@ -442,7 +444,7 @@ class ApiService {
    * @returns BackendResponse<boolean>
    */
   async sendCodeForUpdatePassword(userId: string, email: string): Promise<BackendResponse<boolean>> {
-    return this.request<boolean>(`/api/backend/account/sendCode/updatePassword/${userId}/${email}`)
+    return this.request<boolean>(`/account/sendCode/updatePassword/${userId}/${email}`)
   }
 
   /**
@@ -453,7 +455,7 @@ class ApiService {
    * @returns BackendResponse<boolean>
    */
   async resetPassword(userId: string, newPassword: string, oldPassword: string): Promise<BackendResponse<boolean>> {
-    return this.request<boolean>(`/api/backend/account/resetPassword/${userId}/${newPassword}/${oldPassword}`)
+    return this.request<boolean>(`/account/resetPassword/${userId}/${newPassword}/${oldPassword}`)
   }
 
   /**
@@ -471,7 +473,7 @@ class ApiService {
     // 但密码中的特殊字符（如 # / ?）必须编码，否则会被浏览器解释为URL片段或路径分隔符
     // 只编码必要的特殊字符，确保验证码能正确传递
     const encodedPassword = encodeURIComponent(newPassword);
-    const endpoint = `/api/backend/account/mail/updatePassword/${userId}/${encodedPassword}/${code}`;
+    const endpoint = `/account/mail/updatePassword/${userId}/${encodedPassword}/${code}`;
     return this.request<boolean>(endpoint)
   }
 
@@ -489,7 +491,7 @@ class ApiService {
     // 根据Swagger文档，这是GET请求，参数在URL路径中
     // 密码需要编码以确保特殊字符正确传递
     const encodedPassword = encodeURIComponent(password);
-    return this.request<boolean>(`/api/backend/account/recoverAccount/${userId}/${lastUserId}/${encodedPassword}`)
+    return this.request<boolean>(`/account/recoverAccount/${userId}/${lastUserId}/${encodedPassword}`)
   }
 
   /**
@@ -498,7 +500,7 @@ class ApiService {
    * @returns BackendResponse<WithdrawalOrder>
    */
   async getWithdrawalOrderDetail(orderId: string): Promise<BackendResponse<WithdrawalOrder>> {
-    return this.request<WithdrawalOrder>(`/api/backend/withdrawal/order/${orderId}`)
+    return this.request<WithdrawalOrder>(`/withdrawal/order/${orderId}`)
   }
 
   // ==================== 支付订单相关接口 ====================
@@ -510,7 +512,7 @@ class ApiService {
    * @returns BackendResponse<PaymentOrder>
    */
   async createPaymentOrder(userId: string, amount: string): Promise<BackendResponse<PaymentOrder>> {
-    return this.request<PaymentOrder>(`/api/backend/order/create/${userId}/${amount}`, {
+    return this.request<PaymentOrder>(`/order/create/${userId}/${amount}`, {
       method: 'POST'
     })
   }
@@ -522,7 +524,7 @@ class ApiService {
    * @returns BackendResponse<PaymentOrderStatus>
    */
   async getPaymentOrderStatus(userId: string, orderNo: string): Promise<BackendResponse<PaymentOrderStatus>> {
-    return this.request<PaymentOrderStatus>(`/api/backend/order/query/${userId}/${orderNo}`)
+    return this.request<PaymentOrderStatus>(`/order/query/${userId}/${orderNo}`)
   }
 
   /**
@@ -533,7 +535,7 @@ class ApiService {
    * @returns BackendResponse<PageModel<PaymentOrder>>
    */
   async getDepositHistory(userId: string, pageIndex: number = 1, pageSize: number = 20): Promise<BackendResponse<PageModel<PaymentOrder>>> {
-    return this.request<PageModel<PaymentOrder>>(`/api/backend/order/history/${userId}/${pageIndex}/${pageSize}`)
+    return this.request<PageModel<PaymentOrder>>(`/order/history/${userId}/${pageIndex}/${pageSize}`)
   }
 
   // ==================== 全局骰宝游戏接口 ====================
@@ -542,21 +544,21 @@ class ApiService {
    * 查看当前还未开奖的若干期结果（或最近结果用于初始化）
    */
   async getGlobalLatestResults(): Promise<BackendResponse<GlobalDiceResult[]>> {
-    return this.request<GlobalDiceResult[]>('/api/backend/dice/global/latest/results')
+    return this.request<GlobalDiceResult[]>('/dice/global/latest/results')
   }
 
   /**
    * 查看某一局全局骰宝的信息
    */
   async getGlobalGameInfo(userId: string, number: string): Promise<BackendResponse<GlobalDiceQuery>> {
-    return this.request<GlobalDiceQuery>(`/api/backend/dice/global/query/${userId}/${number}`)
+    return this.request<GlobalDiceQuery>(`/dice/global/query/${userId}/${number}`)
   }
 
   /**
    * 选择全局骰宝的选项（下注）
    */
   async placeGlobalBet(userId: string, number: string, chooseId: number, bet: number): Promise<BackendResponse<boolean>> {
-    return this.request<boolean>(`/api/backend/dice/global/bet/${userId}/${number}/${chooseId}/${bet}`)
+    return this.request<boolean>(`/dice/global/bet/${userId}/${number}/${chooseId}/${bet}`)
   }
 
   /**
@@ -567,7 +569,7 @@ class ApiService {
     number: string,
     betItems: { chooseId: number; bet: number }[]
   ): Promise<BackendResponse<boolean>> {
-    return this.request<boolean>(`/api/backend/dice/global/multiBet/${userId}/${number}`, {
+    return this.request<boolean>(`/dice/global/multiBet/${userId}/${number}`, {
       method: 'POST',
       body: JSON.stringify({ bets: betItems }),
     })
@@ -577,28 +579,28 @@ class ApiService {
    * 撤回全局骰宝的选项
    */
   async revertGlobalBet(userId: string, number: string, chooseId: number): Promise<BackendResponse<boolean>> {
-    return this.request<boolean>(`/api/backend/dice/global/revert/${userId}/${number}/${chooseId}`)
+    return this.request<boolean>(`/dice/global/revert/${userId}/${number}/${chooseId}`)
   }
 
   /**
    * 清空骰宝所有选项
    */
   async revertAllGlobalBets(userId: string, number: string): Promise<BackendResponse<boolean>> {
-    return this.request<boolean>(`/api/backend/dice/global/revertAll/${userId}/${number}`)
+    return this.request<boolean>(`/dice/global/revertAll/${userId}/${number}`)
   }
 
   /**
    * 查看玩家全局骰宝的历史信息
    */
   async getGlobalUserHistory(userId: string, pageIndex: number = 1, pageSize: number = 20): Promise<BackendResponse<GlobalUserHistoryResponse>> {
-    return this.request<GlobalUserHistoryResponse>(`/api/backend/dice/global/history/${userId}/${pageIndex}/${pageSize}`)
+    return this.request<GlobalUserHistoryResponse>(`/dice/global/history/${userId}/${pageIndex}/${pageSize}`)
   }
 
   /**
    * 查看全局历史开奖结果分页列表
    */
   async getGlobalResults(pageIndex: number = 1, pageSize: number = 20): Promise<BackendResponse<GlobalHistoryResponse>> {
-    return this.request<GlobalHistoryResponse>(`/api/backend/dice/global/result/${pageIndex}/${pageSize}`)
+    return this.request<GlobalHistoryResponse>(`/dice/global/result/${pageIndex}/${pageSize}`)
   }
 
   /**
@@ -606,7 +608,7 @@ class ApiService {
    * @param number 期号
    */
   async getGlobalSingleResult(number: string | number): Promise<BackendResponse<GlobalDiceResult>> {
-    return this.request<GlobalDiceResult>(`/api/backend/dice/global/single/result/${number}`)
+    return this.request<GlobalDiceResult>(`/dice/global/single/result/${number}`)
   }
 
   // ==================== 反水相关接口 ====================
@@ -617,7 +619,7 @@ class ApiService {
    * @returns BackendResponse<RebateAmount>
    */
   async queryRebateAmount(userId: string): Promise<BackendResponse<RebateAmount>> {
-    return this.request<RebateAmount>(`/api/backend/account/rebate/query/${userId}`)
+    return this.request<RebateAmount>(`/account/rebate/query/${userId}`)
   }
 
   /**
@@ -627,7 +629,7 @@ class ApiService {
    * @returns BackendResponse<boolean>
    */
   async convertTurnoverToRebate(userId: string): Promise<BackendResponse<boolean>> {
-    return this.request<boolean>(`/api/backend/account/rebate/money/${userId}`, {
+    return this.request<boolean>(`/account/rebate/money/${userId}`, {
       method: 'GET'
     })
   }
@@ -644,7 +646,7 @@ class ApiService {
     pageIndex: number = 1,
     pageSize: number = 10
   ): Promise<BackendResponse<PageModelRebateHistory>> {
-    return this.request<PageModelRebateHistory>(`/api/backend/account/rebate/history/${userId}/${pageIndex}/${pageSize}`)
+    return this.request<PageModelRebateHistory>(`/account/rebate/history/${userId}/${pageIndex}/${pageSize}`)
   }
 
   // ==================== 消息通知相关接口 ====================
@@ -655,7 +657,7 @@ class ApiService {
    * @returns BackendResponse<number>
    */
   async getUnreadNotificationCount(userId: string): Promise<BackendResponse<number>> {
-    return this.request<number>(`/api/backend/user/notification/unreads/${userId}`)
+    return this.request<number>(`/user/notification/unreads/${userId}`)
   }
 
   /**
@@ -670,7 +672,7 @@ class ApiService {
     pageIndex: number = 1,
     pageSize: number = 10
   ): Promise<BackendResponse<PageModelNotification>> {
-    return this.request<PageModelNotification>(`/api/backend/user/notification/query/${userId}/${pageIndex}/${pageSize}`)
+    return this.request<PageModelNotification>(`/user/notification/query/${userId}/${pageIndex}/${pageSize}`)
   }
 
   /**
@@ -682,10 +684,10 @@ class ApiService {
   async markNotificationRead(userId: string, id: number): Promise<BackendResponse<boolean>> {
     try {
       // 文档标注为 GET，优先按规范调用
-      return await this.request<boolean>(`/api/backend/user/notification/mark/read/${userId}/${id}`)
+      return await this.request<boolean>(`/user/notification/mark/read/${userId}/${id}`)
     } catch (error) {
       // 某些环境可能要求写操作使用 POST，这里做兼容
-      return await this.request<boolean>(`/api/backend/user/notification/mark/read/${userId}/${id}`, {
+      return await this.request<boolean>(`/user/notification/mark/read/${userId}/${id}`, {
         method: 'POST'
       })
     }
@@ -703,7 +705,7 @@ class ApiService {
     pageIndex: number = 1,
     pageSize: number = 10
   ): Promise<BackendResponse<PageModelBonus>> {
-    return this.request<PageModelBonus>(`/api/backend/user/bonus/query/${userId}/${pageIndex}/${pageSize}`)
+    return this.request<PageModelBonus>(`/user/bonus/query/${userId}/${pageIndex}/${pageSize}`)
   }
 
   // ==================== 邀请相关接口 ====================
@@ -714,7 +716,7 @@ class ApiService {
    * @returns BackendResponse<number>
    */
   async getInviteCount(userId: string): Promise<BackendResponse<number>> {
-    return this.request<number>(`/api/backend/account/invite/count/${userId}`)
+    return this.request<number>(`/account/invite/count/${userId}`)
   }
 
   /**
@@ -723,7 +725,7 @@ class ApiService {
    * @returns BackendResponse<string>
    */
   async generateInviteLink(userId: string): Promise<BackendResponse<string>> {
-    return this.request<string>(`/api/backend/account/invite/generate/${userId}`)
+    return this.request<string>(`/account/invite/generate/${userId}`)
   }
 
 }

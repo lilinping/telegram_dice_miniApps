@@ -3,12 +3,16 @@ const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
   
-  // 静态导出配置
-  output: 'export',
-  trailingSlash: true,
-  images: {
-    unoptimized: true,
-  },
+  // 根据环境决定是否静态导出
+  // 生产环境使用服务端渲染以支持 API 路由
+  // 如需静态导出，请设置环境变量 STATIC_EXPORT=true
+  ...(process.env.STATIC_EXPORT === 'true' && {
+    output: 'export',
+    trailingSlash: true,
+    images: {
+      unoptimized: true,
+    },
+  }),
   
   // 禁用自动尾部斜杠处理
   skipTrailingSlashRedirect: true,
