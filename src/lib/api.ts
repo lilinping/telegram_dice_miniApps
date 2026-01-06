@@ -17,17 +17,15 @@ import {
   GlobalHistoryResponse,
   GlobalUserHistoryResponse,
   RebateAmount,
-  RebateTurnover,
   PageModelRebateHistory,
   PageModelNotification,
   PageModelBonus,
   StopPeriod
 } from '@/lib/types'
+import { apiCache, CACHE_TTL } from '@/lib/apiCache'
 
-// API 基础地址配置
-// 生产环境：使用代理路径 /api/backend
-// 开发环境：可以直接调用后端 API 或使用代理
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '/api/backend'
+// API配置：静态部署时直接调用后端完整地址
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://46.250.168.177:8079'
 
 class ApiService {
   private baseUrl: string
@@ -53,21 +51,28 @@ class ApiService {
     return '';
   }
 
-  // 通用请求方法
+  // 通用请求方法（带缓存支持）
   private async request<T>(
     endpoint: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
+    cacheConfig?: { ttl?: number; skipCache?: boolean }
   ): Promise<BackendResponse<T>> {
     const url = `${this.baseUrl}${endpoint}`
+    const method = options.method || 'GET';
+    
+    // 只对 GET 请求使用缓存
+    if (method === 'GET' && !cacheConfig?.skipCache) {
+      const cached = apiCache.get<BackendResponse<T>>(endpoint);
+      if (cached) {
+        return cached;
+      }
+    }
     
     // 获取 Telegram initData 用于认证
     const initData = this.getInitData();
 
-    // 确保默认使用 GET 方法（除非明确指定其他方法）
-    const method = options.method || 'GET';
-
     const defaultOptions: RequestInit = {
-      method, // 明确指定方法
+      method,
       headers: {
         'Content-Type': 'application/json',
         // 添加 Telegram 认证头
@@ -79,20 +84,29 @@ class ApiService {
     }
 
     try {
-      // 合并选项，确保方法正确传递
-      const finalOptions = { ...defaultOptions, ...options, method };
-      const response = await fetch(url, finalOptions)
+      // 使用 dedupe 防止重复请求
+      const data = await apiCache.dedupe(endpoint, async () => {
+        const finalOptions = { ...defaultOptions, ...options, method };
+        const response = await fetch(url, finalOptions)
 
-      if (!response.ok) {
-        // 如果是 401 错误，提供更详细的错误信息
-        if (response.status === 401) {
-          const errorText = await response.text();
-          throw new Error(`Authentication failed: ${errorText}`);
+        if (!response.ok) {
+          // 如果是 401 错误，提供更详细的错误信息
+          if (response.status === 401) {
+            const errorText = await response.text();
+            throw new Error(`Authentication failed: ${errorText}`);
+          }
+          throw new Error(`HTTP error! status: ${response.status}`)
         }
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
 
-      const data = await response.json()
+        return await response.json()
+      });
+      
+      // 缓存 GET 请求的结果
+      if (method === 'GET' && !cacheConfig?.skipCache) {
+        const ttl = cacheConfig?.ttl || CACHE_TTL.CONFIG;
+        apiCache.set(endpoint, data, ttl);
+      }
+      
       return data
     } catch (error) {
       console.error('API request failed:', error)
