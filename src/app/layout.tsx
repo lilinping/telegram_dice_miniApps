@@ -7,6 +7,7 @@ import { WalletProvider } from '@/contexts/WalletContext';
 import { NotificationProvider } from '@/contexts/NotificationContext';
 import BottomNavigation from '@/components/layout/BottomNav';
 import DevTelegramInit from '@/components/DevTelegramInit';
+import InitDataExpiredHandler from '@/components/InitDataExpiredHandler';
 
 // 字体配置
 const inter = Inter({
@@ -55,6 +56,9 @@ export default function RootLayout({
       <body className="bg-bg-darkest text-text-primary antialiased">
         {/* 开发环境 Telegram 模拟 */}
         <DevTelegramInit />
+        
+        {/* InitData 过期处理 */}
+        <InitDataExpiredHandler />
         
         <TelegramProvider>
           <NotificationProvider>

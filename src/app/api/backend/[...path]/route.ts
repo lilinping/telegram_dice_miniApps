@@ -49,8 +49,6 @@ async function handleRequest(
     const searchParams = request.nextUrl.searchParams.toString()
     const targetUrl = `${BACKEND_API_URL}/api/backend/${path}${searchParams ? `?${searchParams}` : ''}`
 
-    console.log(`[API Proxy] ${method} ${targetUrl}`)
-
     // 准备请求头
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
@@ -60,6 +58,9 @@ async function handleRequest(
     const initData = request.headers.get('initData')
     if (initData) {
       headers['initData'] = initData
+      console.log(`[API Proxy] ${method} ${targetUrl} - initData present: ${initData.substring(0, 50)}...`)
+    } else {
+      console.warn(`[API Proxy] ${method} ${targetUrl} - No initData in request`)
     }
 
     // 转发其他重要的头部

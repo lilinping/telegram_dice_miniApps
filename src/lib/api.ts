@@ -34,20 +34,60 @@ class ApiService {
     this.baseUrl = baseUrl
   }
 
-  // 获取 Telegram initData
+  // 获取 Telegram initData（每次调用都获取最新值）
   private getInitData(): string {
     if (typeof window === 'undefined') return '';
     
-    // 从 Telegram WebApp 获取 initData
-    if (window.Telegram?.WebApp?.initData) {
-      return window.Telegram.WebApp.initData;
+    // 尝试刷新 Telegram WebApp 以获取最新的 initData
+    try {
+      // 如果 Telegram WebApp 可用，尝试触发刷新
+      if (window.Telegram?.WebApp) {
+        // 调用 ready() 方法确保 WebApp 已初始化
+        if (typeof window.Telegram.WebApp.ready === 'function') {
+          window.Telegram.WebApp.ready();
+        }
+        
+        // 获取最新的 initData
+        const initData = window.Telegram.WebApp.initData;
+        if (initData) {
+          console.log('[API] Using fresh initData (length:', initData.length, ')');
+          
+          // 解析 initData 检查时间戳（可选，用于调试）
+          try {
+            const params = new URLSearchParams(initData);
+            const authDate = params.get('auth_date');
+            if (authDate) {
+              const authTime = new Date(parseInt(authDate) * 1000);
+              const now = new Date();
+              const ageMinutes = Math.floor((now.getTime() - authTime.getTime()) / 60000);
+              console.log(`[API] InitData age: ${ageMinutes} minutes`);
+              
+              // 如果 initData 超过 1 小时，发出警告
+              if (ageMinutes > 60) {
+                console.warn(`[API] InitData is ${ageMinutes} minutes old, may be expired!`);
+              }
+            }
+          } catch (e) {
+            // 解析失败不影响使用
+          }
+          
+          return initData;
+        }
+      }
+    } catch (error) {
+      console.error('[API] Error getting initData:', error);
     }
     
     // 开发环境：从 localStorage 获取（如果有）
     if (process.env.NODE_ENV === 'development') {
-      return localStorage.getItem('telegram_init_data') || '';
+      const storedData = localStorage.getItem('telegram_init_data') || '';
+      if (storedData) {
+        console.log('[API] Using stored initData for development');
+      }
+      return storedData;
     }
     
+    console.warn('[API] No initData available');
     return '';
   }
 
@@ -68,31 +108,49 @@ class ApiService {
       }
     }
     
-    // 获取 Telegram initData 用于认证
-    const initData = this.getInitData();
-
-    const defaultOptions: RequestInit = {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        // 添加 Telegram 认证头
-        ...(initData && { 'initData': initData }),
-        ...options.headers,
-      },
-      // 在浏览器环境中使用cors模式
-      ...(typeof window !== 'undefined' && { mode: 'cors' as RequestMode }),
-    }
-
+    // ⚠️ 重要：每次请求都获取最新的 initData
+    // 不要在 dedupe 外部获取，因为 dedupe 可能会复用之前的请求
+    
     try {
-      // 使用 dedupe 防止重复请求
+      // 使用 dedupe 防止重复请求，但每次都传入最新的 initData
       const data = await apiCache.dedupe(endpoint, async () => {
+        // 在这里获取最新的 initData，确保每次请求都是最新的
+        const initData = this.getInitData();
+        
+        const defaultOptions: RequestInit = {
+          method,
+          headers: {
+            'Content-Type': 'application/json',
+            // 添加 Telegram 认证头
+            ...(initData && { 'initData': initData }),
+            ...options.headers,
+          },
+          // 在浏览器环境中使用cors模式
+          ...(typeof window !== 'undefined' && { mode: 'cors' as RequestMode }),
+        }
+        
         const finalOptions = { ...defaultOptions, ...options, method };
         const response = await fetch(url, finalOptions)
 
         if (!response.ok) {
-          // 如果是 401 错误，提供更详细的错误信息
-          if (response.status === 401) {
+          // 如果是 401 或 403 错误，说明认证失败
+          if (response.status === 401 || response.status === 403) {
             const errorText = await response.text();
+            console.error('[API] Authentication failed:', errorText);
+            
+            // 检查是否是 initData 过期
+            if (errorText.includes('expired') || errorText.includes('auth date')) {
+              console.error('[API] InitData has expired! User needs to reload the app.');
+              
+              // 在浏览器环境中，尝试提示用户
+              if (typeof window !== 'undefined') {
+                // 可以触发一个全局事件，让 UI 显示提示
+                window.dispatchEvent(new CustomEvent('initdata-expired', {
+                  detail: { message: 'Your session has expired. Please reload the app.' }
+                }));
+              }
+            }
+            
             throw new Error(`Authentication failed: ${errorText}`);
           }
           throw new Error(`HTTP error! status: ${response.status}`)

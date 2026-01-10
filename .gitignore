@@ -117,4 +117,4 @@ secrets.json
 wallet-keys/
 
 
-.claude/
+.claude/*.tar.gz
